@@ -138,13 +138,13 @@ public:
 				struct fi_cq_err_entry err;
 				char buffer[256];
 				ne = fi_cq_readerr(cq_, &err, 0);
-				std::cout << fi_strerror(err.err) << std::endl;
-				std::cout << fi_cq_strerror(cq_, err.prov_errno, err.err_data,
-						buffer, 256) << std::endl;
+				L_(error) << fi_strerror(err.err);
+				L_(error) << fi_cq_strerror(cq_, err.prov_errno, err.err_data,
+						buffer, 256);
 				throw LibfabricException("fi_cq_read failed (fi_cq_readerr)");
 			}
 			if ((ne < 0) && (ne != -FI_EAGAIN)) {
-				std::cout << fi_strerror(-ne) << std::endl;
+				L_(error) << fi_strerror(-ne);
 				throw LibfabricException("fi_cq_read failed");
 			}
 
