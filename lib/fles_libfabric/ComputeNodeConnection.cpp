@@ -216,11 +216,7 @@ void ComputeNodeConnection::on_complete_recv() {
                   << "received FINAL status message";
 		// send FINAL status message
 		send_status_message_.final = true;
-		send_status_message_.request_abort = true;
 		post_send_final_status_message();
-		//L_(info)<< "[c" << remote_index_ << "] "
-		//<< "[" << index_ << "] "
-		//<< "received FINAL status message";
 		return;
 	}
 	if (false) {
