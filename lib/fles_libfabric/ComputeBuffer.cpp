@@ -472,7 +472,7 @@ void ComputeBuffer::on_completion(uint64_t wr_id) {
 	case ID_SEND_STATUS:
 		// printf("ID_SEND_STATUS\n");
 		if (false) {
-			L_(warning)<< "[c" << compute_index_ << "] "
+			L_(trace) << "[c" << compute_index_ << "] "
 			<< "[" << in << "] "
 			<< "COMPLETE SEND status message";
 		}
@@ -491,17 +491,12 @@ void ComputeBuffer::on_completion(uint64_t wr_id) {
 			fi_eq_cm_entry event;
 			event.fid->context = (void*)in;
 			on_disconnected(&event);
-			L_(info) << "[c" << compute_index_ << "] "
+			L_(debug) << "[c" << compute_index_ << "] "
 			<< "SEND FINALIZE complete for id " << in
 			<< " all_done=" << all_done_;
 		}break;
 
 		case ID_RECEIVE_STATUS: {
-			if (false) {
-				L_(info)<< "[c" << compute_index_ << "] "
-				<< "[" << in << "] "
-				<< "recv status message";
-			}
 			conn_[in]->on_complete_recv();
 			if (connected_ == conn_.size() && in == red_lantern_) {
 				auto new_red_lantern = std::min_element(
@@ -547,13 +542,10 @@ void ComputeBuffer::poll_ts_completion() {
 	fles::TimesliceCompletion c;
 	std::size_t recvd_size;
 	unsigned int priority;
-	if (!completions_mq_->try_receive(&c, sizeof(c), recvd_size, priority)) {
-		//L_(info)<< "No timeslices to receive";
+	if (!completions_mq_->try_receive(&c, sizeof(c), recvd_size, priority))
 		return;
-	}
 	if (recvd_size == 0)
 		return;
-	//L_(info)<< "Timeslice #"<<c.ts_pos<< "is received with c.ts_pos = "<<c.ts_pos<<" and acked_ = "<<acked_;
 	assert(recvd_size == sizeof(c));
 	if (c.ts_pos == acked_) {
 		do
