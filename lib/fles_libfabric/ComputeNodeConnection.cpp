@@ -60,15 +60,15 @@ void ComputeNodeConnection::post_recv_status_message() {
 
 void ComputeNodeConnection::post_send_status_message() {
 	if (false) {
-		L_(warning)<< "[c" << remote_index_ << "] "
+		L_(trace)<< "[c" << remote_index_ << "] "
 		<< "[" << index_ << "] "
 		<< "POST SEND status_message"
 		<< " (ack.desc=" << send_status_message_.ack.desc << ")"
 		<< ", (addr=" << send_wr.addr << ")";
 	}
 	while (pending_send_requests_ >= 2000 /*qp_cap_.max_send_wr*/) {
-		/*throw LibfabricException(
-		 "Max number of pending send requests exceeded");*/
+		throw LibfabricException(
+		 "Max number of pending send requests exceeded");
 	}
 	++pending_send_requests_;
 	post_send_msg(&send_wr);
@@ -207,11 +207,13 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos) {
 			& ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
 
 	cn_ack_.data = acked_ts.offset + acked_ts.size;
-	//L_(info) << "inc_ack_pointers, cn_ack_.data = "<<cn_ack_.data << " &&& "<< ((ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1));
 }
 
 void ComputeNodeConnection::on_complete_recv() {
 	if (recv_status_message_.final) {
+		L_(debug) << "[c" << remote_index_ << "] "
+                  << "[" << index_ << "] "
+                  << "received FINAL status message";
 		// send FINAL status message
 		send_status_message_.final = true;
 		send_status_message_.request_abort = true;
@@ -222,7 +224,7 @@ void ComputeNodeConnection::on_complete_recv() {
 		return;
 	}
 	if (false) {
-		L_(warning) << "[c" << remote_index_ << "] "
+		L_(trace) << "[c" << remote_index_ << "] "
 		<< "[" << index_ << "] "
 		<< "COMPLETE RECEIVE status message"
 		<< " (wp.desc=" << recv_status_message_.wp.desc << ")";
@@ -276,7 +278,6 @@ void ComputeNodeConnection::send_ep_addr() {
 	int res = fi_getname((fid_t) ep_, &send_status_message_.my_address,
 			&addr_len);
 	assert(res == 0);
-	L_(debug)<< "partner_addr: " << partner_addr_ << std::endl;
 	send_wr.addr = partner_addr_;
 	++pending_send_requests_;
 	post_send_msg(&send_wr);
