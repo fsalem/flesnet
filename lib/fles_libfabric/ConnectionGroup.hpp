@@ -71,9 +71,6 @@ public:
 	void disconnect()
 	{
 		for (auto& c : conn_) {
-			aggregate_bytes_sent_ += c->total_bytes_sent();
-			aggregate_send_requests_ += c->total_send_requests();
-			aggregate_recv_requests_ += c->total_recv_requests();
 			c->disconnect();
 		}
 	}
@@ -221,15 +218,20 @@ protected:
 			size_t /* private_data_len */) {};
 
 	/// Handle RDMA_CM_EVENT_DISCONNECTED event.
-	virtual void on_disconnected(struct fi_eq_cm_entry* event)
+	virtual void on_disconnected(struct fi_eq_cm_entry* event,int conn_indx = -1)
 	{
-		// TODO CONNECTION* conn = static_cast<CONNECTION*>(event->fid->context);
-
-		aggregate_bytes_sent_ += conn_[(size_t)event->fid->context]->total_bytes_sent();
-		aggregate_send_requests_ += conn_[(size_t)event->fid->context]->total_send_requests();
-		aggregate_recv_requests_ += conn_[(size_t)event->fid->context]->total_recv_requests();
-
-		conn_[(size_t)event->fid->context]->on_disconnected(event);
+		if (conn_indx == -1) {
+			CONNECTION* conn = static_cast<CONNECTION*>(event->fid->context);
+			aggregate_bytes_sent_ += conn->total_bytes_sent();
+			aggregate_send_requests_ += conn->total_send_requests();
+			aggregate_recv_requests_ += conn->total_recv_requests();
+			conn->on_disconnected(event);
+		} else {
+			aggregate_bytes_sent_ += conn_[conn_indx]->total_bytes_sent();
+			aggregate_send_requests_ += conn_[conn_indx]->total_send_requests();
+			aggregate_recv_requests_ += conn_[conn_indx]->total_recv_requests();
+			conn_[conn_indx]->on_disconnected(event);
+		}
 		--connected_;
 	}
 
@@ -313,6 +315,8 @@ protected:
 
 	/// AV indices for compute buffer nodes
 	std::vector<fi_addr_t> fi_addrs = {};
+
+	bool connection_oriented_ = false;
 
 private:
 	/// Connection manager event dispatcher. Called by the CM event loop.

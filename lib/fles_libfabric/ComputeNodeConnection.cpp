@@ -25,6 +25,12 @@ ComputeNodeConnection::ComputeNodeConnection(struct fid_eq* eq,
 	max_send_sge_ = 1;
 	max_recv_wr_ = 1;
 	max_recv_sge_ = 1;
+
+	if (Provider::getInst()->is_connection_oriented()) {
+		connection_oriented_ = true;
+	} else {
+		connection_oriented_ = false;
+	}
 }
 
 ComputeNodeConnection::ComputeNodeConnection(struct fid_eq* eq,
@@ -44,6 +50,12 @@ ComputeNodeConnection::ComputeNodeConnection(struct fid_eq* eq,
 	max_send_sge_ = 1;
 	max_recv_wr_ = 1;
 	max_recv_sge_ = 1;
+
+	if (Provider::getInst()->is_connection_oriented()) {
+		connection_oriented_ = true;
+	} else {
+		connection_oriented_ = false;
+	}
 
 	//  setup anonymous endpoint
 	make_endpoint(Provider::getInst()->get_info(), "", "", pd, cq, av);
@@ -211,9 +223,6 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos) {
 
 void ComputeNodeConnection::on_complete_recv() {
 	if (recv_status_message_.final) {
-		L_(debug) << "[c" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "received FINAL status message";
 		// send FINAL status message
 		send_status_message_.final = true;
 		post_send_final_status_message();
@@ -279,6 +288,6 @@ void ComputeNodeConnection::send_ep_addr() {
 	post_send_msg(&send_wr);
 }
 
-bool ComputeNodeConnection::is_connection_finalized(){
+bool ComputeNodeConnection::is_connection_finalized() {
 	return send_status_message_.final;
 }

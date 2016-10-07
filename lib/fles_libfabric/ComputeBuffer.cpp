@@ -99,6 +99,12 @@ ComputeBuffer::ComputeBuffer(uint64_t compute_index,
 					(shared_memory_identifier_ + "completions_").c_str(),
 					desc_buffer_size, sizeof(fles::TimesliceCompletion)));
 	completions_mq_ = std::move(completions_mq);
+
+	if (Provider::getInst()->is_connection_oriented()) {
+		connection_oriented_ = true;
+	} else {
+		connection_oriented_ = false;
+	}
 }
 
 ComputeBuffer::~ComputeBuffer() {
@@ -159,12 +165,10 @@ void ComputeBuffer::report_status() {
 }
 
 void ComputeBuffer::request_abort() {
-	L_(info)<< "[c" << compute_index_ << "] "
-	<< "request abort";
 
-	for (auto& connection : conn_) {
-		connection->request_abort();
-	}
+for (auto& connection : conn_) {
+	connection->request_abort();
+}
 }
 
 void ComputeBuffer::bootstrap_with_connections() {
@@ -264,111 +268,108 @@ void ComputeBuffer::make_endpoint_named(struct fi_info* info,
 				"registration of memory region failed in ComputeBuffer");
 }
 
-void ComputeBuffer::bootstrap_wo_connections()
-{
-	InputChannelStatusMessage recv_connect_message;
-	struct fid_mr* mr_recv_connect = nullptr;
-	struct fi_msg recv_msg_wr;
-	struct iovec recv_sge = iovec();
-	void* recv_wr_descs[1] = {nullptr};
+void ComputeBuffer::bootstrap_wo_connections() {
+InputChannelStatusMessage recv_connect_message;
+struct fid_mr* mr_recv_connect = nullptr;
+struct fi_msg recv_msg_wr;
+struct iovec recv_sge = iovec();
+void* recv_wr_descs[1] = { nullptr };
 
-	// domain, cq, av
-	init_context(Provider::getInst()->get_info(), {}, {});
+// domain, cq, av
+init_context(Provider::getInst()->get_info(), { }, { });
 
-	// listening endpoint with private cq
-	make_endpoint_named(Provider::getInst()->get_info(), local_node_name_,
-			std::to_string(service_), &ep_);
+// listening endpoint with private cq
+make_endpoint_named(Provider::getInst()->get_info(), local_node_name_,
+		std::to_string(service_), &ep_);
 
-	// setup connection objects
-	for (size_t index = 0; index < conn_.size(); index++) {
-		uint8_t* data_ptr = get_data_ptr(index);
-		fles::TimesliceComponentDescriptor* desc_ptr = get_desc_ptr(index);
+// setup connection objects
+for (size_t index = 0; index < conn_.size(); index++) {
+	uint8_t* data_ptr = get_data_ptr(index);
+	fles::TimesliceComponentDescriptor* desc_ptr = get_desc_ptr(index);
 
-		std::unique_ptr<ComputeNodeConnection> conn(
-				new ComputeNodeConnection(eq_, pd_, cq_, av_, index,
-						compute_index_, data_ptr, data_buffer_size_exp_,
-						desc_ptr, desc_buffer_size_exp_));
-		conn->setup_mr(pd_);
-		conn->setup();
-		conn_.at(index) = std::move(conn);
+	std::unique_ptr<ComputeNodeConnection> conn(
+			new ComputeNodeConnection(eq_, pd_, cq_, av_, index, compute_index_,
+					data_ptr, data_buffer_size_exp_, desc_ptr,
+					desc_buffer_size_exp_));
+	conn->setup_mr(pd_);
+	conn->setup();
+	conn_.at(index) = std::move(conn);
+}
+
+// register memory regions
+int err = fi_mr_reg(pd_, &recv_connect_message,
+		sizeof(recv_connect_message), FI_WRITE, 0,
+		Provider::requested_key++, 0, &mr_recv_connect, nullptr);
+if (err) {
+	throw LibfabricException("fi_mr_reg failed for recv msg in compute-buffer");
+	std::cout << strerror(-err) << std::endl;
+}
+
+// prepare recv message
+recv_sge.iov_base = &recv_connect_message;
+recv_sge.iov_len = sizeof(recv_connect_message);
+
+recv_wr_descs[0] = fi_mr_desc(mr_recv_);
+
+recv_msg_wr.msg_iov = &recv_sge;
+recv_msg_wr.desc = recv_wr_descs;
+recv_msg_wr.iov_count = 1;
+recv_msg_wr.addr = FI_ADDR_UNSPEC;
+recv_msg_wr.context = 0;
+recv_msg_wr.data = 0;
+
+err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
+if (err) {
+	L_(fatal)<< "fi_recvmsg failed: " << strerror(err);
+	throw LibfabricException("fi_recvmsg failed");
+}
+
+// wait for messages from InputChannelSenders
+const int ne_max = 1; // the ne_max must be always 1 because there is ONLY ONE mr registered variable for receiving messages
+
+struct fi_cq_entry wc[ne_max];
+int ne;
+
+while (connected_senders_.size() != num_input_nodes_) {
+
+	while ((ne = fi_cq_read(listening_cq_, &wc, ne_max))) {
+		if ((ne < 0) && (ne != -FI_EAGAIN)) {
+			throw LibfabricException("fi_cq_read failed");
+		}
+		if (ne == FI_SEND) {
+			continue;
+		}
+
+		if (ne == -FI_EAGAIN)
+			break;
+
+		std::cout << "got " << ne << " events" << std::endl;
+		for (int i = 0; i < ne; ++i) {
+			fi_addr_t connection_addr;
+			// when connect message:
+			//            add address to av and set fi_addr_t from av on
+			//            conn-object
+			assert(recv_connect_message.connect == true);
+
+			int res = fi_av_insert(av_, &recv_connect_message.my_address, 1,
+					&connection_addr, 0, NULL);
+			assert(res == 1);
+			//conn_.at(recv_connect_message.info.index)->on_complete_recv();
+			conn_.at(recv_connect_message.info.index)->set_partner_addr(
+					connection_addr);
+			conn_.at(recv_connect_message.info.index)->set_remote_info(
+					recv_connect_message.info);
+			conn_.at(recv_connect_message.info.index)->send_ep_addr();
+			connected_senders_.insert(recv_connect_message.info.index);
+			++connected_;
+			err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
+		}
 	}
-
-	// register memory regions
-	int err = fi_mr_reg(pd_, &recv_connect_message,
-			sizeof(InputChannelStatusMessage), FI_WRITE, 0,
-			Provider::requested_key++, 0, &mr_recv_connect, nullptr);
-	if (err) {
-		throw LibfabricException(
-				"fi_mr_reg failed for recv msg in compute-buffer");
-		std::cout << strerror(-err) << std::endl;
-	}
-
-	// prepare recv message
-	recv_sge.iov_base = &recv_connect_message;
-	recv_sge.iov_len = sizeof(InputChannelStatusMessage);
-
-	recv_wr_descs[0] = fi_mr_desc(mr_recv_);
-
-	recv_msg_wr.msg_iov = &recv_sge;
-	recv_msg_wr.desc = recv_wr_descs;
-	recv_msg_wr.iov_count = 1;
-	recv_msg_wr.addr = FI_ADDR_UNSPEC;
-	recv_msg_wr.context = 0;
-	recv_msg_wr.data = 0;
-
-	err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
 	if (err) {
 		L_(fatal)<< "fi_recvmsg failed: " << strerror(err);
 		throw LibfabricException("fi_recvmsg failed");
 	}
-
-	// wait for messages from InputChannelSenders
-	const int ne_max = 1;
-
-	struct fi_cq_entry wc[ne_max];
-	int ne;
-
-	while (connected_senders_.size() != num_input_nodes_) {
-
-		while ((ne = fi_cq_read(listening_cq_, &wc, ne_max))) {
-			if ((ne < 0) && (ne != -FI_EAGAIN)) {
-				throw LibfabricException("fi_cq_read failed");
-			}
-			if (ne == FI_SEND) {
-				continue;
-			}
-
-			if (ne == -FI_EAGAIN)
-				break;
-
-			std::cout << "got " << ne << " events" << std::endl;
-			for (int i = 0; i < ne; ++i) {
-				fi_addr_t connection_addr;
-				// when connect message:
-				//            add address to av and set fi_addr_t from av on
-				//            conn-object
-				assert(recv_connect_message.connect == true);
-
-				int res = fi_av_insert(av_, &recv_connect_message.my_address, 1,
-						&connection_addr, 0, NULL);
-				assert(res == 1);
-				//conn_.at(recv_connect_message.info.index)->on_complete_recv();
-				conn_.at(recv_connect_message.info.index)->set_partner_addr(
-						connection_addr);
-				conn_.at(recv_connect_message.info.index)->set_remote_info(
-						recv_connect_message.info);
-				conn_.at(recv_connect_message.info.index)->send_ep_addr();
-				connected_senders_.insert(recv_connect_message.info.index);
-				++connected_;
-
-			}
-		}
-		err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
-		if (err) {
-			L_(fatal)<< "fi_recvmsg failed: " << strerror(err);
-			throw LibfabricException("fi_recvmsg failed");
-		}
-	}
+}
 }
 
 /// The thread main function.
@@ -376,7 +377,7 @@ void ComputeBuffer::operator()() {
 	try {
 		// set_cpu(0);
 
-		if (Provider::getInst()->is_connection_oriented()) {
+		if (connection_oriented_) {
 			bootstrap_with_connections();
 		} else {
 			conn_.resize(num_input_nodes_);
@@ -391,9 +392,9 @@ void ComputeBuffer::operator()() {
 				poll_completion();
 				poll_ts_completion();
 			}
-			/*if (connected_ != 0) {
-			 poll_cm_events();
-			 }*/
+			if (connected_ != 0) {
+				poll_cm_events();
+			}
 			scheduler_.timer();
 			if (*signal_status_ != 0) {
 				*signal_status_ = 0;
@@ -472,7 +473,7 @@ void ComputeBuffer::on_completion(uint64_t wr_id) {
 	case ID_SEND_STATUS:
 		// printf("ID_SEND_STATUS\n");
 		if (false) {
-			L_(trace) << "[c" << compute_index_ << "] "
+			L_(trace)<< "[c" << compute_index_ << "] "
 			<< "[" << in << "] "
 			<< "COMPLETE SEND status message";
 		}
@@ -488,9 +489,9 @@ void ComputeBuffer::on_completion(uint64_t wr_id) {
 			conn_[in]->on_complete_send_finalize();
 			++connections_done_;
 			all_done_ = (connections_done_ == conn_.size());
-			fi_eq_cm_entry event;
-			event.fid->context = (void*)in;
-			on_disconnected(&event);
+			if (!connection_oriented_) {
+				on_disconnected(nullptr, in);
+			}
 			L_(debug) << "[c" << compute_index_ << "] "
 			<< "SEND FINALIZE complete for id " << in
 			<< " all_done=" << all_done_;

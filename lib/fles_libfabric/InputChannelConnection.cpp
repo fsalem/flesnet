@@ -29,6 +29,13 @@ InputChannelConnection::InputChannelConnection(struct fid_eq* eq,
 	max_inline_data_ = sizeof(fles::TimesliceComponentDescriptor);
 
 	send_status_message_.info.index = remote_index_;
+
+	if (Provider::getInst()->is_connection_oriented()) {
+		connection_oriented_ = true;
+	} else {
+		connection_oriented_ = false;
+	}
+
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -269,7 +276,8 @@ void InputChannelConnection::on_complete_recv() {
 	}
 	cn_ack_ = recv_status_message_.ack;
 	post_recv_status_message();
-	if (get_partner_addr()) {
+	
+	if (get_partner_addr() || connection_oriented_) {
 		//L_(info)<< "recv message with abort_ = "<<abort_ << " and cn_wp_ == send_status_message_.wp = "<< (cn_wp_ == send_status_message_.wp) << " and cn_wp_ == cn_ack_ = "<<(cn_wp_ == cn_ack_) << " and the cn_wp_.data = "<<cn_wp_.data << " but the cn_ack_.date = "<<cn_ack_.data;
 		if (cn_wp_ == send_status_message_.wp && finalize_) {
 			if (cn_wp_ == cn_ack_ || abort_) {
@@ -300,7 +308,7 @@ void InputChannelConnection::setup_mr(struct fid_domain* pd) {
 				"registration of memory region failed in InputChannelConnection");
 
 	err = fi_mr_reg(pd, &send_status_message_,
-			sizeof(InputChannelStatusMessage),
+			sizeof(send_status_message_),
 			FI_WRITE, 0, Provider::requested_key++, 0, &mr_send_, nullptr);
 	if (err) {
 		std::cout << strerror(-err) << std::endl;
@@ -344,7 +352,7 @@ void InputChannelConnection::setup() {
 	send_wr.context = (void*) (ID_SEND_STATUS | (index_ << 8));
 #pragma GCC diagnostic pop
 
-// TODO post initial receive request
+// post initial receive request
 	post_recv_status_message();
 }
 
