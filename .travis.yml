@@ -37,6 +37,7 @@ env:
   global:
     - LLVM_VERSION=3.6.2
     - LLVM_ARCHIVE_PATH=$HOME/clang+llvm.tar.xz
+    - LIBFABRIC_ARCHIVE_PATH=$HOME/libfabric-1.4.0.tar.gz
 
 before_install:
   - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
