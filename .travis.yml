@@ -46,7 +46,7 @@ before_install:
   - export PATH=$HOME/clang+llvm/bin:$PATH
   - wget https://github.com/ofiwg/libfabric/releases/download/v1.4.0/libfabric-1.4.0.tar.gz -O $LIBFABRIC_ARCHIVE_PATH
   - mkdir $HOME/libfabric
-  - tar xzf LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
+  - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
   - cd $HOME/libfabric && ./autogen.sh && ./configure && make
   - export LIBRARY_PATH=$LIBRARY_PATH:$HOME/libfabric/src/.libs
   - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/libfabric/src/.libs
