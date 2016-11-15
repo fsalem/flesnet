@@ -48,13 +48,11 @@ before_install:
   - mkdir $HOME/libfabric
   - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
   - PWD_ADDR=$(pwd)
-  - echo $PWD_ADDR
-  - cd $HOME/libfabric && ./configure && make
-  - cd $PWD_ADDR
-  - ls
+  - cd $HOME/libfabric && ./configure && make && install && cd $PWD_ADDR
   - export LIBRARY_PATH=$LIBRARY_PATH:$HOME/libfabric/src/.libs
   - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/libfabric/src/.libs
   - export CPATH=$CPATH:$HOME/libfabric/include
+  - export PATH=$HOME/libfabric:$PATH
 
 before_script:
   - if [ "$CXX" = "clang++" ]; then export CXX="clang++" CC="clang"; fi
