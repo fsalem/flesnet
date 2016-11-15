@@ -32,7 +32,7 @@ addons:
     - librdmacm-dev
     - libzmq3-dev
     - valgrind
-    - libfabric-dev
+    - libfabric1
 
 env:
   global:
