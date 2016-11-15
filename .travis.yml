@@ -47,12 +47,10 @@ before_install:
   - wget https://github.com/ofiwg/libfabric/releases/download/v1.4.0/libfabric-1.4.0.tar.gz -O $LIBFABRIC_ARCHIVE_PATH
   - mkdir $HOME/libfabric
   - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
-  - ls -lrt
+  - PWD_ADDR=$(pwd)
+  - echo $PWD_ADDR
   - cd $HOME/libfabric && ./configure && make
-  - ls $HOME/libfabric
-  - ls $HOME/libfabric/src/.libs
-  - ls $HOME/libfabric/include
-  - cd ~
+  - cd $PWD_ADDR
   - ls
   - export LIBRARY_PATH=$LIBRARY_PATH:$HOME/libfabric/src/.libs
   - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/libfabric/src/.libs
@@ -61,7 +59,6 @@ before_install:
 before_script:
   - if [ "$CXX" = "clang++" ]; then export CXX="clang++" CC="clang"; fi
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8" GCOV="gcov-4.8"; fi
-  - ls -lrt build/tschuett
   - contrib/merge-dependencies
   - mkdir build && cd build
   
