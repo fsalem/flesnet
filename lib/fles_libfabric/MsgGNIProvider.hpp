@@ -38,9 +38,9 @@ public:
     }
 
     virtual void set_hostnames_and_services(
-        struct fid_av* av, const std::vector<std::string>& compute_hostnames,
-        const std::vector<std::string>& compute_services,
-        std::vector<fi_addr_t>& fi_addrs) override{};
+        struct fid_av* /*av*/, const std::vector<std::string>& /*compute_hostnames*/,
+        const std::vector<std::string>& /*compute_services*/,
+        std::vector<fi_addr_t>& /*fi_addrs*/) override{};
 
     struct fid_fabric* get_fabric() override { return fabric_; };
 
