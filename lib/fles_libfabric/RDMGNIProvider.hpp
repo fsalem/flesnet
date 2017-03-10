@@ -13,19 +13,19 @@
 namespace tl_libfabric
 {
 
-class GNIProvider : public Provider
+class RDMGNIProvider : public Provider
 {
     struct fi_info* info_ = nullptr;
     struct fid_fabric* fabric_ = nullptr;
 
 public:
-    GNIProvider(struct fi_info* info);
+    RDMGNIProvider(struct fi_info* info);
 
-    GNIProvider(const GNIProvider&) = delete;
-    void operator=(const GNIProvider&) = delete;
+    RDMGNIProvider(const RDMGNIProvider&) = delete;
+    void operator=(const RDMGNIProvider&) = delete;
 
     /// The GNIProvider default destructor.
-    ~GNIProvider();
+    ~RDMGNIProvider();
 
     virtual bool has_av() const { return true; };
     virtual bool has_eq_at_eps() const { return false; };

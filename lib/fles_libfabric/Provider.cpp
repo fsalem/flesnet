@@ -1,7 +1,8 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
 #include "Provider.hpp"
-#include "GNIProvider.hpp"
+#include "MsgGNIProvider.hpp"
+#include "RDMGNIProvider.hpp"
 #include "MsgSocketsProvider.hpp"
 #include "RDMSocketsProvider.hpp"
 #include "VerbsProvider.hpp"
@@ -29,10 +30,16 @@ std::unique_ptr<Provider> Provider::get_provider(std::string local_host_name)
         return std::unique_ptr<Provider>(new VerbsProvider(info));
     }
 
-    info = GNIProvider::exists(local_host_name);
+    info = MsgGNIProvider::exists(local_host_name);
+	if (info != nullptr) {
+		std::cout << "found MSG GNI" << std::endl;
+		return std::unique_ptr<Provider>(new MsgGNIProvider(info));
+	}
+
+    info = RDMGNIProvider::exists(local_host_name);
     if (info != nullptr) {
-        std::cout << "found GNI" << std::endl;
-        return std::unique_ptr<Provider>(new GNIProvider(info));
+        std::cout << "found RDM GNI" << std::endl;
+        return std::unique_ptr<Provider>(new RDMGNIProvider(info));
     }
 
     info = MsgSocketsProvider::exists(local_host_name);

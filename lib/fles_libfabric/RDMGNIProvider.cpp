@@ -1,6 +1,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
-#include "GNIProvider.hpp"
+#include "RDMGNIProvider.hpp"
 
 #include <unistd.h>
 
@@ -20,7 +20,7 @@
 namespace tl_libfabric
 {
 
-GNIProvider::~GNIProvider()
+RDMGNIProvider::~RDMGNIProvider()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -29,7 +29,7 @@ GNIProvider::~GNIProvider()
 #pragma GCC diagnostic pop
 }
 
-struct fi_info* GNIProvider::exists(std::string local_host_name)
+struct fi_info* RDMGNIProvider::exists(std::string local_host_name)
 {
     struct fi_info* hints = fi_allocinfo();
     struct fi_info* info = nullptr;
@@ -57,7 +57,7 @@ struct fi_info* GNIProvider::exists(std::string local_host_name)
     return nullptr;
 }
 
-GNIProvider::GNIProvider(struct fi_info* info) : info_(info)
+RDMGNIProvider::RDMGNIProvider(struct fi_info* info) : info_(info)
 {
     int res = fi_fabric(info_->fabric_attr, &fabric_, nullptr);
     if (res) {
@@ -66,7 +66,7 @@ GNIProvider::GNIProvider(struct fi_info* info) : info_(info)
     }
 }
 
-void GNIProvider::accept(struct fid_pep* /*pep*/,
+void RDMGNIProvider::accept(struct fid_pep* /*pep*/,
                          const std::string& /*hostname*/,
                          unsigned short /*port*/, unsigned int /*count*/,
                          fid_eq* /*eq*/)
@@ -74,7 +74,7 @@ void GNIProvider::accept(struct fid_pep* /*pep*/,
     // there is no accept for GNI
 }
 
-void GNIProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
+void RDMGNIProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
                           uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
                           uint32_t /*max_recv_sge*/,
                           uint32_t /*max_inline_data*/, const void* /*param*/,
@@ -82,7 +82,7 @@ void GNIProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
 {
 }
 
-void GNIProvider::set_hostnames_and_services(
+void RDMGNIProvider::set_hostnames_and_services(
     struct fid_av* av, const std::vector<std::string>& compute_hostnames,
     const std::vector<std::string>& compute_services,
     std::vector<fi_addr_t>& fi_addrs)

@@ -151,7 +151,7 @@ Application::Application(Parameters const& par,
                 new tl_libfabric::InputChannelSender(
                     index, *(data_sources_.at(c).get()), par.compute_nodes(),
                     compute_services, par.timeslice_size(), par.overlap_size(),
-                    par.max_timeslice_number(), par.input_nodes().at(c)));
+                    par.max_timeslice_number(), par.input_nodes().at(index)));
             input_channel_senders_.push_back(std::move(sender));
 #else
             L_(fatal) << "flesnet built without LIBFABRIC support";
