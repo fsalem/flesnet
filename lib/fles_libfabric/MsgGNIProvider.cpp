@@ -130,33 +130,4 @@ void MsgGNIProvider::connect(fid_ep* ep, uint32_t /*max_send_wr*/,
 		throw LibfabricException("fi_connect failed");
 	}
 }
-
-void MsgGNIProvider::set_hostnames_and_services(
-    struct fid_av* av, const std::vector<std::string>& compute_hostnames,
-    const std::vector<std::string>& compute_services,
-    std::vector<fi_addr_t>& fi_addrs)
-{
-    for (size_t i = 0; i < compute_hostnames.size(); i++) {
-        fi_addr_t fi_addr;
-        struct fi_info* info = nullptr;
-        struct fi_info* hints = fi_allocinfo();
-
-        hints->caps = FI_RMA | FI_MSG | FI_REMOTE_WRITE;
-        hints->ep_attr->type = FI_EP_RDM;
-        hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
-        hints->domain_attr->threading = FI_THREAD_SAFE;
-        hints->domain_attr->mr_mode = FI_MR_BASIC;
-        hints->fabric_attr->prov_name = strdup("gni");
-
-        int res = fi_getinfo(FI_VERSION(1, 1), compute_hostnames[i].c_str(),
-                             compute_services[i].c_str(), 0, hints, &info);
-        assert(res == 0);
-        assert(info != NULL);
-        assert(info->dest_addr != NULL);
-        res = fi_av_insert(av, info->dest_addr, 1, &fi_addr, 0, NULL);
-        assert(res == 1);
-        fi_addrs.push_back(fi_addr);
-        // fi_freeinfo(hints);
-    }
-}
 }
