@@ -85,7 +85,7 @@ void MsgGNIProvider::accept(struct fid_pep* pep,
 
     // inet_ntop(AF_INET, &(sa.sin_addr), str, INET_ADDRSTRLEN);
 
-    assert(accept_info->addr_format == FI_SOCKADDR_IN);
+    //assert(accept_info->addr_format == FI_SOCKADDR_IN);
 
     res = fi_passive_ep(fabric_, accept_info, &pep, nullptr);
     if (res) {
