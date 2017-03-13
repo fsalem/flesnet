@@ -57,7 +57,7 @@ void Connection::connect(const std::string& hostname,
 
     L_(debug) << "connect: " << hostname << ":" << service;
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = fi_dupinfo(Provider::getInst()->get_info());
+    struct fi_info* hints = Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type, Provider::getInst()->get_info()->fabric_attr->prov_name);//fi_dupinfo(Provider::getInst()->get_info());
 
     hints->rx_attr->size = max_recv_wr_;
     hints->rx_attr->iov_limit = max_recv_sge_;
@@ -66,8 +66,8 @@ void Connection::connect(const std::string& hostname,
     hints->tx_attr->iov_limit = max_send_sge_;
     hints->tx_attr->inject_size = max_inline_data_;
 
-    hints->src_addr = nullptr;
-    hints->src_addrlen = 0;
+    /*hints->src_addr = nullptr;
+    hints->src_addrlen = 0;*/
 
     int err = fi_getinfo(
         FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),

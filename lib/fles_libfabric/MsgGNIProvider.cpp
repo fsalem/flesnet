@@ -72,10 +72,11 @@ void MsgGNIProvider::accept(struct fid_pep* pep,
         fid_eq* eq)
 {
     std::string port_s = std::to_string(port);
+    struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");
 
     struct fi_info* accept_info = nullptr;
     int res = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), port_s.c_str(),
-                         FI_SOURCE, info_, &accept_info);
+                         FI_SOURCE, hints, &accept_info);
 
     if (res) {
         L_(fatal) << "lookup " << hostname << " in accept failed: " << res
