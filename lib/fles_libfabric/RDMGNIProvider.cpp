@@ -31,16 +31,16 @@ RDMGNIProvider::~RDMGNIProvider()
 
 struct fi_info* RDMGNIProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = fi_allocinfo();
+    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    hints->caps =
+    /*hints->caps =
         FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
     hints->ep_attr->type = FI_EP_RDM;
     hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
     hints->domain_attr->threading = FI_THREAD_SAFE;
     hints->domain_attr->mr_mode = FI_MR_BASIC;
-    hints->fabric_attr->prov_name = strdup("gni");
+    hints->fabric_attr->prov_name = strdup("gni");*/
 
     int res = fi_getinfo(FI_VERSION(1, 1), local_host_name.c_str(), nullptr, 0,
                          hints, &info);
@@ -90,14 +90,14 @@ void RDMGNIProvider::set_hostnames_and_services(
     for (size_t i = 0; i < compute_hostnames.size(); i++) {
         fi_addr_t fi_addr;
         struct fi_info* info = nullptr;
-        struct fi_info* hints = fi_allocinfo();
+        struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
 
-        hints->caps = FI_RMA | FI_MSG | FI_REMOTE_WRITE;
+        /*hints->caps = FI_RMA | FI_MSG | FI_REMOTE_WRITE;
         hints->ep_attr->type = FI_EP_RDM;
         hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
         hints->domain_attr->threading = FI_THREAD_SAFE;
         hints->domain_attr->mr_mode = FI_MR_BASIC;
-        hints->fabric_attr->prov_name = strdup("gni");
+        hints->fabric_attr->prov_name = strdup("gni");*/
 
         int res = fi_getinfo(FI_VERSION(1, 1), compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);

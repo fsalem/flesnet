@@ -47,6 +47,21 @@ public:
 
     static std::unique_ptr<Provider>& getInst() { return prov; }
 
+    static struct fi_info* get_hints(enum fi_ep_type ep_type, std::string prov)
+    {
+    	struct fi_info* hints = fi_allocinfo();
+
+		hints->caps =
+			FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
+		hints->ep_attr->type = ep_type;
+		hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
+		hints->domain_attr->threading = FI_THREAD_SAFE;
+		hints->domain_attr->mr_mode = FI_MR_BASIC;
+		hints->fabric_attr->prov_name = strdup(prov.c_str());
+
+		return hints;
+    }
+
     static uint64_t requested_key;
 
     static int vector;

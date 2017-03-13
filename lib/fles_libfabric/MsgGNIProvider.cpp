@@ -31,16 +31,16 @@ MsgGNIProvider::~MsgGNIProvider()
 
 struct fi_info* MsgGNIProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = fi_allocinfo();
+    struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    hints->caps =
+    /*hints->caps =
         FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
     hints->ep_attr->type = FI_EP_MSG;
     hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
     hints->domain_attr->threading = FI_THREAD_SAFE;
     hints->domain_attr->mr_mode = FI_MR_BASIC;
-    hints->fabric_attr->prov_name = strdup("gni");
+    hints->fabric_attr->prov_name = strdup("gni");*/
 
     int res = fi_getinfo(FI_VERSION(1, 1), local_host_name.c_str(), nullptr, 0,
                          hints, &info);
