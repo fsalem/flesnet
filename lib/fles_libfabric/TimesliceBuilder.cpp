@@ -101,7 +101,7 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
     int res;
 
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = fi_dupinfo(info);
+    struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
 
     /*hints->caps = info->caps;
      hints->ep_attr = info->ep_attr;
@@ -115,12 +115,13 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
      hints->tx_attr->size = max_send_wr_;
      hints->tx_attr->iov_limit = max_send_sge_;
      hints->tx_attr->inject_size = max_inline_data_;
-     */
+
 
     hints->src_addr = nullptr;
     hints->src_addrlen = 0;
     hints->dest_addr = nullptr;
     hints->dest_addrlen = 0;
+    */
 
     int err = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), service.c_str(),
                          FI_SOURCE, hints, &info2);

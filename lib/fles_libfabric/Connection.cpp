@@ -73,9 +73,9 @@ void Connection::connect(const std::string& hostname,
         FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),
         service == "" ? nullptr : service.c_str(), 0, hints, &info2);
     if (err) {
-        L_(fatal) << "fi_getinfo failed in make_endpoint: " << hostname << " "
+        L_(fatal) << "fi_getinfo failed in connect: " << hostname << " "
                   << service << "[" << err << "=" << fi_strerror(-err) << "]";
-        throw LibfabricException("fi_getinfo failed in make_endpoint");
+        throw LibfabricException("fi_getinfo failed in connect");
     }
 
     fi_freeinfo(hints);
