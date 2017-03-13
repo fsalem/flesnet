@@ -225,7 +225,7 @@ void Connection::make_endpoint(struct fi_info* info,
 {
 
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = fi_dupinfo(info);
+    struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
 
     hints->rx_attr->size = max_recv_wr_;
     hints->rx_attr->iov_limit = max_recv_sge_;
