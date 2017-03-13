@@ -6,6 +6,7 @@
 #include <memory>
 #include <rdma/fabric.h>
 #include <vector>
+#include <string.h>
 
 namespace tl_libfabric
 {
