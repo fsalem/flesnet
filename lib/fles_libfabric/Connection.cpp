@@ -233,8 +233,8 @@ void Connection::make_endpoint(struct fi_info* info,
     hints->tx_attr->iov_limit = max_send_sge_;
     hints->tx_attr->inject_size = max_inline_data_;
 
-    hints->src_addr = nullptr;
-    hints->src_addrlen = 0;
+    /*hints->src_addr = nullptr;
+    hints->src_addrlen = 0;*/
 
     int err = fi_getinfo(
         FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),

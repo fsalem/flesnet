@@ -149,7 +149,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 #pragma GCC diagnostic ignored "-Wold-style-cast"
         send_wr_ts.context = (void*)ID_WRITE_DATA;
 #pragma GCC diagnostic pop
-        post_send_rdma(&send_wr_ts, FI_MORE);
+        post_send_rdma(&send_wr_ts, 0); // TODO FI_MORE to be added for optimizing the code
     }
 
     if (num_sge2) {
@@ -174,7 +174,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 #pragma GCC diagnostic ignored "-Wold-style-cast"
             send_wr_tswrap.context = (void*)ID_WRITE_DATA_WRAP;
 #pragma GCC diagnostic pop
-            post_send_rdma(&send_wr_tswrap, FI_MORE);
+            post_send_rdma(&send_wr_tswrap, 0); // TODO FI_MORE to be added for optimizing the code
         }
     }
 
