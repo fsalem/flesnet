@@ -160,12 +160,12 @@ void Connection::on_disconnected(struct fi_eq_cm_entry* /* event */)
 {
     L_(debug) << "[" << index_ << "] "
               << "connection disconnected";
-
+    if (ep_ != nullptr){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    fi_close((::fid_t)ep_);
+    	fi_close((::fid_t)ep_);
 #pragma GCC diagnostic pop
-
+    }
     ep_ = nullptr;
 }
 
