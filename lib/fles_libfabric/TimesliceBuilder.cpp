@@ -408,7 +408,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         conn_[in]->on_complete_send_finalize();
         ++connections_done_;
         all_done_ = (connections_done_ == conn_.size());
-        if (!connection_oriented_ || Provider::getInst()->get_info()->fabric_attr->prov_name == "gni") { // TODO gni check should be removed
+        if (!connection_oriented_ || strcmp(Provider::getInst()->get_info()->fabric_attr->prov_name, "gni") == 0) { // TODO gni check should be removed
             on_disconnected(nullptr, in);
         }
         L_(debug) << "[c" << compute_index_ << "] "
