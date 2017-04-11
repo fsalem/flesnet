@@ -20,6 +20,7 @@
 #include <set>
 
 #include <chrono>
+#include <mpi.h>
 
 namespace tl_libfabric
 {
