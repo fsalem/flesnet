@@ -14,6 +14,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <mutex>
 
 namespace tl_libfabric
 {
@@ -46,6 +47,9 @@ public:
     void sync_data_source(bool schedule);
 
     virtual void operator()() override;
+
+    // A scheduling calls to send timeslices to each connection
+    void send_timeslices(int cn);
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);
@@ -113,7 +117,7 @@ private:
 
     const uint32_t timeslice_size_;
     const uint32_t overlap_size_;
-    const uint32_t max_timeslice_number_;
+    const uint64_t max_timeslice_number_;
 
     const uint64_t min_acked_desc_;
     const uint64_t min_acked_data_;
@@ -129,6 +133,9 @@ private:
     std::set<uint_fast16_t> connected_buffers_;
 
     bool abort_ = false;
+
+    uint64_t sent_timeslices = 0;
+    std::mutex mtx;           // mutex for critical section [incremental of sent_timeslices]
 
     std::vector<double> full_buffer;
     double empty_buffer=0.0;

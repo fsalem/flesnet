@@ -151,6 +151,29 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
+void InputChannelSender::send_timeslices(int cn)
+{
+
+	uint64_t next_ts = cn, last_ts = conn_[cn]->get_last_sent_timeslice();
+	if (last_ts != -1){
+		next_ts = last_ts + compute_hostnames_.size();
+	}
+
+	if (next_ts > max_timeslice_number_){
+		return;
+	}
+
+	if (try_send_timeslice(next_ts)) {
+		conn_[cn]->set_last_sent_timeslice(next_ts);
+		mtx.lock();
+		sent_timeslices++;
+		mtx.unlock();
+	}
+    auto now = std::chrono::system_clock::now();
+    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,cn),
+                   now + std::chrono::microseconds(conn_[cn]->get_cur_wait_time()));
+}
+
 void InputChannelSender::bootstrap_with_connections()
 {
     connect();
@@ -207,6 +230,7 @@ void InputChannelSender::operator()()
         }
 
         full_buffer.resize(compute_hostnames_.size(), 0.0);
+        //waiting_times.resize(compute_hostnames_.size(), 0.1); // TODO initial waiting times
         data_source_.proceed();
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
         //assert(rc == MPI_SUCCESS);
@@ -215,21 +239,31 @@ void InputChannelSender::operator()()
         for (auto& c : conn_)
         	c->time_begin_ = time_begin_;
 
-        uint64_t timeslice = 0;
+        int conn = (input_index_%compute_hostnames_.size());
+        int count = 0;
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-        while (timeslice < max_timeslice_number_ && !abort_) {
-            if (try_send_timeslice(timeslice)) {
-                timeslice++;
-            }
+
+        // initialize ts distribution process
+        while (count < compute_hostnames_.size()){
+        	send_timeslices(conn);
+        	// TODO wait for some time
+        	conn = (conn+1)%compute_hostnames_.size();
+        	count++;
+        }
+
+        while (sent_timeslices < max_timeslice_number_ && !abort_) {
+            //if (try_send_timeslice(timeslice)) {
+            //    timeslice++;
+            //}
             poll_completion();
             data_source_.proceed();
             scheduler_.timer();
         }
 
         // wait for pending send completions
-        while (acked_desc_ < timeslice_size_ * timeslice + start_index_desc_) {
+        while (acked_desc_ < timeslice_size_ * sent_timeslices + start_index_desc_) {
             poll_completion();
             scheduler_.timer();
         }
@@ -341,8 +375,10 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
             conn_[cn]->inc_write_pointers(total_length, 1);
 
-            sent_desc_ = desc_offset + desc_length;
-            sent_data_ = data_end;
+            if (data_end > sent_data_){
+            	sent_desc_ = desc_offset + desc_length;
+            	sent_data_ = data_end;
+            }
 
             return true;
         }else{ // no buffer space

@@ -85,6 +85,12 @@ public:
 
     void set_remote_info();
 
+    long int get_cur_wait_time() { return recv_status_message_.wait_time; }
+
+    uint64_t get_last_sent_timeslice() { return last_sent_timeslice; }
+
+    void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice = sent_ts; }
+
 private:
     /// Post a receive work request (WR) to the receive queue
     void post_recv_status_message();
@@ -139,5 +145,7 @@ private:
     uint_fast16_t remote_connection_index_;
 
     fi_addr_t partner_addr_ = 0;
+
+    uint64_t last_sent_timeslice = -1;
 };
 }
