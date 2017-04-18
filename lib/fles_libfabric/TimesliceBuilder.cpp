@@ -85,8 +85,8 @@ void TimesliceBuilder::request_abort()
 void TimesliceBuilder::bootstrap_with_connections()
 {
     accept(local_node_name_, service_, num_input_nodes_);
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
+    //int rc = MPI_Barrier(MPI_COMM_WORLD);
+    //assert(rc == MPI_SUCCESS);
     while (connected_ != num_input_nodes_) {
         poll_cm_events();
     }
@@ -262,8 +262,8 @@ void TimesliceBuilder::bootstrap_wo_connections()
         L_(fatal) << "fi_recvmsg failed: " << strerror(err);
         throw LibfabricException("fi_recvmsg failed");
     }
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
+    //int rc = MPI_Barrier(MPI_COMM_WORLD);
+    //assert(rc == MPI_SUCCESS);
 
     // wait for messages from InputChannelSenders
     const int ne_max = 1; // the ne_max must be always 1 because there is ONLY
@@ -334,8 +334,8 @@ void TimesliceBuilder::operator()()
         }
 
         next_ts.resize(num_input_nodes_, 0);
-        int rc = MPI_Barrier(MPI_COMM_WORLD);
-		assert(rc == MPI_SUCCESS);
+        //int rc = MPI_Barrier(MPI_COMM_WORLD);
+		//assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         report_status();

@@ -16,7 +16,7 @@
 #include "Parameters.hpp"
 #include <csignal>
 #include <log.hpp>
-#include <mpi.h>
+//#include <mpi.h>
 
 namespace
 {
@@ -27,7 +27,7 @@ static void signal_handler(int sig) { signal_status = sig; }
 
 int main(int argc, char* argv[])
 {
-	MPI_Init(&argc, &argv);
+	//MPI_Init(&argc, &argv);
 
 	std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    MPI_Finalize();
+    //MPI_Finalize();
 
     return EXIT_SUCCESS;
 }
