@@ -206,8 +206,14 @@ void InputChannelSender::operator()()
             bootstrap_wo_connections();
         }
 
+        full_buffer.resize(compute_hostnames_.size(), 0.0);
         data_source_.proceed();
+        int rc = MPI_Barrier(MPI_COMM_WORLD);
+        assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
+
+        for (auto& c : conn_)
+        	c->time_begin_ = time_begin_;
 
         uint64_t timeslice = 0;
         sync_buffer_positions();
@@ -251,10 +257,29 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
+        build_time_file();
         summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }
+}
+
+void InputChannelSender::build_time_file(){
+        std::ofstream myfile;
+        myfile.open (std::to_string(full_buffer.size())+"."+std::to_string(input_index_)+".input_ts.out");
+        double agg_t=0.0;
+        for (int i=0 ; i<full_buffer.size() ; i++){
+                myfile << input_index_ << "\t" << i << "\t" << full_buffer[i] << "\n";
+                L_(info) << "Compute node#" << i << " delayed processing for " << full_buffer[i] << "ms";
+                agg_t+=full_buffer[i];
+        }
+        //L_(info) << "Node is blocked due to insuffient data for " << empty_buffer << "ms";
+        myfile.close();
+
+        myfile.open (std::to_string(full_buffer.size())+"."+std::to_string(input_index_)+".input_agg_t.out");
+        myfile << input_index_ << "\t" << empty_buffer << "\t" << agg_t << "\n";
+        L_(info) << "Node is blocked due to insuffient data for " << empty_buffer << "ms and due to full compute buffer for " << agg_t << "ms" << " [sum:" <<((empty_buffer+agg_t)/1000.0) << "s]";
+        myfile.close();
 }
 
 bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
@@ -269,6 +294,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
 
+    	if (blocked && is_data_unava){
+    	                double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_block_time).count())/1000.0;
+    	                blocked=0;
+    	                empty_buffer+=time;
+        }
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
@@ -301,6 +331,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
 
+        	if (blocked && !is_data_unava){
+        	                        double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_block_time).count())/1000.0;
+        	                        blocked=0;
+        	                        full_buffer[cn]+=time;
+        	}
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
@@ -310,6 +345,18 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             sent_data_ = data_end;
 
             return true;
+        }else{ // no buffer space
+            if (!blocked){
+                    start_block_time = std::chrono::high_resolution_clock::now();
+                    blocked=1;
+                    is_data_unava=0;
+            }
+        }
+    }else{ // no available data to send
+        if (!blocked){
+                start_block_time = std::chrono::high_resolution_clock::now();
+                blocked=1;
+                is_data_unava=1;
         }
     }
 

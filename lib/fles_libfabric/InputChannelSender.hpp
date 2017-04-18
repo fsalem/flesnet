@@ -130,6 +130,13 @@ private:
 
     bool abort_ = false;
 
+    std::vector<double> full_buffer;
+    double empty_buffer=0.0;
+    std::chrono::system_clock::time_point start_block_time;
+    bool blocked=0, is_data_unava=0;
+
+    void build_time_file();
+
     struct SendBufferStatus {
         std::chrono::system_clock::time_point time;
         uint64_t size;

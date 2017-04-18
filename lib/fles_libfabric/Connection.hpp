@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <string>
+#include <chrono>
 
 namespace tl_libfabric
 {
@@ -96,6 +97,8 @@ public:
 
     /// Retrieve the total number of RECV work requests.
     uint64_t total_recv_requests() const { return total_recv_requests_; }
+
+    std::chrono::high_resolution_clock::time_point time_begin_;
     //
 protected:
     //    void dump_send_wr(struct ibv_send_wr* wr);

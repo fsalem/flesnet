@@ -333,6 +333,9 @@ void TimesliceBuilder::operator()()
             bootstrap_wo_connections();
         }
 
+        next_ts.resize(num_input_nodes_, 0);
+        int rc = MPI_Barrier(MPI_COMM_WORLD);
+		assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         report_status();
@@ -356,10 +359,70 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
+        build_time_file();
+        build_time_interval_file();
+
         summary();
     } catch (std::exception& e) {
         L_(error) << "exception in TimesliceBuilder: " << e.what();
     }
+}
+
+void TimesliceBuilder::build_time_file(){
+        std::ofstream myfile;
+        myfile.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_ts.out");
+        //myfile << "TS\t";
+        //for (int i=0 ; i < num_input_nodes_ ; i++)
+        //      myfile << "Sent#" << i << "\tArrival#" << i << "\t";
+        //myfile << "COMPLETION\n";
+        double min_arrival;
+        for (int i=0 ; i<arrivals_ts.size() ; i++){
+                myfile << compute_index_ << "\t" << (i*num_input_nodes_+compute_index_) << "\t";
+                min_arrival = arrivals_ts[i][0];
+                for (int j=0 ; j < num_input_nodes_ ; j++){
+                        myfile << sent_ts[i][j] << "\t" << arrivals_ts[i][j] << "\t";
+                        if (min_arrival > arrivals_ts[i][j]) min_arrival = arrivals_ts[i][j];
+                }
+                myfile << completed_ts[i] << "\t";
+                myfile << (completed_ts[i] - min_arrival) << "\n";
+        }
+        myfile.close();
+}
+
+void TimesliceBuilder::build_time_interval_file(){
+        std::ofstream t_interval_file;
+        t_interval_file.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_t_intrval.out");
+
+        double interval=10.0;
+        double max_arrival=-1;
+        for (int j=0 ; j < num_input_nodes_ ; j++){
+                if (arrivals_ts[arrivals_ts.size()-1][j] > max_arrival)
+                        max_arrival=arrivals_ts[arrivals_ts.size()-1][j];
+        }
+        int arrival_arr_size=max_arrival/interval+1, comp_arr_size=completed_ts[completed_ts.size()-1]/interval+1;
+        long int count_arrival_arr[arrival_arr_size]={0}, count_comp_arr[comp_arr_size]={0};
+
+        for (int i=0 ; i<arrivals_ts.size() ; i++){
+                for (int j=0 ; j < num_input_nodes_ ; j++){
+                        count_arrival_arr[(int)(arrivals_ts[i][j]/interval)]++;
+                }
+                count_comp_arr[(int)(completed_ts[i]/interval)]++;
+        }
+        bool added;
+        for (int i=0 ; i<arrival_arr_size || i < comp_arr_size ; i++){
+                added=0;
+                if (i<arrival_arr_size && count_arrival_arr[i] > 0){
+                        added=1;
+                }
+                if (i < comp_arr_size && count_comp_arr[i] > 0){
+                        added=1;
+                }
+                if (added){
+                        t_interval_file << compute_index_ << "\t" << (i*interval) << /*".."<< (((i+1)*interval)-1) <<*/ "\t" << count_arrival_arr[i] << "\t" << count_comp_arr[i] << "\n";
+                }
+        }
+
+        t_interval_file.close();
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
@@ -428,6 +491,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
+        add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
                 std::begin(conn_), std::end(conn_),
@@ -439,6 +503,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             uint64_t new_completely_written = (*new_red_lantern)->cn_wp().desc;
             red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);
 
+            double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
             for (uint64_t tpos = completely_written_;
                  tpos < new_completely_written; ++tpos) {
                 if (!drop_) {
@@ -454,6 +519,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                 } else {
                     timeslice_buffer_.send_completion({tpos});
                 }
+                completed_ts.push_back(time);
             }
 
             completely_written_ = new_completely_written;
@@ -463,6 +529,22 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     default:
         throw LibfabricException("wc for unknown wr_id");
     }
+}
+
+void TimesliceBuilder::add_arrival_ts(double sent_time , uint64_t desc, int cn){
+        for (int ts=arrivals_ts.size() ; ts < desc ; ts++){
+                std::vector<double> tmp(num_input_nodes_,0.0);
+                arrivals_ts.push_back(tmp);
+                sent_ts.push_back(tmp);
+        }
+
+        double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
+
+        while (desc > next_ts[cn]){
+                arrivals_ts[next_ts[cn]][cn]=time;
+                sent_ts[next_ts[cn]][cn]=sent_time;
+                next_ts[cn]++;
+        }
 }
 
 void TimesliceBuilder::poll_ts_completion()

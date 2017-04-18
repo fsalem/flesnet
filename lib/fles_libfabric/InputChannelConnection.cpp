@@ -449,6 +449,8 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
+    send_status_message_.time_sent_= (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
+
     post_send_msg(&send_wr);
 }
 

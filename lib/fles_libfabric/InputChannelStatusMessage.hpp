@@ -20,6 +20,7 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
+    double time_sent_;
 };
 }
 
