@@ -22,7 +22,7 @@ struct ComputeNodeStatusMessage {
     // address must be not null if connect = true
     unsigned char my_address[64];
     // waiting time between calls in microseconds
-    long int wait_time = 100;
+    uint64_t wait_time = -1;
 
 };
 }

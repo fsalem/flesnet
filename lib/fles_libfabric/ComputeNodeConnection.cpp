@@ -35,6 +35,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     } else {
         connection_oriented_ = false;
     }
+    mean_times.resize(1001,0);
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
@@ -156,6 +157,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
     send_status_message_.info.data_buffer_size_exp = data_buffer_size_exp_;
     send_status_message_.info.desc_buffer_size_exp = desc_buffer_size_exp_;
     send_status_message_.connect = false;
+    send_status_message_.wait_time = 0;
 }
 
 void ComputeNodeConnection::setup()
@@ -258,12 +260,30 @@ void ComputeNodeConnection::on_complete_recv()
     cn_wp_ = recv_status_message_.wp;
     post_recv_status_message();
     send_status_message_.ack = cn_ack_;
+    //if (send_status_message_.wait_time != wait_time_)
+    	//L_(info) << "send_status_message_.wait_time = " << send_status_message_.wait_time << ", wait_time_ = " << wait_time_;
+    send_status_message_.wait_time = wait_time_;
+    sum_time+=wait_time_;
+    count_time++;
+    mean_times[wait_time_]++;
     post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }
 
-void ComputeNodeConnection::on_complete_send_finalize() { done_ = true; }
+void ComputeNodeConnection::on_complete_send_finalize() { done_ = true;
+	int indx=-1,sec_indx=-1;
+	int max = -1,sec_max=-1;
+	for (int i=0 ; i<1001; i++){
+		if (mean_times[i] > max){
+			sec_max=max;
+			max = mean_times[i];
+			sec_indx=indx;
+			indx = i;
+		}
+	}
+	L_(info) << index_ << " ,avg = " << (sum_time/count_time) << " ,1st mean = " << indx << ", 2nd mean = " << sec_indx;
+}
 
 std::unique_ptr<std::vector<uint8_t>> ComputeNodeConnection::get_private_data()
 {

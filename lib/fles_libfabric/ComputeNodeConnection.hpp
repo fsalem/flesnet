@@ -144,6 +144,16 @@ public:
 
     bool is_connection_finalized();
 
+    void set_wait_time(uint64_t wait_time) {wait_time_ = wait_time;}
+
+    uint64_t get_wait_time() {return wait_time_;}
+
+    void update_wait_time(double factor) {
+    	wait_time_ = wait_time_ + (wait_time_*factor);
+    	if (wait_time_ <= 0) wait_time_ = 1;
+    	if (wait_time_ > 1000) wait_time_ = 1000;
+    }
+
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
@@ -183,5 +193,8 @@ private:
     uint32_t pending_send_requests_{0};
 
     fi_addr_t partner_addr_;
+
+    uint64_t wait_time_ = 0, sum_time = 0, count_time = 0;
+    std::vector<int> mean_times;
 };
 }

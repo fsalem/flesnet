@@ -17,11 +17,12 @@ InputChannelSender::InputChannelSender(
     const std::vector<std::string> compute_hostnames,
     const std::vector<std::string> compute_services, uint32_t timeslice_size,
     uint32_t overlap_size, uint32_t max_timeslice_number,
-    std::string input_node_name)
+    std::string input_node_name, uint64_t init_wait_time)
     : ConnectionGroup(input_node_name), input_index_(input_index),
       data_source_(data_source), compute_hostnames_(compute_hostnames),
       compute_services_(compute_services), timeslice_size_(timeslice_size),
       overlap_size_(overlap_size), max_timeslice_number_(max_timeslice_number),
+      init_wait_time_(init_wait_time),
       min_acked_desc_(data_source.desc_buffer().size() / 4),
       min_acked_data_(data_source.data_buffer().size() / 4)
 {
@@ -151,7 +152,7 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
-void InputChannelSender::send_timeslices(int cn)
+void InputChannelSender::send_timeslices(int cn, uint64_t last_wait_time)
 {
 
 	uint64_t next_ts = cn, last_ts = conn_[cn]->get_last_sent_timeslice();
@@ -169,9 +170,12 @@ void InputChannelSender::send_timeslices(int cn)
 		sent_timeslices++;
 		mtx.unlock();
 	}
+	uint64_t interval = (conn_[cn]->get_cur_wait_time() >= 0 ? conn_[cn]->get_cur_wait_time() : init_wait_time_);
+	//if (last_wait_time != conn_[cn]->get_cur_wait_time())
+		//L_(info) << "cur_wait_time() = " << conn_[cn]->get_cur_wait_time() << " ,interval = " << interval;
     auto now = std::chrono::system_clock::now();
-    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,cn),
-                   now + std::chrono::microseconds(conn_[cn]->get_cur_wait_time()));
+    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,cn,conn_[cn]->get_cur_wait_time()),
+                   now + std::chrono::microseconds(interval));
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -239,8 +243,8 @@ void InputChannelSender::operator()()
         for (auto& c : conn_)
         	c->time_begin_ = time_begin_;
 
-        int conn = (input_index_%compute_hostnames_.size());
-        int count = 0;
+        uint32_t conn = (input_index_%compute_hostnames_.size());
+        uint32_t count = 0;
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
@@ -254,9 +258,9 @@ void InputChannelSender::operator()()
         }
 
         while (sent_timeslices < max_timeslice_number_ && !abort_) {
-            //if (try_send_timeslice(timeslice)) {
-            //    timeslice++;
-            //}
+            /*if (try_send_timeslice(sent_timeslices)) {
+            	sent_timeslices++;
+            }*/
             poll_completion();
             data_source_.proceed();
             scheduler_.timer();
