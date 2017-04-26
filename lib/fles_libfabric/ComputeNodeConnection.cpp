@@ -90,8 +90,13 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    ++pending_send_requests_;
-    post_send_msg(&send_wr);
+    if (our_turn_ && (ack_updated_ || cn_wp_.desc == 0 || cn_wp_.desc == cn_ack_.desc))
+    {
+    	ack_updated_ = false;
+    	our_turn_ = false;
+		++pending_send_requests_;
+		post_send_msg(&send_wr);
+    }
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
@@ -100,6 +105,7 @@ void ComputeNodeConnection::post_send_final_status_message()
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     send_wr.context = (void*)(ID_SEND_FINALIZE | (index_ << 8));
 #pragma GCC diagnostic pop
+    ack_updated_ = true;
     post_send_status_message();
 }
 
@@ -241,10 +247,14 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
         desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
 
     cn_ack_.data = acked_ts.offset + acked_ts.size;
+
+    ack_updated_ = true;
+    post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_recv()
 {
+	our_turn_ = true;
     if (recv_status_message_.final) {
         // send FINAL status message
         send_status_message_.final = true;

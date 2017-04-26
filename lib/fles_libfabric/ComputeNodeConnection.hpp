@@ -194,6 +194,11 @@ private:
 
     fi_addr_t partner_addr_;
 
+    /// Flag, true if it is the compute nodes's turn to send a pointer update.
+    bool our_turn_ = false;
+
+    bool ack_updated_ = false;
+
     uint64_t wait_time_ = 0, sum_time = 0, count_time = 0;
     std::vector<int> mean_times;
 };

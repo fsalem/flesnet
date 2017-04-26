@@ -103,6 +103,7 @@ private:
 
     bool finalize_ = false;
     bool abort_ = false;
+    bool rdma_sent_ = false;
 
     /// Access information for memory regions on remote end.
     ComputeNodeInfo remote_info_ = ComputeNodeInfo();

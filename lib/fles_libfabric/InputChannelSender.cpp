@@ -171,11 +171,11 @@ void InputChannelSender::send_timeslices(int cn, uint64_t last_wait_time)
 		mtx.unlock();
 	}
 	uint64_t interval = (conn_[cn]->get_cur_wait_time() >= 0 ? conn_[cn]->get_cur_wait_time() : init_wait_time_);
-	//if (last_wait_time != conn_[cn]->get_cur_wait_time())
-		//L_(info) << "cur_wait_time() = " << conn_[cn]->get_cur_wait_time() << " ,interval = " << interval;
-    auto now = std::chrono::system_clock::now();
+	//if (last_wait_time != interval || interval == 10000)
+		//L_(info) << "cn = " << cn << " ,next_ts = " << next_ts << " ,cur_wait_time() = " << conn_[cn]->get_cur_wait_time() << " ,interval = " << interval << ", desc = " << conn_[cn]->get_cn_ack().desc;
+    auto now = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval);
     scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,cn,conn_[cn]->get_cur_wait_time()),
-                   now + std::chrono::microseconds(interval));
+                   now);
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -245,14 +245,16 @@ void InputChannelSender::operator()()
 
         uint32_t conn = (input_index_%compute_hostnames_.size());
         uint32_t count = 0;
-        sync_buffer_positions();
+        //sync_buffer_positions();
         sync_data_source(true);
         report_status();
 
+        auto now = std::chrono::high_resolution_clock::now();
         // initialize ts distribution process
         while (count < compute_hostnames_.size()){
-        	send_timeslices(conn);
-        	// TODO wait for some time
+        	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,conn,init_wait_time_),
+						   now + std::chrono::microseconds(init_wait_time_*count));
+        	/*send_timeslices(conn, init_wait_time_);*/
         	conn = (conn+1)%compute_hostnames_.size();
         	count++;
         }
@@ -261,9 +263,9 @@ void InputChannelSender::operator()()
             /*if (try_send_timeslice(sent_timeslices)) {
             	sent_timeslices++;
             }*/
+            scheduler_.timer();
             poll_completion();
             data_source_.proceed();
-            scheduler_.timer();
         }
 
         // wait for pending send completions
