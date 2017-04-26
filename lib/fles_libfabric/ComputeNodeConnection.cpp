@@ -35,7 +35,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     } else {
         connection_oriented_ = false;
     }
-    mean_times.resize(1001,0);
+    mean_times.resize(max_wait_time_+1,0);
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
@@ -284,7 +284,7 @@ void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }
 void ComputeNodeConnection::on_complete_send_finalize() { done_ = true;
 	int indx=-1,sec_indx=-1;
 	int max = -1,sec_max=-1;
-	for (int i=0 ; i<1001; i++){
+	for (int i=0 ; i<max_wait_time_+1; i++){
 		if (mean_times[i] > max){
 			sec_max=max;
 			max = mean_times[i];

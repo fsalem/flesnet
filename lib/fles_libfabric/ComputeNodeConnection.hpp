@@ -151,7 +151,7 @@ public:
     void update_wait_time(double factor) {
     	wait_time_ = wait_time_ + (wait_time_*factor);
     	if (wait_time_ <= 0) wait_time_ = 1;
-    	if (wait_time_ > 1000) wait_time_ = 1000;
+    	if (wait_time_ > max_wait_time_) wait_time_ = max_wait_time_;
     }
 
 private:
@@ -198,6 +198,8 @@ private:
     bool our_turn_ = false;
 
     bool ack_updated_ = false;
+
+    uint32_t max_wait_time_ = 100000;
 
     uint64_t wait_time_ = 0, sum_time = 0, count_time = 0;
     std::vector<int> mean_times;
