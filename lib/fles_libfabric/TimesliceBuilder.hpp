@@ -36,7 +36,7 @@ public:
                      unsigned short service, uint32_t num_input_nodes,
                      uint32_t timeslice_size,
                      volatile sig_atomic_t* signal_status, bool drop,
-                     std::string local_node_name, uint64_t init_wait_time);
+                     std::string local_node_name);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;
@@ -72,7 +72,6 @@ private:
     void add_arrival_ts(double sent_ts, uint64_t desc, int cn);
     void build_time_file();
     void build_time_interval_file();
-    void update_wait_time(size_t in);
 
     fid_cq* listening_cq_;
     uint64_t compute_index_;
@@ -104,14 +103,9 @@ private:
 
     std::string local_node_name_;
 
-    uint64_t init_wait_time_;
-
-    uint32_t max_num_ts_;
-
     bool drop_;
     std::vector<std::vector<double>> arrivals_ts, sent_ts;
     std::vector<double> completed_ts;
     std::vector<int> next_ts;
-    std::vector<uint64_t> received_ts;
 };
 }

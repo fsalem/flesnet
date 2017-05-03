@@ -50,7 +50,7 @@ public:
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection
-    void send_timeslices(int cn, uint64_t last_wait_time = 0);
+    void send_timeslice(uint32_t cn, uint64_t timeslice);
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);
@@ -136,8 +136,8 @@ private:
     bool abort_ = false;
 
     uint64_t init_wait_time_ = 0;
-    uint64_t sent_timeslices = 0;
-    std::mutex mtx;           // mutex for critical section [incremental of sent_timeslices]
+
+    uint64_t sent_timeslices_ = 0;
 
     std::vector<double> full_buffer;
     double empty_buffer=0.0;

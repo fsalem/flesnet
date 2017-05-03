@@ -23,14 +23,13 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
                                    uint32_t num_input_nodes,
                                    uint32_t timeslice_size,
                                    volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name,
-                                   uint64_t init_wait_time)
+                                   bool drop, std::string local_node_name)
     : ConnectionGroup(local_node_name), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
-      drop_(drop), init_wait_time_(init_wait_time)
+      drop_(drop)
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
@@ -39,7 +38,6 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    // TODO max_num_ts_ =
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -232,7 +230,6 @@ void TimesliceBuilder::bootstrap_wo_connections()
             timeslice_buffer_.get_desc_size_exp()));
         conn->setup_mr(pd_);
         conn->setup();
-        conn->set_wait_time(init_wait_time_);
         conn_.at(index) = std::move(conn);
     }
 
@@ -362,8 +359,8 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        //build_time_file();
-        //build_time_interval_file();
+        build_time_file();
+        build_time_interval_file();
 
         summary();
     } catch (std::exception& e) {
@@ -452,8 +449,6 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
     conn_.at(index) = std::move(conn);
 
     conn_.at(index)->on_connect_request(event, pd_, cq_);
-
-    conn_.at(index)->set_wait_time(init_wait_time_);
 }
 
 /// Completion notification event dispatcher. Called by the event loop.
@@ -494,10 +489,13 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                   << " all_done=" << all_done_;
         break;
 
-    case ID_RECEIVE_STATUS: // TODO to be obtimized from O(n)!!!! to O(1)
-        update_wait_time(in);
+    case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
-        add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
+        if (conn_[in]->recv_status_message().in_acked_timeslice >= 0) {
+        	conn_[(in+1)%num_input_nodes_]->set_prev_in_acked_timestamp(conn_[in]->recv_status_message().in_acked_timestamp);
+        	conn_[(in+1)%num_input_nodes_]->set_prev_in_acked_timeslice(conn_[in]->recv_status_message().in_acked_timeslice);
+    	}
+        //add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
                 std::begin(conn_), std::end(conn_),
@@ -535,35 +533,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     default:
         throw LibfabricException("wc for unknown wr_id");
     }
-}
-
-void TimesliceBuilder::update_wait_time(size_t in){
-	// TODO max num of ts!
-	uint64_t cur_desc = conn_[in]->cn_wp().desc, min_desc = conn_[in]->cn_wp().desc, max_desc = conn_[in]->cn_wp().desc;
-
-	for (auto& c : conn_){
-		if (min_desc > c->cn_wp().desc)
-			min_desc = c->cn_wp().desc;
-		if (max_desc < c->cn_wp().desc)
-			max_desc = c->cn_wp().desc;
-	}
-	double normalized_val = 0.0;
-	uint64_t cur_t = conn_[in]->get_wait_time();
-	if (min_desc != max_desc)
-		normalized_val = ((max_desc - cur_desc)*1.0)/((max_desc - min_desc)*1.0);
-	if (cur_desc <= (max_desc+min_desc)/2 ){ // decrease wait_time relatively. norm_val>=0.5
-		if (cur_t > 1 && normalized_val != 0.0)
-			conn_[in]->update_wait_time(-1.0 * (normalized_val-0.45));
-		if (cur_t > 1 && normalized_val == 0.0){
-			conn_[in]->update_wait_time(-0.1);
-		}
-	}else{ // increase wait_time relatively. norm_val < 0.5
-		if (cur_t <= 1)
-			conn_[in]->update_wait_time(1.0);
-		else
-			conn_[in]->update_wait_time((1-normalized_val));
-	}
-	//L_(info) << "cur = " << cur_desc << " ,max = " << max_desc << " ,min = " << min_desc << ", norm = " << normalized_val << ", cur = " << cur_t << ", new = " << conn_[in]->get_wait_time();
 }
 
 void TimesliceBuilder::add_arrival_ts(double sent_time , uint64_t desc, int cn){

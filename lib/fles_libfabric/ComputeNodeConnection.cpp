@@ -35,7 +35,6 @@ ComputeNodeConnection::ComputeNodeConnection(
     } else {
         connection_oriented_ = false;
     }
-    mean_times.resize(max_wait_time_+1,0);
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
@@ -90,13 +89,8 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    if (our_turn_ && (ack_updated_ || cn_wp_.desc == 0 || cn_wp_.desc == cn_ack_.desc))
-    {
-    	ack_updated_ = false;
-    	our_turn_ = false;
-		++pending_send_requests_;
-		post_send_msg(&send_wr);
-    }
+    ++pending_send_requests_;
+    post_send_msg(&send_wr);
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
@@ -105,7 +99,6 @@ void ComputeNodeConnection::post_send_final_status_message()
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     send_wr.context = (void*)(ID_SEND_FINALIZE | (index_ << 8));
 #pragma GCC diagnostic pop
-    ack_updated_ = true;
     post_send_status_message();
 }
 
@@ -163,7 +156,6 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
     send_status_message_.info.data_buffer_size_exp = data_buffer_size_exp_;
     send_status_message_.info.desc_buffer_size_exp = desc_buffer_size_exp_;
     send_status_message_.connect = false;
-    send_status_message_.wait_time = 0;
 }
 
 void ComputeNodeConnection::setup()
@@ -247,14 +239,10 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
         desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
 
     cn_ack_.data = acked_ts.offset + acked_ts.size;
-
-    ack_updated_ = true;
-    post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_recv()
 {
-	our_turn_ = true;
     if (recv_status_message_.final) {
         // send FINAL status message
         send_status_message_.final = true;
@@ -270,30 +258,14 @@ void ComputeNodeConnection::on_complete_recv()
     cn_wp_ = recv_status_message_.wp;
     post_recv_status_message();
     send_status_message_.ack = cn_ack_;
-    //if (send_status_message_.wait_time != wait_time_)
-    	//L_(info) << "send_status_message_.wait_time = " << send_status_message_.wait_time << ", wait_time_ = " << wait_time_;
-    send_status_message_.wait_time = wait_time_;
-    sum_time+=wait_time_;
-    count_time++;
-    mean_times[wait_time_]++;
+    send_status_message_.in_acked_timeslice = prev_in_acked_timeslice_;
+    send_status_message_.in_acked_timestamp = prev_in_acked_timestamp_;
     post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }
 
-void ComputeNodeConnection::on_complete_send_finalize() { done_ = true;
-	int indx=-1,sec_indx=-1;
-	int max = -1,sec_max=-1;
-	for (int i=0 ; i<max_wait_time_+1; i++){
-		if (mean_times[i] > max){
-			sec_max=max;
-			max = mean_times[i];
-			sec_indx=indx;
-			indx = i;
-		}
-	}
-	L_(info) << index_ << " ,avg = " << (sum_time/count_time) << " ,1st mean = " << indx << ", 2nd mean = " << sec_indx;
-}
+void ComputeNodeConnection::on_complete_send_finalize() { done_ = true; }
 
 std::unique_ptr<std::vector<uint8_t>> ComputeNodeConnection::get_private_data()
 {

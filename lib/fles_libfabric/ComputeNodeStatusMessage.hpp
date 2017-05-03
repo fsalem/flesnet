@@ -5,6 +5,7 @@
 
 #include "ComputeNodeBufferPosition.hpp"
 #include "ComputeNodeInfo.hpp"
+#include <chrono>
 
 #pragma pack(1)
 
@@ -21,8 +22,9 @@ struct ComputeNodeStatusMessage {
     ComputeNodeInfo info;
     // address must be not null if connect = true
     unsigned char my_address[64];
-    // waiting time between calls in microseconds
-    uint64_t wait_time = -1;
+    // last acked timestamp of predecessor of the target input node
+    std::chrono::high_resolution_clock::time_point in_acked_timestamp;
+    uint64_t in_acked_timeslice = -1;
 
 };
 }

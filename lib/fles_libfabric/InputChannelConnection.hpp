@@ -85,11 +85,23 @@ public:
 
     void set_remote_info();
 
-    long int get_cur_wait_time() { return recv_status_message_.wait_time; }
+    uint64_t get_wait_time() { return wait_time_; }
 
-    uint64_t get_last_sent_timeslice() { return last_sent_timeslice; }
+    void set_wait_time(uint64_t wait_time) { wait_time_ = wait_time; }
 
-    void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice = sent_ts; }
+    const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
+
+    void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice_ = sent_ts; }
+
+    const uint64_t& get_last_acked_round() const { return last_acked_round_; }
+
+    void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
+
+    const std::vector<std::chrono::high_resolution_clock::time_point>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
+
+    void add_acked_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { acked_timestamps_list_.push_back(timestamp); }
+
+    void add_sent_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { sent_timestamps_list_.push_back(timestamp); }
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -103,7 +115,6 @@ private:
 
     bool finalize_ = false;
     bool abort_ = false;
-    bool rdma_sent_ = false;
 
     /// Access information for memory regions on remote end.
     ComputeNodeInfo remote_info_ = ComputeNodeInfo();
@@ -147,6 +158,13 @@ private:
 
     fi_addr_t partner_addr_ = 0;
 
-    uint64_t last_sent_timeslice = -1;
+    uint64_t last_sent_timeslice_ = -1;
+
+    uint64_t last_acked_round_ = 0;
+
+    std::vector<std::chrono::high_resolution_clock::time_point> acked_timestamps_list_;
+    std::vector<std::chrono::high_resolution_clock::time_point> sent_timestamps_list_;
+
+    uint64_t wait_time_;
 };
 }

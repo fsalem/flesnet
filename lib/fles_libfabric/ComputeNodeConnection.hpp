@@ -144,15 +144,13 @@ public:
 
     bool is_connection_finalized();
 
-    void set_wait_time(uint64_t wait_time) {wait_time_ = wait_time;}
+    std::chrono::high_resolution_clock::time_point get_prev_in_acked_timestamp() {return prev_in_acked_timestamp_;}
 
-    uint64_t get_wait_time() {return wait_time_;}
+    void set_prev_in_acked_timestamp(std::chrono::high_resolution_clock::time_point prev_in_acked_timestamp) {prev_in_acked_timestamp_ = prev_in_acked_timestamp;}
 
-    void update_wait_time(double factor) {
-    	wait_time_ = wait_time_ + (wait_time_*factor);
-    	if (wait_time_ <= 0) wait_time_ = 1;
-    	if (wait_time_ > max_wait_time_) wait_time_ = max_wait_time_;
-    }
+    uint64_t get_prev_in_acked_timeslice() {return prev_in_acked_timeslice_;}
+
+    void set_prev_in_acked_timeslice(uint64_t prev_in_acked_timeslice) {prev_in_acked_timeslice_ = prev_in_acked_timeslice;}
 
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
@@ -194,14 +192,10 @@ private:
 
     fi_addr_t partner_addr_;
 
-    /// Flag, true if it is the compute nodes's turn to send a pointer update.
-    bool our_turn_ = false;
+    // last acked timestamp of Input node #(index_ - 1)
+    std::chrono::high_resolution_clock::time_point prev_in_acked_timestamp_;
 
-    bool ack_updated_ = false;
-
-    uint32_t max_wait_time_ = 100000;
-
-    uint64_t wait_time_ = 0, sum_time = 0, count_time = 0;
-    std::vector<int> mean_times;
+    // last acked timeslice of Input node #(index_ - 1)
+    uint64_t prev_in_acked_timeslice_ = -1;
 };
 }

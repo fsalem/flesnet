@@ -232,15 +232,12 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 {
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
-    rdma_sent_ = true;
-    try_sync_buffer_positions();
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
-    if (our_turn_ && ( rdma_sent_ || partner_addr_ == 0)) {
+    if (our_turn_) {
         our_turn_ = false;
-        rdma_sent_ = false;
         send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
@@ -291,18 +288,38 @@ void InputChannelConnection::on_complete_recv()
                   << recv_status_message_.ack.data;
     }
     cn_ack_ = recv_status_message_.ack;
+    last_acked_round_ = recv_status_message_.in_acked_timeslice;
+    //L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << ",last_acked_round_ = " << last_acked_round_ << ", last_sent_timeslice_ = " << last_sent_timeslice_;
+    if (recv_status_message_.in_acked_timeslice >= 0 && sent_timestamps_list_.size() >= recv_status_message_.in_acked_timeslice){
+    	if (sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] > recv_status_message_.in_acked_timestamp) {
+			wait_time_ = std::chrono::duration_cast<std::chrono::microseconds>(
+				sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] - recv_status_message_.in_acked_timestamp)
+				.count();
+    	}else{
+    		wait_time_ = std::chrono::duration_cast<std::chrono::microseconds>(
+    						recv_status_message_.in_acked_timestamp - sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1])
+    						.count();
+    	}
+    	if (wait_time_ > 500) wait_time_ = 501;
+    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_;
+    }
     post_recv_status_message();
 
     if (get_partner_addr() || connection_oriented_) {
+        // L_(info)<< "recv message with abort_ = "<<abort_ << " and cn_wp_ ==
+        // send_status_message_.wp = "<< (cn_wp_ == send_status_message_.wp) <<
+        // " and cn_wp_ == cn_ack_ = "<<(cn_wp_ == cn_ack_) << " and the
+        // cn_wp_.data = "<<cn_wp_.data << " but the cn_ack_.date =
+        // "<<cn_ack_.data;
         if (cn_wp_ == send_status_message_.wp && finalize_) {
             if (cn_wp_ == cn_ack_ || abort_) {
+                // L_(info) << "SEND FINALIZE message with abort_ = "<<abort_;
                 send_status_message_.final = true;
                 send_status_message_.abort = abort_;
             }
             post_send_status_message();
         } else {
             our_turn_ = true;
-            try_sync_buffer_positions();
         }
     }
 }
@@ -447,8 +464,10 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
-    send_status_message_.time_sent_= (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
-
+    if (acked_timestamps_list_.size() > 0){
+		send_status_message_.in_acked_timeslice = acked_timestamps_list_.size();
+		send_status_message_.in_acked_timestamp = acked_timestamps_list_[acked_timestamps_list_.size()-1];
+    }
     post_send_msg(&send_wr);
 }
 

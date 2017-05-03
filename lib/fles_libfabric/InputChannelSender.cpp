@@ -152,30 +152,32 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
-void InputChannelSender::send_timeslices(int cn, uint64_t last_wait_time)
+void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 {
-
-	uint64_t next_ts = cn, last_ts = conn_[cn]->get_last_sent_timeslice();
-	if (last_ts != -1){
-		next_ts = last_ts + compute_hostnames_.size();
+	if (timeslice > max_timeslice_number_){
+			return;
 	}
 
-	if (next_ts > max_timeslice_number_){
-		return;
-	}
+	uint64_t sent_timeslices = conn_[cn]->get_last_sent_timeslice() == -1 ? 0 :
+			((uint64_t)(conn_[cn]->get_last_sent_timeslice()/compute_hostnames_.size())+1);
+	uint64_t next_timeslice = timeslice;
+	std::chrono::high_resolution_clock::duration interval = std::chrono::microseconds(0);
 
-	if (try_send_timeslice(next_ts)) {
-		conn_[cn]->set_last_sent_timeslice(next_ts);
-		mtx.lock();
-		sent_timeslices++;
-		mtx.unlock();
-	}
-	uint64_t interval = (conn_[cn]->get_cur_wait_time() >= 0 ? conn_[cn]->get_cur_wait_time() : init_wait_time_);
-	//if (last_wait_time != interval || interval == 10000)
-		//L_(info) << "cn = " << cn << " ,next_ts = " << next_ts << " ,cur_wait_time() = " << conn_[cn]->get_cur_wait_time() << " ,interval = " << interval << ", desc = " << conn_[cn]->get_cn_ack().desc;
-    auto now = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval);
-    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,cn,conn_[cn]->get_cur_wait_time()),
-                   now);
+	// check whether last sent timeslice is acked
+	//if ((sent_timeslices != 0 && sent_timeslices != conn_[cn]->get_acked_timestamps_list().size())/* || sent_timeslices > conn_[cn]->get_last_acked_round()+5*/) {
+			//L_(info) << "cn = " << cn << " ,sent_timeslices = " << sent_timeslices << " ,timeslice = " << timeslice << " , last sent timeslice = " << conn_[cn]->get_last_sent_timeslice() << " , conn_[cn]->get_acked_timestamps_list().size() = " << conn_[cn]->get_acked_timestamps_list().size() << " ,conn_[cn]->get_last_acked_round() = " << conn_[cn]->get_last_acked_round();
+	//}else{
+		//L_(info) << "try send ts " << timeslice << " to cn " << cn << ", last round = " << conn_[cn]->get_last_acked_round() << " ,sent timeslices = " << sent_timeslices;
+		if (try_send_timeslice(timeslice)) {
+			conn_[cn]->set_last_sent_timeslice(timeslice);
+			conn_[cn]->add_sent_timestamps(std::chrono::high_resolution_clock::now());
+			sent_timeslices_++;
+			next_timeslice = timeslice + compute_hostnames_.size();
+			interval = std::chrono::microseconds(conn_[cn]->get_wait_time());
+			//L_(info) << "ts " << timeslice << " is sent to cn " << cn;
+		}
+	//}
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, cn, next_timeslice), std::chrono::high_resolution_clock::now()+interval);
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -234,42 +236,44 @@ void InputChannelSender::operator()()
         }
 
         full_buffer.resize(compute_hostnames_.size(), 0.0);
-        //waiting_times.resize(compute_hostnames_.size(), 0.1); // TODO initial waiting times
         data_source_.proceed();
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
         //assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
-        for (auto& c : conn_)
+        for (auto& c : conn_){
         	c->time_begin_ = time_begin_;
+        	c->set_wait_time(init_wait_time_);
+        }
 
+        //uint64_t timeslice = 0;
         uint32_t conn = (input_index_%compute_hostnames_.size());
         uint32_t count = 0;
-        //sync_buffer_positions();
+        sync_buffer_positions();
         sync_data_source(true);
         report_status();
 
-        auto now = std::chrono::high_resolution_clock::now();
         // initialize ts distribution process
+        /*auto now = std::chrono::high_resolution_clock::now();
         while (count < compute_hostnames_.size()){
-        	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this,conn,init_wait_time_),
-						   now + std::chrono::microseconds(init_wait_time_*count));
-        	/*send_timeslices(conn, init_wait_time_);*/
+        	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, conn, conn),
+						   now + std::chrono::microseconds(init_wait_time_));
+        	//send_timeslices(conn, init_wait_time_);
         	conn = (conn+1)%compute_hostnames_.size();
         	count++;
-        }
+        }*/
 
-        while (sent_timeslices < max_timeslice_number_ && !abort_) {
-            /*if (try_send_timeslice(sent_timeslices)) {
-            	sent_timeslices++;
-            }*/
+        while (sent_timeslices_ < max_timeslice_number_ && !abort_) {
+            if (try_send_timeslice(sent_timeslices_)) {
+            	sent_timeslices_++;
+            }
             scheduler_.timer();
             poll_completion();
             data_source_.proceed();
         }
 
         // wait for pending send completions
-        while (acked_desc_ < timeslice_size_ * sent_timeslices + start_index_desc_) {
+        while (acked_desc_ < timeslice_size_ * sent_timeslices_ + start_index_desc_) {
             poll_completion();
             scheduler_.timer();
         }
@@ -297,7 +301,7 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
-        build_time_file();
+        //build_time_file();
         summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
@@ -614,6 +618,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
+        conn_[cn]->add_acked_timestamps(std::chrono::high_resolution_clock::now());
+
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {

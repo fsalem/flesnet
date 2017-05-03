@@ -6,6 +6,8 @@
 #include "ComputeNodeBufferPosition.hpp"
 #include "InputNodeInfo.hpp"
 
+#include <chrono>
+
 #pragma pack(1)
 
 namespace tl_libfabric
@@ -20,7 +22,8 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
-    double time_sent_;
+    std::chrono::high_resolution_clock::time_point in_acked_timestamp;
+    uint64_t in_acked_timeslice = -1;
 };
 }
 
