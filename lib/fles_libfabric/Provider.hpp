@@ -70,5 +70,8 @@ public:
 private:
     static std::unique_ptr<Provider> get_provider(std::string local_host_name);
     static std::unique_ptr<Provider> prov;
+
+protected:
+    uint32_t MAX_CONNECT_RETRY = 10;
 };
 }

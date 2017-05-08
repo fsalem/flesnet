@@ -119,10 +119,18 @@ void VerbsProvider::connect(::fid_ep* ep, uint32_t /*max_send_wr*/,
                             uint32_t /*max_inline_data*/, const void* param,
                             size_t param_len, void* /*addr*/)
 {
-    int res = fi_connect(ep, nullptr, param, param_len);
-    if (res) {
-        L_(fatal) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
-        throw LibfabricException("fi_connect failed");
+	uint32_t count = 0;
+
+    int res = 1;
+    while (count < MAX_CONNECT_RETRY && res){
+		res = fi_connect(ep, nullptr, param, param_len);
+		if (res) {
+			L_(fatal) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
+		}
+		count++;
+    }
+    if (res){
+    	throw LibfabricException("fi_connect failed");
     }
 }
 }
