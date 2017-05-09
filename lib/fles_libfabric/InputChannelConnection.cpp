@@ -22,7 +22,8 @@ InputChannelConnection::InputChannelConnection(
     uint_fast16_t remote_connection_index, unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
     : Connection(eq, connection_index, remote_connection_index),
-      max_pending_write_requests_(max_pending_write_requests)
+      max_pending_write_requests_(max_pending_write_requests),
+      pid_(PID(PID_DT, wait_time_, 0, PID_KP, PID_KD, PID_KI))
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -41,6 +42,9 @@ InputChannelConnection::InputChannelConnection(
     } else {
         connection_oriented_ = false;
     }
+    wait_time_buffer_.resize(100,0);
+    next_wait_time_index_ = 0;
+    wait_time_buffer_sum = 0;
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -288,32 +292,27 @@ void InputChannelConnection::on_complete_recv()
                   << recv_status_message_.ack.data;
     }
     cn_ack_ = recv_status_message_.ack;
-    last_acked_round_ = recv_status_message_.in_acked_timeslice;
-    //L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << ",last_acked_round_ = " << last_acked_round_ << ", last_sent_timeslice_ = " << last_sent_timeslice_;
-    if (recv_status_message_.in_acked_timeslice >= 0 && sent_timestamps_list_.size() >= recv_status_message_.in_acked_timeslice){
-    	if (sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] > recv_status_message_.in_acked_timestamp) {
-			wait_time_ = std::chrono::duration_cast<std::chrono::microseconds>(
+    // update the wait time based on the last rounds
+    if (last_acked_round_ != recv_status_message_.in_acked_timeslice && sent_timestamps_list_.size() >= recv_status_message_.in_acked_timeslice){
+    	last_acked_round_ = recv_status_message_.in_acked_timeslice;
+    	int diff = abs(std::chrono::duration_cast<std::chrono::microseconds>(
 				sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] - recv_status_message_.in_acked_timestamp)
-				.count();
-    	}else{
-    		wait_time_ = std::chrono::duration_cast<std::chrono::microseconds>(
-    						recv_status_message_.in_acked_timestamp - sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1])
-    						.count();
-    	}
-    	if (wait_time_ > 500) wait_time_ = 501;
-    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_;
+				.count());
+    	wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
+    	wait_time_buffer_[next_wait_time_index_] = diff;
+    	wait_time_buffer_sum -= diff;
+    	next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
+
+    	double avg = wait_time_buffer_sum/wait_time_buffer_.size();
+    	pid_.set_max(avg*2);
+    	wait_time_ = pid_.calculate(avg, diff);
+    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2);
     }
     post_recv_status_message();
 
     if (get_partner_addr() || connection_oriented_) {
-        // L_(info)<< "recv message with abort_ = "<<abort_ << " and cn_wp_ ==
-        // send_status_message_.wp = "<< (cn_wp_ == send_status_message_.wp) <<
-        // " and cn_wp_ == cn_ack_ = "<<(cn_wp_ == cn_ack_) << " and the
-        // cn_wp_.data = "<<cn_wp_.data << " but the cn_ack_.date =
-        // "<<cn_ack_.data;
         if (cn_wp_ == send_status_message_.wp && finalize_) {
             if (cn_wp_ == cn_ack_ || abort_) {
-                // L_(info) << "SEND FINALIZE message with abort_ = "<<abort_;
                 send_status_message_.final = true;
                 send_status_message_.abort = abort_;
             }

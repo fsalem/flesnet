@@ -7,8 +7,10 @@
 #include "ComputeNodeStatusMessage.hpp"
 #include "Connection.hpp"
 #include "InputChannelStatusMessage.hpp"
+#include "pid.h"
 
 #include <sys/uio.h>
+#include <cstdlib>
 
 namespace tl_libfabric
 {
@@ -166,5 +168,18 @@ private:
     std::vector<std::chrono::high_resolution_clock::time_point> sent_timestamps_list_;
 
     uint64_t wait_time_;
+
+    PID pid_;
+
+    const double PID_DT = 0.1;  //
+    const double PID_KP = 0.1;  // the ratio of the error value; affects the height between the target and the peaks
+    const double PID_KD = 0.01; // rate of changing waiting time
+    const double PID_KI = 0.5;  // bring long term precision to both the magnitude and duration of the error
+
+    std::vector<uint64_t> wait_time_buffer_;
+
+    uint64_t wait_time_buffer_sum;
+
+    int next_wait_time_index_;
 };
 }

@@ -139,6 +139,9 @@ private:
 
     uint64_t sent_timeslices_ = 0;
 
+    // the max number of un-acked timeslices from other input nodes
+    const int MAX_OUTSTANDING_TS_ = 5;
+
     std::vector<double> full_buffer;
     double empty_buffer=0.0;
     std::chrono::system_clock::time_point start_block_time;
