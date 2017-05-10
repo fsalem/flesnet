@@ -292,9 +292,9 @@ void InputChannelConnection::on_complete_recv()
                   << recv_status_message_.ack.data;
     }
     cn_ack_ = recv_status_message_.ack;
+    last_acked_round_ = recv_status_message_.in_acked_timeslice;
     // update the wait time based on the last rounds
     if (last_acked_round_ != recv_status_message_.in_acked_timeslice && sent_timestamps_list_.size() >= recv_status_message_.in_acked_timeslice){
-    	last_acked_round_ = recv_status_message_.in_acked_timeslice;
     	int diff = abs(std::chrono::duration_cast<std::chrono::microseconds>(
 				sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] - recv_status_message_.in_acked_timestamp)
 				.count());
