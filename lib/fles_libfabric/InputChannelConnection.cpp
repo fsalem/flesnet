@@ -292,12 +292,13 @@ void InputChannelConnection::on_complete_recv()
                   << recv_status_message_.ack.data;
     }
     cn_ack_ = recv_status_message_.ack;
-    last_acked_round_ = recv_status_message_.in_acked_timeslice;
     // update the wait time based on the last rounds
-    if (last_acked_round_ != recv_status_message_.in_acked_timeslice && sent_timestamps_list_.size() >= recv_status_message_.in_acked_timeslice){
+    if (last_acked_round_ < recv_status_message_.in_acked_timeslice){
+    	last_acked_round_ = recv_status_message_.in_acked_timeslice < sent_timestamps_list_.size() ? recv_status_message_.in_acked_timeslice : sent_timestamps_list_.size();
     	int diff = abs(std::chrono::duration_cast<std::chrono::microseconds>(
-				sent_timestamps_list_[recv_status_message_.in_acked_timeslice-1] - recv_status_message_.in_acked_timestamp)
+				sent_timestamps_list_[last_acked_round_-1] - recv_status_message_.in_acked_timestamp)
 				.count());
+
     	wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
     	wait_time_buffer_[next_wait_time_index_] = diff;
     	wait_time_buffer_sum += diff;
@@ -305,7 +306,7 @@ void InputChannelConnection::on_complete_recv()
 
     	double avg = wait_time_buffer_sum/wait_time_buffer_.size();
     	max_avg = avg > max_avg ? avg : max_avg;
-    	max_max = avg*2 > max_max ? avg*2 : max_max;
+    	max_max = (avg*2) > max_max ? (avg*2) : max_max;
     	pid_.set_max(avg*2);
     	wait_time_ = pid_.calculate(avg, diff);
     	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2);
