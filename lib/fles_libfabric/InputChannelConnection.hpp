@@ -105,6 +105,8 @@ public:
 
     void add_sent_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { sent_timestamps_list_.push_back(timestamp); }
 
+    double max_avg=0,max_max=0;
+
 private:
     /// Post a receive work request (WR) to the receive queue
     void post_recv_status_message();

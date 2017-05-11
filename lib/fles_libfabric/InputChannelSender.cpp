@@ -41,6 +41,8 @@ InputChannelSender::InputChannelSender(
     } else {
         connection_oriented_ = false;
     }
+
+    waiting_times_.resize(max_timeslice_number+1,0);
 }
 
 InputChannelSender::~InputChannelSender()
@@ -172,6 +174,7 @@ void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 			sent_timeslices_++;
 			next_timeslice = timeslice + compute_hostnames_.size();
 			interval = std::chrono::microseconds(conn_[cn]->get_wait_time());
+			waiting_times_[timeslice]=conn_[cn]->get_wait_time();
 		}
 	}
 	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, cn, next_timeslice), std::chrono::high_resolution_clock::now()+interval);
@@ -298,8 +301,8 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
-        //build_time_file();
         summary();
+        build_time_file();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }
@@ -307,7 +310,19 @@ void InputChannelSender::operator()()
 
 void InputChannelSender::build_time_file(){
         std::ofstream myfile;
-        myfile.open (std::to_string(full_buffer.size())+"."+std::to_string(input_index_)+".input_ts.out");
+        myfile.open (std::to_string(input_index_)+".input_ts.out");
+        for (int i=0 ; i<max_timeslice_number_ ; i++){
+        	myfile << input_index_ << "\t" << (i%compute_hostnames_.size()) << "\t" << i << "\t" << waiting_times_[i] << "\n";
+        }
+        myfile.close();
+
+        myfile.open (std::to_string(input_index_)+".input_max_ts.out");
+        for (int i=0 ; i<compute_hostnames_.size() ; i++){
+        	myfile << input_index_ << "\t" << i << "\t" << conn_[i]->max_avg << "\t" << conn_[i]->max_max << "\n";
+        }
+        myfile.close();
+
+        /*
         double agg_t=0.0;
         for (int i=0 ; i<full_buffer.size() ; i++){
                 myfile << input_index_ << "\t" << i << "\t" << full_buffer[i] << "\n";
@@ -321,6 +336,7 @@ void InputChannelSender::build_time_file(){
         myfile << input_index_ << "\t" << empty_buffer << "\t" << agg_t << "\n";
         L_(info) << "Node is blocked due to insuffient data for " << empty_buffer << "ms and due to full compute buffer for " << agg_t << "ms" << " [sum:" <<((empty_buffer+agg_t)/1000.0) << "s]";
         myfile.close();
+        */
 }
 
 bool InputChannelSender::try_send_timeslice(uint64_t timeslice)

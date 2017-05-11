@@ -146,6 +146,7 @@ private:
     double empty_buffer=0.0;
     std::chrono::system_clock::time_point start_block_time;
     bool blocked=0, is_data_unava=0;
+    std::vector<double> waiting_times_;
 
     void build_time_file();
 
