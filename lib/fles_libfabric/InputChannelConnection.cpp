@@ -300,7 +300,7 @@ void InputChannelConnection::on_complete_recv()
 				.count());
     	wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
     	wait_time_buffer_[next_wait_time_index_] = diff;
-    	wait_time_buffer_sum -= diff;
+    	wait_time_buffer_sum += diff;
     	next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
 
     	double avg = wait_time_buffer_sum/wait_time_buffer_.size();
