@@ -254,7 +254,7 @@ void InputChannelSender::operator()()
         auto now = std::chrono::high_resolution_clock::now();
         while (count < compute_hostnames_.size()){
         	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, conn, conn),
-						   now + std::chrono::microseconds(init_wait_time_));
+						   now);//+ std::chrono::microseconds(init_wait_time_)
         	//send_timeslices(conn, init_wait_time_);
         	conn = (conn+1)%compute_hostnames_.size();
         	count++;

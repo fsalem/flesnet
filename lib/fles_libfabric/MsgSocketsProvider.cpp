@@ -136,7 +136,7 @@ void MsgSocketsProvider::connect(fid_ep* ep, uint32_t /*max_send_wr*/,
 	while (count < MAX_CONNECT_RETRY && res){
 		res = fi_connect(ep, addr, param, param_len);
 		if (res) {
-			L_(fatal) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
+			L_(warning) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
 		}
 		count++;
 	}
