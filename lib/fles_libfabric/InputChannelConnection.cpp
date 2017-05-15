@@ -302,7 +302,8 @@ void InputChannelConnection::on_complete_recv()
     	wait_time_buffer_sum += diff;
     	next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
 
-    	double avg = wait_time_buffer_sum/wait_time_buffer_.size();
+    	uint64_t avg = wait_time_buffer_sum/wait_time_buffer_.size();
+    	if (avg*2 > MAX_WAIT_TIME)avg = MAX_WAIT_TIME/2;
     	max_avg = avg > max_avg ? avg : max_avg;
     	max_max = (avg*2) > max_max ? (avg*2) : max_max;
     	pid_.set_max(avg*2);

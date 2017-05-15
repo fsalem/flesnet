@@ -184,6 +184,8 @@ private:
 
     uint64_t wait_time_buffer_sum;
 
+    const uint64_t MAX_WAIT_TIME=1000000;
+
     int next_wait_time_index_;
 };
 }
