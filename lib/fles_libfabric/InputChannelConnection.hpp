@@ -12,6 +12,8 @@
 #include <sys/uio.h>
 #include <cstdlib>
 
+#include <stdlib.h>
+
 namespace tl_libfabric
 {
 /// Input node connection class.
@@ -99,11 +101,11 @@ public:
 
     void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
 
-    const std::vector<std::chrono::high_resolution_clock::time_point>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
+    const std::vector<uint64_t>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
 
-    void add_acked_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { acked_timestamps_list_.push_back(timestamp); }
+    void add_acked_timestamps(uint64_t timestamp) { acked_timestamps_list_.push_back(timestamp); }
 
-    void add_sent_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { sent_timestamps_list_.push_back(timestamp); }
+    void add_sent_timestamps(uint64_t timestamp) { sent_timestamps_list_.push_back(timestamp); }
 
     double max_avg=0,max_max=0;
 
@@ -166,8 +168,8 @@ private:
 
     uint64_t last_acked_round_ = 0;
 
-    std::vector<std::chrono::high_resolution_clock::time_point> acked_timestamps_list_;
-    std::vector<std::chrono::high_resolution_clock::time_point> sent_timestamps_list_;
+    std::vector<uint64_t> acked_timestamps_list_;
+    std::vector<uint64_t> sent_timestamps_list_;
 
     uint64_t wait_time_;
 

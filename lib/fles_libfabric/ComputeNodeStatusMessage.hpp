@@ -23,7 +23,7 @@ struct ComputeNodeStatusMessage {
     // address must be not null if connect = true
     unsigned char my_address[64];
     // last acked timestamp of predecessor of the target input node
-    std::chrono::high_resolution_clock::time_point in_acked_timestamp;
+    uint64_t in_acked_timestamp;
     uint64_t in_acked_timeslice = -1;
 
 };

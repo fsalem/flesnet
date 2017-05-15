@@ -13,12 +13,12 @@ class PID
         // dt -  loop interval time
         // max - maximum value of manipulated variable
         // min - minimum value of manipulated variable
-        PID( double dt, double max, double min, double Kp, double Kd, double Ki );
+        PID( double dt, uint64_t max, uint64_t min, double Kp, double Kd, double Ki );
 
         // Returns the manipulated variable given a setpoint and current process value
-        double calculate( double setpoint, double pv );
+        uint64_t calculate( uint64_t setpoint, uint64_t pv );
 
-        void set_max(double max);
+        void set_max(uint64_t max);
         ~PID();
 
     private:

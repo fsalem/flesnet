@@ -12,32 +12,32 @@ namespace tl_libfabric
 class PIDImpl
 {
     public:
-        PIDImpl( double dt, double max, double min, double Kp, double Kd, double Ki );
+        PIDImpl( double dt, uint64_t max, uint64_t min, double Kp, double Kd, double Ki );
         ~PIDImpl();
-        double calculate( double setpoint, double pv );
-        void set_max(double max){_max=max;}
+        uint64_t calculate( uint64_t setpoint, uint64_t pv );
+        void set_max(uint64_t max){_max=max;}
 
     private:
         double _dt;
-        double _max;
-        double _min;
+        uint64_t _max;
+        uint64_t _min;
         double _Kp;
         double _Kd;
         double _Ki;
-        double _pre_error;
+        uint64_t _pre_error;
         double _integral;
 };
 
 
-PID::PID( double dt, double max, double min, double Kp, double Kd, double Ki )
+PID::PID( double dt, uint64_t max, uint64_t min, double Kp, double Kd, double Ki )
 {
     pimpl = new PIDImpl(dt,max,min,Kp,Kd,Ki);
 }
-double PID::calculate( double setpoint, double pv )
+uint64_t PID::calculate( uint64_t setpoint, uint64_t pv )
 {
     return pimpl->calculate(setpoint,pv);
 }
-void PID::set_max(double max){
+void PID::set_max(uint64_t max){
 	pimpl->set_max(max);
 }
 PID::~PID() 
@@ -49,7 +49,7 @@ PID::~PID()
 /**
  * Implementation
  */
-PIDImpl::PIDImpl( double dt, double max, double min, double Kp, double Kd, double Ki ) :
+PIDImpl::PIDImpl( double dt, uint64_t max, uint64_t min, double Kp, double Kd, double Ki ) :
     _dt(dt),
     _max(max),
     _min(min),
@@ -61,11 +61,11 @@ PIDImpl::PIDImpl( double dt, double max, double min, double Kp, double Kd, doubl
 {
 }
 
-double PIDImpl::calculate( double setpoint, double pv )
+uint64_t PIDImpl::calculate( uint64_t setpoint, uint64_t pv )
 {
     
     // Calculate error
-    double error = setpoint - pv;
+	uint64_t error = setpoint - pv;
 
     // Proportional term
     double Pout = _Kp * error;
@@ -79,7 +79,7 @@ double PIDImpl::calculate( double setpoint, double pv )
     double Dout = _Kd * derivative;
 
     // Calculate total output
-    double output = Pout + Iout + Dout;
+    uint64_t output = Pout + Iout + Dout;
 
     // Restrict to max/min
     if( output > _max )

@@ -295,9 +295,7 @@ void InputChannelConnection::on_complete_recv()
     // update the wait time based on the last rounds
     if (last_acked_round_ < recv_status_message_.in_acked_timeslice){
     	last_acked_round_ = recv_status_message_.in_acked_timeslice < sent_timestamps_list_.size() ? recv_status_message_.in_acked_timeslice : sent_timestamps_list_.size();
-    	int diff = abs(std::chrono::duration_cast<std::chrono::microseconds>(
-				sent_timestamps_list_[last_acked_round_-1] - recv_status_message_.in_acked_timestamp)
-				.count());
+    	int diff = std::llabs(sent_timestamps_list_[last_acked_round_-1] - recv_status_message_.in_acked_timestamp);
 
     	wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
     	wait_time_buffer_[next_wait_time_index_] = diff;
@@ -309,7 +307,7 @@ void InputChannelConnection::on_complete_recv()
     	max_max = (avg*2) > max_max ? (avg*2) : max_max;
     	pid_.set_max(avg*2);
     	wait_time_ = pid_.calculate(avg, diff);
-    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2);
+    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2) << " , max_max = " << max_max ;
     }
     post_recv_status_message();
 

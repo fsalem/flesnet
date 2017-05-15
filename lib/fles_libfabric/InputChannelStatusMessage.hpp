@@ -22,7 +22,7 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
-    std::chrono::high_resolution_clock::time_point in_acked_timestamp;
+    uint64_t in_acked_timestamp;
     uint64_t in_acked_timeslice = -1;
 };
 }

@@ -144,9 +144,9 @@ public:
 
     bool is_connection_finalized();
 
-    std::chrono::high_resolution_clock::time_point get_prev_in_acked_timestamp() {return prev_in_acked_timestamp_;}
+    uint64_t get_prev_in_acked_timestamp() {return prev_in_acked_timestamp_;}
 
-    void set_prev_in_acked_timestamp(std::chrono::high_resolution_clock::time_point prev_in_acked_timestamp) {prev_in_acked_timestamp_ = prev_in_acked_timestamp;}
+    void set_prev_in_acked_timestamp(uint64_t prev_in_acked_timestamp) {prev_in_acked_timestamp_ = prev_in_acked_timestamp;}
 
     uint64_t get_prev_in_acked_timeslice() {return prev_in_acked_timeslice_;}
 
@@ -193,7 +193,7 @@ private:
     fi_addr_t partner_addr_;
 
     // last acked timestamp of Input node #(index_ - 1)
-    std::chrono::high_resolution_clock::time_point prev_in_acked_timestamp_;
+    uint64_t prev_in_acked_timestamp_;
 
     // last acked timeslice of Input node #(index_ - 1)
     uint64_t prev_in_acked_timeslice_ = -1;
