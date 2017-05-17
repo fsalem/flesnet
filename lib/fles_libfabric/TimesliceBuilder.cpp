@@ -491,10 +491,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
-        if (conn_[in]->recv_status_message().in_acked_timeslice >= 0) {
-        	conn_[(in+1)%num_input_nodes_]->set_prev_in_acked_timestamp(conn_[in]->recv_status_message().in_acked_timestamp);
-        	conn_[(in+1)%num_input_nodes_]->set_prev_in_acked_timeslice(conn_[in]->recv_status_message().in_acked_timeslice);
-    	}
         //add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
@@ -508,6 +504,8 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);
 
             double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
+            int last_completed_ts_size = completed_ts.size();
+
             for (uint64_t tpos = completely_written_;
                  tpos < new_completely_written; ++tpos) {
                 if (!drop_) {
@@ -525,6 +523,12 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                 }
                 completed_ts.push_back(time);
             }
+
+            if (completed_ts.size() != last_completed_ts_size){
+				for (auto& conn:conn_)
+					conn->set_prev_in_acked_timeslice(completed_ts.size());
+            }
+
 
             completely_written_ = new_completely_written;
         }

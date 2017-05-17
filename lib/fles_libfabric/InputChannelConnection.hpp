@@ -10,9 +10,6 @@
 #include "pid.h"
 
 #include <sys/uio.h>
-#include <cstdlib>
-
-#include <stdlib.h>
 
 namespace tl_libfabric
 {
@@ -101,13 +98,14 @@ public:
 
     void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
 
-    const std::vector<uint64_t>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
+    const std::vector<std::chrono::high_resolution_clock::time_point>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
+    const std::vector<double>& get_spent_times_list() const { return spent_times_; }
 
-    void add_acked_timestamps(uint64_t timestamp) { acked_timestamps_list_.push_back(timestamp); }
+    void add_acked_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { acked_timestamps_list_.push_back(timestamp); }
 
-    void add_sent_timestamps(uint64_t timestamp) { sent_timestamps_list_.push_back(timestamp); }
+    void add_sent_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { sent_timestamps_list_.push_back(timestamp); }
 
-    uint64_t max_avg=0,max_max=0;
+    int64_t max_avg=0,max_max=0;
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -168,8 +166,8 @@ private:
 
     uint64_t last_acked_round_ = 0;
 
-    std::vector<uint64_t> acked_timestamps_list_;
-    std::vector<uint64_t> sent_timestamps_list_;
+    std::vector<std::chrono::high_resolution_clock::time_point> acked_timestamps_list_;
+    std::vector<std::chrono::high_resolution_clock::time_point> sent_timestamps_list_;
 
     uint64_t wait_time_;
 
@@ -177,15 +175,18 @@ private:
 
     const double PID_DT = 0.1;  //
     const double PID_KP = 0.1;  // the ratio of the error value; affects the height between the target and the peaks
-    const double PID_KD = 0.01; // rate of changing waiting time
-    const double PID_KI = 0.5;  // bring long term precision to both the magnitude and duration of the error
+    const double PID_KD = 0.5; // rate of changing waiting time
+    const double PID_KI = 0.001;  // bring long term precision to both the magnitude and duration of the error
 
     std::vector<uint64_t> wait_time_buffer_;
 
+    std::vector<double> spent_times_;
+
     uint64_t wait_time_buffer_sum;
 
-    const uint64_t MAX_WAIT_TIME=1000000;
-
     int next_wait_time_index_;
+
+    const int64_t PID_SET_POINT=0;
+
 };
 }

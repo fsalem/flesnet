@@ -144,10 +144,6 @@ public:
 
     bool is_connection_finalized();
 
-    uint64_t get_prev_in_acked_timestamp() {return prev_in_acked_timestamp_;}
-
-    void set_prev_in_acked_timestamp(uint64_t prev_in_acked_timestamp) {prev_in_acked_timestamp_ = prev_in_acked_timestamp;}
-
     uint64_t get_prev_in_acked_timeslice() {return prev_in_acked_timeslice_;}
 
     void set_prev_in_acked_timeslice(uint64_t prev_in_acked_timeslice) {prev_in_acked_timeslice_ = prev_in_acked_timeslice;}
@@ -191,9 +187,6 @@ private:
     uint32_t pending_send_requests_{0};
 
     fi_addr_t partner_addr_;
-
-    // last acked timestamp of Input node #(index_ - 1)
-    uint64_t prev_in_acked_timestamp_;
 
     // last acked timeslice of Input node #(index_ - 1)
     uint64_t prev_in_acked_timeslice_ = -1;

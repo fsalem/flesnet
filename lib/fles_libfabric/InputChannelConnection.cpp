@@ -293,22 +293,25 @@ void InputChannelConnection::on_complete_recv()
     }
     cn_ack_ = recv_status_message_.ack;
     // update the wait time based on the last rounds
-    if (last_acked_round_ < recv_status_message_.in_acked_timeslice){
-    	last_acked_round_ = recv_status_message_.in_acked_timeslice < sent_timestamps_list_.size() ? recv_status_message_.in_acked_timeslice : sent_timestamps_list_.size();
-    	int diff = std::llabs(sent_timestamps_list_[last_acked_round_-1] - recv_status_message_.in_acked_timestamp);
+    if (last_acked_round_ < recv_status_message_.in_acked_timeslice && acked_timestamps_list_.size() > 0){
+    	last_acked_round_ = recv_status_message_.in_acked_timeslice < acked_timestamps_list_.size() ? recv_status_message_.in_acked_timeslice : acked_timestamps_list_.size();
+    	uint64_t diff = std::chrono::duration_cast<std::chrono::microseconds>(
+    			std::chrono::high_resolution_clock::now() - acked_timestamps_list_[last_acked_round_-1])
+				.count();
+    	for (int i=spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++)
+    		spent_times_.push_back((diff*1.0)/(1000.0));
 
     	wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
     	wait_time_buffer_[next_wait_time_index_] = diff;
     	wait_time_buffer_sum += diff;
     	next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
 
-    	uint64_t avg = wait_time_buffer_sum/wait_time_buffer_.size();
-    	if (avg*2 > MAX_WAIT_TIME)avg = MAX_WAIT_TIME/2;
+    	double avg = wait_time_buffer_sum/wait_time_buffer_.size();
     	max_avg = avg > max_avg ? avg : max_avg;
-    	max_max = (avg*2) > max_max ? (avg*2) : max_max;
-    	pid_.set_max(avg*2);
-    	wait_time_ = pid_.calculate(avg, diff);
-    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2) << " , max_max = " << max_max ;
+    	max_max = (avg/2) > max_max ? (avg/2) : max_max;
+    	pid_.set_max(avg/2);
+    	wait_time_ = pid_.calculate(PID_SET_POINT, diff);
+    	//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2);
     }
     post_recv_status_message();
 
@@ -464,10 +467,6 @@ void InputChannelConnection::post_send_status_message()
                   << "POST SEND status message (wp.data="
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
-    }
-    if (acked_timestamps_list_.size() > 0){
-		send_status_message_.in_acked_timeslice = acked_timestamps_list_.size();
-		send_status_message_.in_acked_timestamp = acked_timestamps_list_[acked_timestamps_list_.size()-1];
     }
     post_send_msg(&send_wr);
 }

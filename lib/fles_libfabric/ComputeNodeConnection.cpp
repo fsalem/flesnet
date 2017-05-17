@@ -259,7 +259,6 @@ void ComputeNodeConnection::on_complete_recv()
     post_recv_status_message();
     send_status_message_.ack = cn_ack_;
     send_status_message_.in_acked_timeslice = prev_in_acked_timeslice_;
-    send_status_message_.in_acked_timestamp = prev_in_acked_timestamp_;
     post_send_status_message();
 }
 

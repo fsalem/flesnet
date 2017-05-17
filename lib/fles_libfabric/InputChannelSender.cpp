@@ -170,11 +170,12 @@ void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 	if ((sent_timeslices == 0 || sent_timeslices == conn_[cn]->get_acked_timestamps_list().size()) && sent_timeslices <= conn_[cn]->get_last_acked_round()+MAX_OUTSTANDING_TS_){
 		if (try_send_timeslice(timeslice)) {
 			conn_[cn]->set_last_sent_timeslice(timeslice);
-			conn_[cn]->add_sent_timestamps(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+			conn_[cn]->add_sent_timestamps(std::chrono::high_resolution_clock::now());
 			sent_timeslices_++;
 			next_timeslice = timeslice + compute_hostnames_.size();
 			interval = std::chrono::microseconds(conn_[cn]->get_wait_time());
 			waiting_times_[timeslice]=conn_[cn]->get_wait_time();
+			//L_(info) << "[" << input_index_ << "] cn = " << cn << " ,timeslice = " << timeslice << " , waiting_time = " << conn_[cn]->get_wait_time();
 		}
 	}
 	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, cn, next_timeslice), std::chrono::high_resolution_clock::now()+interval);
@@ -312,7 +313,7 @@ void InputChannelSender::build_time_file(){
         std::ofstream myfile;
         myfile.open (std::to_string(input_index_)+".input_ts.out");
         for (int i=0 ; i<max_timeslice_number_ ; i++){
-        	myfile << input_index_ << "\t" << (i%compute_hostnames_.size()) << "\t" << i << "\t" << waiting_times_[i] << "\n";
+        	myfile << input_index_ << "\t" << (i%compute_hostnames_.size()) << "\t" << i << "\t" << (waiting_times_[i]/1000.0) << "\t" << conn_[(i%compute_hostnames_.size())]->get_spent_times_list()[(int)(i/compute_hostnames_.size())] << "\n";
         }
         myfile.close();
 
@@ -631,7 +632,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        conn_[cn]->add_acked_timestamps(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+        conn_[cn]->add_acked_timestamps(std::chrono::high_resolution_clock::now());
 
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
