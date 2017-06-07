@@ -167,10 +167,11 @@ void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 
 	//if ((sent_timeslices != 0 && sent_timeslices != conn_[cn]->get_acked_timestamps_list().size()) || sent_timeslices > conn_[cn]->get_last_acked_round()+5) {
 	// check whether last sent timeslice is acked
-	if ((sent_timeslices == 0 || sent_timeslices == conn_[cn]->get_acked_timestamps_list().size()) && sent_timeslices <= conn_[cn]->get_last_acked_round()+MAX_OUTSTANDING_TS_){
+	if ((sent_timeslices == 0 || sent_timeslices == conn_[cn]->get_acked_time_list().size()) && sent_timeslices <= conn_[cn]->get_last_acked_round()+MAX_OUTSTANDING_TS_){
 		if (try_send_timeslice(timeslice)) {
 			conn_[cn]->set_last_sent_timeslice(timeslice);
-			conn_[cn]->add_sent_timestamps(std::chrono::high_resolution_clock::now());
+			conn_[cn]->add_sent_time(std::chrono::duration_cast<std::chrono::microseconds>(
+					std::chrono::high_resolution_clock::now() - time_begin_).count());
 			sent_timeslices_++;
 			next_timeslice = timeslice + compute_hostnames_.size();
 			interval = std::chrono::microseconds(conn_[cn]->get_wait_time());
@@ -632,7 +633,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        conn_[cn]->add_acked_timestamps(std::chrono::high_resolution_clock::now());
+        conn_[cn]->add_acked_time(std::chrono::duration_cast<std::chrono::microseconds>(
+				std::chrono::high_resolution_clock::now() - time_begin_).count());
 
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;

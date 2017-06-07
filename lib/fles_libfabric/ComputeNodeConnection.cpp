@@ -258,7 +258,26 @@ void ComputeNodeConnection::on_complete_recv()
     cn_wp_ = recv_status_message_.wp;
     post_recv_status_message();
     send_status_message_.ack = cn_ack_;
-    send_status_message_.in_acked_timeslice = prev_in_acked_timeslice_;
+
+    if (recv_status_message_.in_acked_timeslice != -1){
+		std::map<uint64_t,uint64_t>::iterator predecessor_value = predecessor_node_info_.lower_bound(recv_status_message_.in_acked_timeslice);
+		if (predecessor_value == predecessor_node_info_.end()){
+			if (predecessor_node_info_.size() > 0) --predecessor_value;
+		}else{
+			if (predecessor_value->first > recv_status_message_.in_acked_timeslice){
+				if (predecessor_value == predecessor_node_info_.begin()) predecessor_value = predecessor_node_info_.end();
+				else --predecessor_value;
+			}
+		}
+
+		if (predecessor_value != predecessor_node_info_.end()){
+			//L_(info) << "[" << index_ << "][" << remote_index_ << "], in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", predecessor = " << predecessor_value->first;
+			send_status_message_.in_acked_timeslice = predecessor_value->first;
+			send_status_message_.in_acked_time = predecessor_value->second;
+			predecessor_node_info_.erase(predecessor_node_info_.begin(), (++predecessor_value));
+		}
+    }
+
     post_send_status_message();
 }
 

@@ -9,7 +9,7 @@
 #include "InputNodeInfo.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 #include <boost/format.hpp>
-#include <chrono>
+#include <map>
 
 #include <sys/uio.h>
 
@@ -144,9 +144,11 @@ public:
 
     bool is_connection_finalized();
 
-    uint64_t get_prev_in_acked_timeslice() {return prev_in_acked_timeslice_;}
-
-    void set_prev_in_acked_timeslice(uint64_t prev_in_acked_timeslice) {prev_in_acked_timeslice_ = prev_in_acked_timeslice;}
+    void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
+    	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
+    		predecessor_node_info_.insert(std::make_pair(timeslice,time));
+    	}
+    }
 
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
@@ -188,7 +190,7 @@ private:
 
     fi_addr_t partner_addr_;
 
-    // last acked timeslice of Input node #(index_ - 1)
-    uint64_t prev_in_acked_timeslice_ = -1;
+    // last acked time and ts of Input node #(index_ - 1)
+    std::map<uint64_t,uint64_t> predecessor_node_info_;
 };
 }

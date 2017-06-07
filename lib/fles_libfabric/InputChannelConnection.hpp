@@ -98,12 +98,12 @@ public:
 
     void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
 
-    const std::vector<std::chrono::high_resolution_clock::time_point>& get_acked_timestamps_list() const { return acked_timestamps_list_; }
+    const std::vector<uint64_t>& get_acked_time_list() const { return acked_time_list_; }
     const std::vector<double>& get_spent_times_list() const { return spent_times_; }
 
-    void add_acked_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { acked_timestamps_list_.push_back(timestamp); }
+    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time); }
 
-    void add_sent_timestamps(std::chrono::high_resolution_clock::time_point timestamp) { sent_timestamps_list_.push_back(timestamp); }
+    void add_sent_time(uint64_t time) { sent_time_list_.push_back(time); }
 
     int64_t max_avg=0,max_max=0;
 
@@ -166,16 +166,16 @@ private:
 
     uint64_t last_acked_round_ = 0;
 
-    std::vector<std::chrono::high_resolution_clock::time_point> acked_timestamps_list_;
-    std::vector<std::chrono::high_resolution_clock::time_point> sent_timestamps_list_;
+    std::vector<uint64_t> acked_time_list_;
+    std::vector<uint64_t> sent_time_list_;
 
-    uint64_t wait_time_;
+    uint64_t wait_time_ = 500;
 
     PID pid_;
 
-    const double PID_DT = 0.1;  //
-    const double PID_KP = 0.1;  // the ratio of the error value; affects the height between the target and the peaks
-    const double PID_KD = 0.5; // rate of changing waiting time
+    const double PID_DT = 0.001;  //
+    const double PID_KP = 0.001;  // the ratio of the error value; affects the height between the target and the peaks
+    const double PID_KD = 0.9; // rate of changing waiting time
     const double PID_KI = 0.001;  // bring long term precision to both the magnitude and duration of the error
 
     std::vector<uint64_t> wait_time_buffer_;
