@@ -156,7 +156,7 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 {
-	if (timeslice > max_timeslice_number_){
+	if ((timeslice > max_timeslice_number_) || (conn_[cn]->get_last_sent_timeslice() != -1 && conn_[cn]->get_last_sent_timeslice() >=timeslice)){
 			return;
 	}
 
@@ -669,6 +669,17 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS: {
         int cn = wr_id >> 8;
+
+        uint64_t last_sent_timeslice = conn_[cn]->get_last_sent_timeslice();
+        uint32_t sent_count = conn_[cn]->get_sent_time_size();
+        while (last_sent_timeslice != -1 && conn_[cn]->get_recv_status_message().in_acked_timeslice > sent_count){
+        	send_timeslice(cn, last_sent_timeslice +compute_hostnames_.size());
+        	//L_(info) << "[" << cn << "] sent size = " << conn_[cn]->get_acked_time_list().size() << ", acked size = " << conn_[cn]->get_acked_time_list().size() << ", trying to send ts#" << last_sent_timeslice +compute_hostnames_.size() << ", new count = " << conn_[cn]->get_sent_time_size() << ", remote = " << conn_[cn]->get_recv_status_message().in_acked_timeslice;
+        	if (last_sent_timeslice == conn_[cn]->get_last_sent_timeslice())break;
+        	last_sent_timeslice = conn_[cn]->get_last_sent_timeslice();
+        	sent_count = conn_[cn]->get_sent_time_size();
+        }
+
         conn_[cn]->on_complete_recv();
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);

@@ -105,6 +105,10 @@ public:
 
     void add_sent_time(uint64_t time) { sent_time_list_.push_back(time); }
 
+    uint32_t get_sent_time_size() { return sent_time_list_.size(); }
+
+    const ComputeNodeStatusMessage& get_recv_status_message() const { return recv_status_message_; }
+
     int64_t max_avg=0,max_max=0;
 
 private:

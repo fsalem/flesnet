@@ -295,7 +295,7 @@ void InputChannelConnection::on_complete_recv()
     // update the wait time based on the last rounds
 	//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_;
 	if (recv_status_message_.in_acked_timeslice != -1 && last_acked_round_ < recv_status_message_.in_acked_timeslice && sent_time_list_.size() > 0) {
-		last_acked_round_ = recv_status_message_.in_acked_timeslice;
+		last_acked_round_ = recv_status_message_.in_acked_timeslice <=  sent_time_list_.size() ? recv_status_message_.in_acked_timeslice : sent_time_list_.size();
 
 		/*wait_time_ = std::llabs(
 				sent_time_list_[last_acked_round_ - 1]
@@ -309,7 +309,7 @@ void InputChannelConnection::on_complete_recv()
 		 for (int i=spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++)
 		 spent_times_.push_back((diff*1.0)/(1000.0));
 
-		 wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
+		 /*wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
 		 wait_time_buffer_[next_wait_time_index_] = diff;
 		 wait_time_buffer_sum += diff;
 		 next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
@@ -318,10 +318,12 @@ void InputChannelConnection::on_complete_recv()
 		 max_avg = avg > max_avg ? avg : max_avg;
 		 max_max = (avg*2) > max_max ? (avg*2) : max_max;
 		 pid_.set_max(avg*2);
-		 wait_time_ = pid_.calculate(PID_SET_POINT, diff);
+		 wait_time_ = pid_.calculate(PID_SET_POINT, diff);*/
 
-		//wait_time_ = 10;
-		//L_(info) << "[" << index_ << "]wait_time_ = " << wait_time_ << " , max = " << (avg*2);
+		wait_time_ = diff - (diff*0.99);
+		 //wait_time_ = 0;
+
+		//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_ << ", sent_time = " << sent_time_list_[last_acked_round_-1] << ", remote_time = " << recv_status_message_.in_acked_time;
 	}
     post_recv_status_message();
 

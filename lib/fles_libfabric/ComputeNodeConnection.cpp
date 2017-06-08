@@ -259,7 +259,7 @@ void ComputeNodeConnection::on_complete_recv()
     post_recv_status_message();
     send_status_message_.ack = cn_ack_;
 
-    if (recv_status_message_.in_acked_timeslice != -1){
+    /*if (recv_status_message_.in_acked_timeslice != -1){
 		std::map<uint64_t,uint64_t>::iterator predecessor_value = predecessor_node_info_.lower_bound(recv_status_message_.in_acked_timeslice);
 		if (predecessor_value == predecessor_node_info_.end()){
 			if (predecessor_node_info_.size() > 0) --predecessor_value;
@@ -276,6 +276,11 @@ void ComputeNodeConnection::on_complete_recv()
 			send_status_message_.in_acked_time = predecessor_value->second;
 			predecessor_node_info_.erase(predecessor_node_info_.begin(), (++predecessor_value));
 		}
+    }*/
+    if (predecessor_node_info_.size() > 0){
+		send_status_message_.in_acked_timeslice = (--predecessor_node_info_.end())->first;
+		send_status_message_.in_acked_time = (--predecessor_node_info_.end())->second;
+		predecessor_node_info_.erase(predecessor_node_info_.begin(), predecessor_node_info_.end());
     }
 
     post_send_status_message();
