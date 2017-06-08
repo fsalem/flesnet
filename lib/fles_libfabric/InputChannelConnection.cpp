@@ -480,10 +480,10 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
-    if (sent_time_list_.size() > 0) {
-		send_status_message_.in_acked_timeslice = sent_time_list_.size();
+    if (acked_time_list_.size() > 0) {
+		send_status_message_.in_acked_timeslice = acked_time_list_.size();
 		send_status_message_.in_acked_time =
-				sent_time_list_[sent_time_list_.size() - 1];
+				acked_time_list_[acked_time_list_.size() - 1];
 	}
     post_send_msg(&send_wr);
 }
