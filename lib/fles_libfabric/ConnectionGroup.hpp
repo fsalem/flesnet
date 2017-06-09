@@ -207,6 +207,7 @@ public:
         L_(info) << "summary: " << human_readable_count(aggregate_bytes_sent_)
                  << " sent in " << runtime / 1000000. << " s (" << rate
                  << " MB/s)";
+        L_(info) << "summary: Agg. bytes of sync messages " << human_readable_count(aggregate_sync_bytes_sent_);
     }
 
     /// The "main" function of an ConnectionGroup decendant.
@@ -239,11 +240,13 @@ protected:
         if (conn_indx == -1) {
             CONNECTION* conn = static_cast<CONNECTION*>(event->fid->context);
             aggregate_bytes_sent_ += conn->total_bytes_sent();
+            aggregate_sync_bytes_sent_ += conn->total_sync_bytes_sent();
             aggregate_send_requests_ += conn->total_send_requests();
             aggregate_recv_requests_ += conn->total_recv_requests();
             conn->on_disconnected(event);
         } else {
             aggregate_bytes_sent_ += conn_[conn_indx]->total_bytes_sent();
+            aggregate_sync_bytes_sent_ += conn_[conn_indx]->total_sync_bytes_sent();
             aggregate_send_requests_ += conn_[conn_indx]->total_send_requests();
             aggregate_recv_requests_ += conn_[conn_indx]->total_recv_requests();
             conn_[conn_indx]->on_disconnected(event);
@@ -371,6 +374,8 @@ private:
     /// Total number of bytes transmitted.
     uint64_t aggregate_bytes_sent_ = 0;
 
+    /// Total number of bytes transmitted.
+    uint64_t aggregate_sync_bytes_sent_ = 0;
     /// Total number of SEND work requests.
     uint64_t aggregate_send_requests_ = 0;
 

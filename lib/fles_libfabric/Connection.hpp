@@ -92,6 +92,9 @@ public:
     /// Retrieve the total number of bytes transmitted.
     uint64_t total_bytes_sent() const { return total_bytes_sent_; }
 
+    /// Retrieve the total number of syn msgs bytes transmitted.
+    uint64_t total_sync_bytes_sent() const { return total_sync_bytes_sent_; }
+
     /// Retrieve the total number of SEND work requests.
     uint64_t total_send_requests() const { return total_send_requests_; }
 
@@ -153,6 +156,9 @@ private:
 
     /// Total number of bytes transmitted.
     uint64_t total_bytes_sent_ = 0;
+
+    /// Total number of sync messages bytes transmitted.
+    uint64_t total_sync_bytes_sent_ = 0;
 
     /// Total number of SEND work requests.
     uint64_t total_send_requests_ = 0;

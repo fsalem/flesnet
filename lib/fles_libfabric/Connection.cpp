@@ -308,8 +308,10 @@ void Connection::post_send_msg(struct fi_msg* wr)
 
     ++total_send_requests_;
 
-    for (size_t i = 0; i < wr->iov_count; ++i)
+    for (size_t i = 0; i < wr->iov_count; ++i){
         total_bytes_sent_ += wr->msg_iov[i].iov_len;
+        total_sync_bytes_sent_ += wr->msg_iov[i].iov_len;
+    }
 }
 
 /// Post an Libfabric rdma send work request
