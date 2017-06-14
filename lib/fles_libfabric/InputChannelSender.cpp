@@ -127,17 +127,6 @@ void InputChannelSender::report_status()
                    now + interval);
 }
 
-void InputChannelSender::sync_buffer_positions()
-{
-    for (auto& c : conn_) {
-        c->try_sync_buffer_positions();
-    }
-
-    auto now = std::chrono::system_clock::now();
-    scheduler_.add(std::bind(&InputChannelSender::sync_buffer_positions, this),
-                   now + std::chrono::milliseconds(0));
-}
-
 void InputChannelSender::sync_data_source(bool schedule)
 {
     if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
@@ -156,7 +145,7 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
 {
-	if ((timeslice > max_timeslice_number_) || (conn_[cn]->get_last_sent_timeslice() != -1 && conn_[cn]->get_last_sent_timeslice() >=timeslice)){
+	if ((timeslice >= max_timeslice_number_) || (conn_[cn]->get_last_sent_timeslice() != -1 && conn_[cn]->get_last_sent_timeslice() >=timeslice)){
 			return;
 	}
 

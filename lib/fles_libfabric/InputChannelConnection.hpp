@@ -46,8 +46,6 @@ public:
     // Get number of bytes to skip in advance (to avoid buffer wrap)
     uint64_t skip_required(uint64_t data_size);
 
-    bool try_sync_buffer_positions();
-
     void finalize(bool abort);
 
     bool request_abort_flag() { return recv_status_message_.request_abort; }
@@ -59,6 +57,8 @@ public:
 
     virtual void setup_mr(struct fid_domain* pd) override;
     virtual void setup() override;
+
+    virtual bool try_sync_buffer_positions() override;
 
     /// Connection handler function, called on successful connection.
     /**
@@ -101,7 +101,7 @@ public:
     const std::vector<uint64_t>& get_acked_time_list() const { return acked_time_list_; }
     const std::vector<double>& get_spent_times_list() const { return spent_times_; }
 
-    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time); }
+    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time); data_acked_ = true;}
 
     void add_sent_time(uint64_t time) { sent_time_list_.push_back(time); }
 

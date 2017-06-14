@@ -137,7 +137,7 @@ public:
     /// The Libfabric completion notification handler.
     int poll_completion()
     {
-        const int ne_max = 10;
+        const int ne_max = 1;
 
         struct fi_cq_entry wc[ne_max];
         int ne;
@@ -303,6 +303,17 @@ protected:
             Provider::getInst()->set_hostnames_and_services(
                 av_, compute_hostnames, compute_services, fi_addrs);
         }
+    }
+
+    void sync_buffer_positions()
+    {
+        for (auto& c : conn_) {
+            c->try_sync_buffer_positions();
+        }
+
+        auto now = std::chrono::system_clock::now();
+        scheduler_.add(std::bind(&ConnectionGroup::sync_buffer_positions, this),
+                       now + std::chrono::milliseconds(0));
     }
 
     const uint32_t num_cqe_ = 1000000;

@@ -45,6 +45,7 @@ InputChannelConnection::InputChannelConnection(
     wait_time_buffer_.resize(100,0);
     next_wait_time_index_ = 0;
     wait_time_buffer_sum = 0;
+    data_changed_ = true; // to send empty message at the beginning
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -236,14 +237,26 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 {
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
+    data_changed_ = true;
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
-    if (our_turn_) {
-        our_turn_ = false;
-        send_status_message_.wp = cn_wp_;
+    if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
+		if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
+			send_status_message_.final = true;
+			send_status_message_.abort = abort_;
+			data_changed_ = true;
+		}
+    }
+
+    if ((data_acked_ || data_changed_) && acked_time_list_.size() == sent_time_list_.size()) { //
+    	if (data_changed_)
+    	{
+        	send_status_message_.wp = cn_wp_;
+    	}
         post_send_status_message();
+
         return true;
     } else {
         return false;
@@ -264,16 +277,7 @@ void InputChannelConnection::finalize(bool abort)
 {
     finalize_ = true;
     abort_ = abort;
-    if (our_turn_) {
-        our_turn_ = false;
-        if (cn_wp_ == cn_ack_ || abort_) {
-            send_status_message_.final = true;
-            send_status_message_.abort = abort_;
-        } else {
-            send_status_message_.wp = cn_wp_;
-        }
-        post_send_status_message();
-    }
+    data_changed_ = true;
 }
 
 void InputChannelConnection::on_complete_write() { pending_write_requests_--; }
@@ -291,7 +295,10 @@ void InputChannelConnection::on_complete_recv()
                   << "receive completion, new cn_ack_.data="
                   << recv_status_message_.ack.data;
     }
-    cn_ack_ = recv_status_message_.ack;
+    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc)
+    {
+    	cn_ack_ = recv_status_message_.ack;
+    }
     // update the wait time based on the last rounds
 	//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_;
 	if (recv_status_message_.in_acked_timeslice != -1 && last_acked_round_ < recv_status_message_.in_acked_timeslice && sent_time_list_.size() > 0) {
@@ -326,18 +333,6 @@ void InputChannelConnection::on_complete_recv()
 		//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_ << ", sent_time = " << sent_time_list_[last_acked_round_-1] << ", remote_time = " << recv_status_message_.in_acked_time;
 	}
     post_recv_status_message();
-
-    if (get_partner_addr() || connection_oriented_) {
-        if (cn_wp_ == send_status_message_.wp && finalize_) {
-            if (cn_wp_ == cn_ack_ || abort_) {
-                send_status_message_.final = true;
-                send_status_message_.abort = abort_;
-            }
-            post_send_status_message();
-        } else {
-            our_turn_ = true;
-        }
-    }
 }
 
 void InputChannelConnection::setup_mr(struct fid_domain* pd)
@@ -480,11 +475,13 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
-    if (acked_time_list_.size() > 0) {
+    if (data_acked_ && acked_time_list_.size() > 0) {
 		send_status_message_.in_acked_timeslice = acked_time_list_.size();
 		send_status_message_.in_acked_time =
 				acked_time_list_[acked_time_list_.size() - 1];
 	}
+    data_changed_ = false;
+    data_acked_ = false;
     post_send_msg(&send_wr);
 }
 

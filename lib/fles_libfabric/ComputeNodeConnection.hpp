@@ -58,6 +58,8 @@ public:
 
     virtual void setup_mr(struct fid_domain* pd) override;
 
+    virtual bool try_sync_buffer_positions() override;
+
     /// Connection handler function, called on successful connection.
     /**
      \param event RDMA connection manager event structure
@@ -147,6 +149,7 @@ public:
     void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
     	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
     		predecessor_node_info_.insert(std::make_pair(timeslice,time));
+    		data_acked_ = true;
     	}
     }
 

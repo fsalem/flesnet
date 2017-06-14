@@ -89,6 +89,8 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
+    data_acked_ = false;
+    data_changed_ = false;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
@@ -239,6 +241,25 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
         desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
 
     cn_ack_.data = acked_ts.offset + acked_ts.size;
+
+    data_changed_ = true;
+}
+
+bool ComputeNodeConnection::try_sync_buffer_positions()
+{
+    if ((data_acked_ || data_changed_) && !send_status_message_.final) {
+        send_status_message_.ack = cn_ack_;
+        if (predecessor_node_info_.size() > 0 && data_acked_){
+        		send_status_message_.in_acked_timeslice = (--predecessor_node_info_.end())->first;
+        		send_status_message_.in_acked_time = (--predecessor_node_info_.end())->second;
+        		predecessor_node_info_.erase(predecessor_node_info_.begin(), predecessor_node_info_.end());
+        }
+
+        post_send_status_message();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void ComputeNodeConnection::on_complete_recv()
@@ -255,35 +276,10 @@ void ComputeNodeConnection::on_complete_recv()
                   << "COMPLETE RECEIVE status message"
                   << " (wp.desc=" << recv_status_message_.wp.desc << ")";
     }
-    cn_wp_ = recv_status_message_.wp;
+    // to handle receiving sync messages out of sent order!
+    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc)
+    	cn_wp_ = recv_status_message_.wp;
     post_recv_status_message();
-    send_status_message_.ack = cn_ack_;
-
-    /*if (recv_status_message_.in_acked_timeslice != -1){
-		std::map<uint64_t,uint64_t>::iterator predecessor_value = predecessor_node_info_.lower_bound(recv_status_message_.in_acked_timeslice);
-		if (predecessor_value == predecessor_node_info_.end()){
-			if (predecessor_node_info_.size() > 0) --predecessor_value;
-		}else{
-			if (predecessor_value->first > recv_status_message_.in_acked_timeslice){
-				if (predecessor_value == predecessor_node_info_.begin()) predecessor_value = predecessor_node_info_.end();
-				else --predecessor_value;
-			}
-		}
-
-		if (predecessor_value != predecessor_node_info_.end()){
-			//L_(info) << "[" << index_ << "][" << remote_index_ << "], in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", predecessor = " << predecessor_value->first;
-			send_status_message_.in_acked_timeslice = predecessor_value->first;
-			send_status_message_.in_acked_time = predecessor_value->second;
-			predecessor_node_info_.erase(predecessor_node_info_.begin(), (++predecessor_value));
-		}
-    }*/
-    if (predecessor_node_info_.size() > 0){
-		send_status_message_.in_acked_timeslice = (--predecessor_node_info_.end())->first;
-		send_status_message_.in_acked_time = (--predecessor_node_info_.end())->second;
-		predecessor_node_info_.erase(predecessor_node_info_.begin(), predecessor_node_info_.end());
-    }
-
-    post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }

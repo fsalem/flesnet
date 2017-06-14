@@ -338,6 +338,7 @@ void TimesliceBuilder::operator()()
 		//assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
+        sync_buffer_positions();
         report_status();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
