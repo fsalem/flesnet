@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ConstVariables.hpp"
 #include "ConnectionGroupWorker.hpp"
 #include "LibfabricException.hpp"
 #include "Provider.hpp"

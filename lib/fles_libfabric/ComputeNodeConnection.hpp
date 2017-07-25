@@ -149,7 +149,14 @@ public:
     void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
     	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
     		predecessor_node_info_.insert(std::make_pair(timeslice,time));
-    		data_acked_ = true;
+    		update_max_timeslice_info(timeslice, true);
+    	}
+    }
+
+    void add_successor_node_info(uint64_t timeslice, uint64_t time) {
+    	if (successor_node_info_.find(timeslice) == successor_node_info_.end()){
+    		successor_node_info_.insert(std::make_pair(timeslice,time));
+    		update_max_timeslice_info(timeslice, false);
     	}
     }
 
@@ -195,5 +202,28 @@ private:
 
     // last acked time and ts of Input node #(index_ - 1)
     std::map<uint64_t,uint64_t> predecessor_node_info_;
+    std::map<uint64_t,uint64_t> successor_node_info_;
+    // max timeslice info from the predecessor and successor {timeslice number, {predecessor timestamp, successor timestamp}}
+    std::pair<uint64_t,std::pair<uint64_t,uint64_t>> max_timeslice_info_;
+
+    void update_max_timeslice_info(uint64_t timeslice, bool predecessor_node) {
+
+    	std::map<uint64_t,uint64_t>::iterator predecessor_iterator = predecessor_node_info_.find(timeslice),
+    	    			successor_iterator = successor_node_info_.find(timeslice);
+
+    	if (((predecessor_node && successor_iterator != successor_node_info_.end()) || (!predecessor_node && predecessor_iterator != predecessor_node_info_.end()))
+    			&& (max_timeslice_info_.first == MINUS_ONE || max_timeslice_info_.first < timeslice)) {
+
+    		max_timeslice_info_.first = timeslice;
+			max_timeslice_info_.second.first = predecessor_iterator->second;
+			max_timeslice_info_.second.second = successor_iterator->second;
+
+			predecessor_node_info_.erase(predecessor_node_info_.begin(), ++predecessor_iterator);
+			successor_node_info_.erase(successor_node_info_.begin(), ++successor_iterator);
+
+			data_acked_ = true;
+		}
+    }
+
 };
 }

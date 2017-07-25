@@ -377,10 +377,10 @@ void TimesliceBuilder::build_time_file(){
         //      myfile << "Sent#" << i << "\tArrival#" << i << "\t";
         //myfile << "COMPLETION\n";
         double min_arrival;
-        for (int i=0 ; i<arrivals_ts.size() ; i++){
+        for (size_t i=0 ; i<arrivals_ts.size() ; i++){
                 myfile << compute_index_ << "\t" << (i*num_input_nodes_+compute_index_) << "\t";
                 min_arrival = arrivals_ts[i][0];
-                for (int j=0 ; j < num_input_nodes_ ; j++){
+                for (size_t j=0 ; j < num_input_nodes_ ; j++){
                         myfile << sent_ts[i][j] << "\t" << arrivals_ts[i][j] << "\t";
                         if (min_arrival > arrivals_ts[i][j]) min_arrival = arrivals_ts[i][j];
                 }
@@ -396,21 +396,21 @@ void TimesliceBuilder::build_time_interval_file(){
 
         double interval=10.0;
         double max_arrival=-1;
-        for (int j=0 ; j < num_input_nodes_ ; j++){
+        for (size_t j=0 ; j < num_input_nodes_ ; j++){
                 if (arrivals_ts[arrivals_ts.size()-1][j] > max_arrival)
                         max_arrival=arrivals_ts[arrivals_ts.size()-1][j];
         }
         int arrival_arr_size=max_arrival/interval+1, comp_arr_size=completed_ts[completed_ts.size()-1]/interval+1;
         long int count_arrival_arr[arrival_arr_size]={0}, count_comp_arr[comp_arr_size]={0};
 
-        for (int i=0 ; i<arrivals_ts.size() ; i++){
-                for (int j=0 ; j < num_input_nodes_ ; j++){
+        for (size_t i=0 ; i<arrivals_ts.size() ; i++){
+                for (size_t j=0 ; j < num_input_nodes_ ; j++){
                         count_arrival_arr[(int)(arrivals_ts[i][j]/interval)]++;
                 }
                 count_comp_arr[(int)(completed_ts[i]/interval)]++;
         }
         bool added;
-        for (int i=0 ; i<arrival_arr_size || i < comp_arr_size ; i++){
+        for (size_t i=0 ; i<arrival_arr_size || i < comp_arr_size ; i++){
                 added=0;
                 if (i<arrival_arr_size && count_arrival_arr[i] > 0){
                         added=1;
@@ -494,6 +494,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         conn_[in]->on_complete_recv();
         if (conn_[in]->recv_status_message().in_acked_timeslice != -1 && conn_[in]->recv_status_message().in_acked_timeslice >= 0) {
         	conn_[(in+1)%num_input_nodes_]->add_predecessor_node_info(conn_[in]->recv_status_message().in_acked_timeslice, conn_[in]->recv_status_message().in_acked_time);
+        	conn_[(in-1)%num_input_nodes_]->add_successor_node_info(conn_[in]->recv_status_message().in_acked_timeslice, conn_[in]->recv_status_message().in_acked_time);
     	}
         //conn_[in]->inc_ack_pointers(conn_[in]->cn_wp().desc);
         //add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
@@ -543,7 +544,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 }
 
 void TimesliceBuilder::add_arrival_ts(double sent_time , uint64_t desc, int cn){
-        for (int ts=arrivals_ts.size() ; ts < desc ; ts++){
+        for (size_t ts=arrivals_ts.size() ; ts < desc ; ts++){
                 std::vector<double> tmp(num_input_nodes_,0.0);
                 arrivals_ts.push_back(tmp);
                 sent_ts.push_back(tmp);

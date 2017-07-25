@@ -29,6 +29,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     max_send_sge_ = 1;
     max_recv_wr_ = 1;
     max_recv_sge_ = 1;
+    max_timeslice_info_.first = MINUS_ONE;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -55,6 +56,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     max_send_sge_ = 1;
     max_recv_wr_ = 1;
     max_recv_sge_ = 1;
+    max_timeslice_info_.first = MINUS_ONE;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -249,10 +251,11 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 {
     if ((data_acked_ || data_changed_) && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
-        if (predecessor_node_info_.size() > 0 && data_acked_){
-        		send_status_message_.in_acked_timeslice = (--predecessor_node_info_.end())->first;
-        		send_status_message_.in_acked_time = (--predecessor_node_info_.end())->second;
-        		predecessor_node_info_.erase(predecessor_node_info_.begin(), predecessor_node_info_.end());
+        if (data_acked_){
+			send_status_message_.acked_timeslice = max_timeslice_info_.first;
+			send_status_message_.predecessor_acked_time = max_timeslice_info_.second.first;
+			send_status_message_.successor_acked_time = max_timeslice_info_.second.second;
+			data_acked_ = false;
         }
 
         post_send_status_message();

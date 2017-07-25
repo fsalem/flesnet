@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ConstVariables.hpp"
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>

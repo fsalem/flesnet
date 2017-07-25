@@ -118,6 +118,9 @@ private:
     /// Post a send work request (WR) to the send queue
     void post_send_status_message();
 
+    ///Update the wait_time variable according to the times sent from the compute node
+    void update_wait_time_interval();
+
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
 

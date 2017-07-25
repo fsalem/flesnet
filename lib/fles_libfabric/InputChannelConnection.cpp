@@ -46,6 +46,7 @@ InputChannelConnection::InputChannelConnection(
     next_wait_time_index_ = 0;
     wait_time_buffer_sum = 0;
     data_changed_ = true; // to send empty message at the beginning
+    data_acked_ = false;
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -300,38 +301,8 @@ void InputChannelConnection::on_complete_recv()
     	cn_ack_ = recv_status_message_.ack;
     }
     // update the wait time based on the last rounds
-	//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_;
-	if (recv_status_message_.in_acked_timeslice != -1 && last_acked_round_ < recv_status_message_.in_acked_timeslice && sent_time_list_.size() > 0) {
-		last_acked_round_ = recv_status_message_.in_acked_timeslice <=  sent_time_list_.size() ? recv_status_message_.in_acked_timeslice : sent_time_list_.size();
+	update_wait_time_interval();
 
-		/*wait_time_ = std::llabs(
-				sent_time_list_[last_acked_round_ - 1]
-						- recv_status_message_.in_acked_time);
-		if (index_)
-		 L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent_time_list_ = " << sent_time_list_.size() << ", diff = " << wait_time_ << ", recv_status_message_.in_acked_time = " << recv_status_message_.in_acked_time << ", sent_time_list_[last_acked_round_-1] = " << sent_time_list_[last_acked_round_-1];
-		//wait_time_ -= (wait_time_ * 0.1);
-		wait_time_ = 500;
-		*/
-		uint64_t diff = std::llabs(sent_time_list_[last_acked_round_-1] - recv_status_message_.in_acked_time);
-		 for (int i=spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++)
-		 spent_times_.push_back((diff*1.0)/(1000.0));
-
-		 /*wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
-		 wait_time_buffer_[next_wait_time_index_] = diff;
-		 wait_time_buffer_sum += diff;
-		 next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
-
-		 double avg = wait_time_buffer_sum/wait_time_buffer_.size();
-		 max_avg = avg > max_avg ? avg : max_avg;
-		 max_max = (avg*2) > max_max ? (avg*2) : max_max;
-		 pid_.set_max(avg*2);
-		 wait_time_ = pid_.calculate(PID_SET_POINT, diff);*/
-
-		wait_time_ = diff - (diff*0.99);
-		 //wait_time_ = 0;
-
-		//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_ << ", sent_time = " << sent_time_list_[last_acked_round_-1] << ", remote_time = " << recv_status_message_.in_acked_time;
-	}
     post_recv_status_message();
 }
 
@@ -483,6 +454,46 @@ void InputChannelConnection::post_send_status_message()
     data_changed_ = false;
     data_acked_ = false;
     post_send_msg(&send_wr);
+}
+
+void InputChannelConnection::update_wait_time_interval()
+{
+	if (recv_status_message_.acked_timeslice != MINUS_ONE && (last_acked_round_ == MINUS_ONE || last_acked_round_ < recv_status_message_.acked_timeslice) && sent_time_list_.size() > 0 ){
+		last_acked_round_ = recv_status_message_.acked_timeslice;
+		if (sent_time_list_.size() < recv_status_message_.acked_timeslice) {
+			wait_time_ /= 2.0;
+			//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", wait_time/2 = " << wait_time_ << ", sent = " << sent_time_list_.size() << ", acked = " << recv_status_message_.acked_timeslice;
+		}else {
+			uint64_t predecessor_diff = (sent_time_list_[last_acked_round_-1] - recv_status_message_.predecessor_acked_time),
+					successor_diff = (recv_status_message_.successor_acked_time - sent_time_list_[last_acked_round_-1]),
+					avg_diff;
+
+			if (predecessor_diff  >= ZERO && successor_diff >= ZERO) {
+				avg_diff = (predecessor_diff + successor_diff)/2.0;
+				//L_(info) << "[" << index_<< "]!!!! NICEEEEEEEE";
+			}else{
+				if (predecessor_diff < ZERO && successor_diff < ZERO) {
+					avg_diff = 0;
+					//L_(info) << "[" << index_<< "]!!!! ALL < ZERO";
+				}else{
+					if (predecessor_diff >= ZERO){
+						avg_diff = predecessor_diff;
+						//L_(info) << "[" << index_<< "]!!!! SUCC < ZERO";
+					}else{
+						avg_diff = successor_diff;
+						//L_(info) << "[" << index_<< "]!!!! PRED < ZERO";
+					}
+				}
+			}
+
+			wait_time_ = avg_diff - (avg_diff*0.2);
+			//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", wait_time = " << wait_time_ << ", last_acked_round_ = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", acked = " << recv_status_message_.acked_timeslice;
+
+			for (uint32_t i = spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++) {
+				spent_times_.push_back((avg_diff*1.0)/(1000.0));
+			}
+		}
+	}
 }
 
 void InputChannelConnection::connect(const std::string& hostname,

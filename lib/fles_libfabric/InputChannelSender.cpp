@@ -661,7 +661,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         uint64_t last_sent_timeslice = conn_[cn]->get_last_sent_timeslice();
         uint32_t sent_count = conn_[cn]->get_sent_time_size();
-        while (last_sent_timeslice != -1 && conn_[cn]->get_recv_status_message().in_acked_timeslice > sent_count){
+        while (last_sent_timeslice != MINUS_ONE && conn_[cn]->get_recv_status_message().acked_timeslice > sent_count){
         	send_timeslice(cn, last_sent_timeslice +compute_hostnames_.size());
         	//L_(info) << "[" << cn << "] sent size = " << conn_[cn]->get_acked_time_list().size() << ", acked size = " << conn_[cn]->get_acked_time_list().size() << ", trying to send ts#" << last_sent_timeslice +compute_hostnames_.size() << ", new count = " << conn_[cn]->get_sent_time_size() << ", remote = " << conn_[cn]->get_recv_status_message().in_acked_timeslice;
         	if (last_sent_timeslice == conn_[cn]->get_last_sent_timeslice())break;
