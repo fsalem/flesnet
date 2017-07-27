@@ -208,11 +208,23 @@ private:
 
     void update_max_timeslice_info(uint64_t timeslice, bool predecessor_node) {
 
+    	if (max_timeslice_info_.first != MINUS_ONE && max_timeslice_info_.first >= timeslice) {
+    		return;
+    	}
     	std::map<uint64_t,uint64_t>::iterator predecessor_iterator = predecessor_node_info_.find(timeslice),
     	    			successor_iterator = successor_node_info_.find(timeslice);
 
-    	if (((predecessor_node && successor_iterator != successor_node_info_.end()) || (!predecessor_node && predecessor_iterator != predecessor_node_info_.end()))
-    			&& (max_timeslice_info_.first == MINUS_ONE || max_timeslice_info_.first < timeslice)) {
+    	// successor node doesn't acked this particular timeslice but acked a following one!
+    	if (predecessor_node && successor_iterator == successor_node_info_.end() && successor_node_info_.size() > 0 && (--successor_node_info_.end())->first > timeslice){
+    		successor_iterator = get_first_applicable_timeslice(successor_node_info_, timeslice);
+    	}
+
+    	// predecessor node doesn't acked this particular timeslice but acked a following one!
+		if (!predecessor_node && predecessor_iterator == predecessor_node_info_.end() && predecessor_node_info_.size() > 0 && (--predecessor_node_info_.end())->first > timeslice){
+			predecessor_iterator = get_first_applicable_timeslice(predecessor_node_info_, timeslice);
+		}
+
+    	if (successor_iterator != successor_node_info_.end() && predecessor_iterator != predecessor_node_info_.end()) {
 
     		max_timeslice_info_.first = timeslice;
 			max_timeslice_info_.second.first = predecessor_iterator->second;
@@ -223,6 +235,19 @@ private:
 
 			data_acked_ = true;
 		}
+    }
+
+    std::map<uint64_t,uint64_t>::iterator get_first_applicable_timeslice(std::map<uint64_t,uint64_t> node_info, uint64_t timeslice){
+
+    	std::map<uint64_t,uint64_t>::iterator iterator = node_info.end();
+    	do{
+    		--iterator;
+    		if (iterator->first < timeslice){
+				break;
+			}
+    	}while (iterator != node_info.begin());
+
+    	return iterator;
     }
 
 };
