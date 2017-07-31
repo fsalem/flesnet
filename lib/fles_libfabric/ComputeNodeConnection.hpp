@@ -148,15 +148,15 @@ public:
 
     void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
     	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
-    		predecessor_node_info_.insert(std::make_pair(timeslice,time));
-    		update_max_timeslice_info(timeslice, true);
+    		//predecessor_node_info_.insert(std::make_pair(timeslice,time));
+    		update_max_timeslice_info(predecessor_node_info_, timeslice, true);
     	}
     }
 
     void add_successor_node_info(uint64_t timeslice, uint64_t time) {
     	if (successor_node_info_.find(timeslice) == successor_node_info_.end()){
-    		successor_node_info_.insert(std::make_pair(timeslice,time));
-    		update_max_timeslice_info(timeslice, false);
+    		//successor_node_info_.insert(std::make_pair(timeslice,time));
+    		update_max_timeslice_info(successor_node_info_, timeslice, false);
     	}
     }
 
