@@ -195,5 +195,7 @@ private:
 
     const int64_t PID_SET_POINT=0;
 
+    const int64_t MAX_WAIT_TIME=20000;
+
 };
 }

@@ -251,7 +251,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 		}
     }
 
-    if ((data_acked_ || data_changed_) && acked_time_list_.size() == sent_time_list_.size()) { //
+    if ((data_acked_ || data_changed_)) { //
     	if (data_changed_)
     	{
         	send_status_message_.wp = cn_wp_;
@@ -487,6 +487,7 @@ void InputChannelConnection::update_wait_time_interval()
 			}
 
 			wait_time_ = avg_diff - (avg_diff*0.2);
+			if (wait_time_ > MAX_WAIT_TIME)wait_time_ = MAX_WAIT_TIME;
 			//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", wait_time = " << wait_time_ << ", last_acked_round_ = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", acked = " << recv_status_message_.acked_timeslice;
 
 			for (uint32_t i = spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++) {

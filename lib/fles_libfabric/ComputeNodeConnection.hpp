@@ -206,15 +206,19 @@ private:
     // max timeslice info from the predecessor and successor {timeslice number, {predecessor timestamp, successor timestamp}}
     std::pair<uint64_t,std::pair<uint64_t,uint64_t>> max_timeslice_info_;
 
-    void update_max_timeslice_info(uint64_t timeslice, bool predecessor_node) {
+    void update_max_timeslice_info(std::map<uint64_t,uint64_t>& node_info, uint64_t timeslice, uint64_t time) {
 
-    	if (max_timeslice_info_.first != MINUS_ONE && max_timeslice_info_.first >= timeslice) {
-    		return;
+    	if ((max_timeslice_info_.first != MINUS_ONE && max_timeslice_info_.first >= timeslice) || node_info.find(timeslice) != node_info.end()){
+    	    		return;
     	}
+
+    	node_info.insert(std::make_pair(timeslice,time));
+
+
     	std::map<uint64_t,uint64_t>::iterator predecessor_iterator = predecessor_node_info_.find(timeslice),
     	    			successor_iterator = successor_node_info_.find(timeslice);
 
-    	// successor node doesn't acked this particular timeslice but acked a following one!
+    	/*// successor node doesn't acked this particular timeslice but acked a following one!
     	if (predecessor_node && successor_iterator == successor_node_info_.end() && successor_node_info_.size() > 0 && (--successor_node_info_.end())->first > timeslice){
     		successor_iterator = get_first_applicable_timeslice(successor_node_info_, timeslice);
     	}
@@ -222,7 +226,7 @@ private:
     	// predecessor node doesn't acked this particular timeslice but acked a following one!
 		if (!predecessor_node && predecessor_iterator == predecessor_node_info_.end() && predecessor_node_info_.size() > 0 && (--predecessor_node_info_.end())->first > timeslice){
 			predecessor_iterator = get_first_applicable_timeslice(predecessor_node_info_, timeslice);
-		}
+		}*/
 
     	if (successor_iterator != successor_node_info_.end() && predecessor_iterator != predecessor_node_info_.end()) {
 
@@ -237,7 +241,7 @@ private:
 		}
     }
 
-    std::map<uint64_t,uint64_t>::iterator get_first_applicable_timeslice(std::map<uint64_t,uint64_t> node_info, uint64_t timeslice){
+    std::map<uint64_t,uint64_t>::iterator get_first_applicable_timeslice(std::map<uint64_t,uint64_t>& node_info, uint64_t timeslice){
 
     	std::map<uint64_t,uint64_t>::iterator iterator = node_info.end();
     	do{
