@@ -49,7 +49,7 @@ public:
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection
-    void send_timeslice(uint32_t cn, uint64_t timeslice);
+    void send_timeslice();
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);
@@ -130,22 +130,11 @@ private:
 
     uint64_t write_index_desc_ = 0;
 
-    std::set<uint_fast16_t> connected_buffers_;
-
     bool abort_ = false;
 
-    uint64_t init_wait_time_ = 0;
+    uint64_t init_wait_time_ = ZERO;
 
-    uint64_t sent_timeslices_ = 0;
-
-    // the max number of un-acked timeslices from other input nodes
-    const int MAX_OUTSTANDING_TS_ = 5;
-
-    std::vector<double> full_buffer;
-    double empty_buffer=0.0;
-    std::chrono::system_clock::time_point start_block_time;
-    bool blocked=0, is_data_unava=0;
-    std::vector<double> waiting_times_;
+    uint64_t sent_timeslices_ = ZERO;
 
     void build_time_file();
 

@@ -8,6 +8,7 @@
 #include "InputChannelStatusMessage.hpp"
 #include "InputNodeInfo.hpp"
 #include "TimesliceComponentDescriptor.hpp"
+#include "TimesliceScheduler_.hpp"
 #include <boost/format.hpp>
 #include <map>
 
@@ -26,19 +27,23 @@ class ComputeNodeConnection : public Connection
 public:
     ComputeNodeConnection(struct fid_eq* eq, uint_fast16_t connection_index,
                           uint_fast16_t remote_connection_index,
+                          uint_fast16_t remote_connection_count,
                           InputNodeInfo remote_info, uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
-                          uint32_t desc_buffer_size_exp);
+                          uint32_t desc_buffer_size_exp,
+                          TimesliceScheduler* timeslice_scheduler);
 
     ComputeNodeConnection(struct fid_eq* eq, struct fid_domain* pd,
                           struct fid_cq* cq, struct fid_av* av,
                           uint_fast16_t connection_index,
                           uint_fast16_t remote_connection_index,
+                          uint_fast16_t remote_connection_count,
                           /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
-                          uint32_t desc_buffer_size_exp);
+                          uint32_t desc_buffer_size_exp,
+                          TimesliceScheduler* timeslice_scheduler);
 
     ComputeNodeConnection(const ComputeNodeConnection&) = delete;
     void operator=(const ComputeNodeConnection&) = delete;
@@ -146,13 +151,6 @@ public:
 
     bool is_connection_finalized();
 
-    void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
-    	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
-    		predecessor_node_info_.insert(std::make_pair(timeslice,time));
-    		data_acked_ = true;
-    	}
-    }
-
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
@@ -193,7 +191,9 @@ private:
 
     fi_addr_t partner_addr_;
 
-    // last acked time and ts of Input node #(index_ - 1)
-    std::map<uint64_t,uint64_t> predecessor_node_info_;
+    TimesliceScheduler* timeslice_scheduler_;
+
+    bool registered_input_MPI_time = false;
+
 };
 }

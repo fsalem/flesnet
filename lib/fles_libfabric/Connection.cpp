@@ -22,8 +22,8 @@ namespace tl_libfabric
 {
 
 Connection::Connection(struct fid_eq* eq, uint_fast16_t connection_index,
-                       uint_fast16_t remote_connection_index)
-    : index_(connection_index), remote_index_(remote_connection_index), eq_(eq)
+                       uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count)
+    : index_(connection_index), remote_index_(remote_connection_index), eq_(eq), remote_connection_count_(remote_connection_count)
 {
 
     // dead code?

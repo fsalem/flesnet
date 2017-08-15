@@ -15,13 +15,15 @@ namespace tl_libfabric
 
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index, InputNodeInfo remote_info,
-    uint8_t* data_ptr, uint32_t data_buffer_size_exp,
-    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index),
+    uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
+    InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
+    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp,
+    TimesliceScheduler* timeslice_scheduler)
+    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
-      desc_buffer_size_exp_(desc_buffer_size_exp)
+      desc_buffer_size_exp_(desc_buffer_size_exp),
+      timeslice_scheduler_(timeslice_scheduler)
 {
     // send and receive only single StatusMessage struct
     max_send_wr_ = 2; // one additional wr to avoid race (recv before
@@ -40,13 +42,14 @@ ComputeNodeConnection::ComputeNodeConnection(
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, struct fid_domain* pd, struct fid_cq* cq,
     struct fid_av* av, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index,
+    uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
     /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
     uint32_t data_buffer_size_exp, fles::TimesliceComponentDescriptor* desc_ptr,
-    uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index),
+    uint32_t desc_buffer_size_exp, TimesliceScheduler* timeslice_scheduler)
+    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
-      desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp)
+      desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp),
+      timeslice_scheduler_(timeslice_scheduler)
 {
 
     // send and receive only single StatusMessage struct
@@ -249,12 +252,14 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 {
     if ((data_acked_ || data_changed_) && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
-        if (predecessor_node_info_.size() > 0 && data_acked_){
-        		send_status_message_.in_acked_timeslice = (--predecessor_node_info_.end())->first;
-        		send_status_message_.in_acked_time = (--predecessor_node_info_.end())->second;
-        		predecessor_node_info_.erase(predecessor_node_info_.begin(), predecessor_node_info_.end());
-        }
 
+        if (data_acked_){
+			uint64_t last_ts = timeslice_scheduler_->get_last_complete_ts();
+			send_status_message_.timeslice_to_send = last_ts+remote_connection_count_;
+			send_status_message_.duration = timeslice_scheduler_->get_ts_duration(last_ts);
+			send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+        }
+        
         post_send_status_message();
         return true;
     } else {
@@ -279,6 +284,15 @@ void ComputeNodeConnection::on_complete_recv()
     // to handle receiving sync messages out of sent order!
     if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc)
     	cn_wp_ = recv_status_message_.wp;
+
+    if (!registered_input_MPI_time) {
+    	registered_input_MPI_time = true;
+    	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
+    }
+
+    if (recv_status_message_.sent_timeslice != MINUS_ONE) {
+    	timeslice_scheduler_->add_input_ts_info(index_, recv_status_message_.sent_timeslice, recv_status_message_.sent_time, recv_status_message_.sent_duration);
+    }
     post_recv_status_message();
 }
 

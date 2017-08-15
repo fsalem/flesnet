@@ -41,8 +41,6 @@ InputChannelSender::InputChannelSender(
     } else {
         connection_oriented_ = false;
     }
-
-    waiting_times_.resize(max_timeslice_number+1,0);
 }
 
 InputChannelSender::~InputChannelSender()
@@ -143,32 +141,23 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
-void InputChannelSender::send_timeslice(uint32_t cn, uint64_t timeslice)
+void InputChannelSender::send_timeslice()
 {
-	if ((timeslice >= max_timeslice_number_) || (conn_[cn]->get_last_sent_timeslice() != -1 && conn_[cn]->get_last_sent_timeslice() >=timeslice)){
-			return;
-	}
+	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+	for (uint32_t i=0 ; i< conn_.size() ; i++) {
+		uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == MINUS_ONE ? i : 
+			conn_[i]->get_last_sent_timeslice() + conn_.size();
 
-	uint64_t sent_timeslices = conn_[cn]->get_last_sent_timeslice() == -1 ? 0 :
-			((uint64_t)(conn_[cn]->get_last_sent_timeslice()/compute_hostnames_.size())+1);
-	uint64_t next_timeslice = timeslice;
-	std::chrono::high_resolution_clock::duration interval = std::chrono::microseconds(0);
-
-	//if ((sent_timeslices != 0 && sent_timeslices != conn_[cn]->get_acked_timestamps_list().size()) || sent_timeslices > conn_[cn]->get_last_acked_round()+5) {
-	// check whether last sent timeslice is acked
-	if ((sent_timeslices == 0 || sent_timeslices == conn_[cn]->get_acked_time_list().size()) && sent_timeslices <= conn_[cn]->get_last_acked_round()+MAX_OUTSTANDING_TS_){
-		if (try_send_timeslice(timeslice)) {
-			conn_[cn]->set_last_sent_timeslice(timeslice);
-			conn_[cn]->add_sent_time(std::chrono::duration_cast<std::chrono::microseconds>(
-					std::chrono::high_resolution_clock::now() - time_begin_).count());
-			sent_timeslices_++;
-			next_timeslice = timeslice + compute_hostnames_.size();
-			interval = std::chrono::microseconds(conn_[cn]->get_wait_time());
-			waiting_times_[timeslice]=conn_[cn]->get_wait_time();
-			//L_(info) << "[" << input_index_ << "] cn = " << cn << " ,timeslice = " << timeslice << " , waiting_time = " << conn_[cn]->get_wait_time();
+		if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
+				now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
+			if (try_send_timeslice(next_ts)){
+				conn_[i]->set_last_sent_timeslice(next_ts);
+				conn_[i]->add_sent_time(next_ts, now);
+				sent_timeslices_++;
+			}
 		}
 	}
-	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, cn, next_timeslice), std::chrono::high_resolution_clock::now()+interval);
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), now + std::chrono::milliseconds(0));
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -187,6 +176,7 @@ void InputChannelSender::bootstrap_wo_connections()
 
     //int rc = MPI_Barrier(MPI_COMM_WORLD);
     //assert(rc == MPI_SUCCESS);
+    conn_.resize(compute_hostnames_.size());
     // setup connections objects
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
@@ -194,7 +184,7 @@ void InputChannelSender::bootstrap_wo_connections()
         // creates endpoint
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
                             cq_, av_, fi_addrs[i]);
-        conn_.push_back(std::move(connection));
+        conn_.at(i) = (std::move(connection));
     }
     int i = 0;
     while (connected_ != compute_hostnames_.size()) {
@@ -226,33 +216,20 @@ void InputChannelSender::operator()()
             bootstrap_wo_connections();
         }
 
-        full_buffer.resize(compute_hostnames_.size(), 0.0);
         data_source_.proceed();
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
         //assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         for (auto& c : conn_){
-        	c->time_begin_ = time_begin_;
+        	c->set_time_MPI(time_begin_);
         	c->set_wait_time(init_wait_time_);
         }
 
-        //uint64_t timeslice = 0;
-        uint32_t conn = (input_index_%compute_hostnames_.size());
-        uint32_t count = 0;
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-
-        // initialize ts distribution process
-        auto now = std::chrono::high_resolution_clock::now();
-        while (count < compute_hostnames_.size()){
-        	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this, conn, conn),
-						   now);//+ std::chrono::microseconds(init_wait_time_)
-        	//send_timeslices(conn, init_wait_time_);
-        	conn = (conn+1)%compute_hostnames_.size();
-        	count++;
-        }
+        send_timeslice();
 
         while (sent_timeslices_ < max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
@@ -300,7 +277,7 @@ void InputChannelSender::operator()()
 }
 
 void InputChannelSender::build_time_file(){
-        std::ofstream myfile;
+/*      std::ofstream myfile;
         myfile.open (std::to_string(input_index_)+".input_ts.out");
         for (int i=0 ; i<max_timeslice_number_ ; i++){
         	myfile << input_index_ << "\t" << (i%compute_hostnames_.size()) << "\t" << i << "\t" << (waiting_times_[i]/1000.0) << "\t" << conn_[(i%compute_hostnames_.size())]->get_spent_times_list()[(int)(i/compute_hostnames_.size())] << "\n";
@@ -312,7 +289,7 @@ void InputChannelSender::build_time_file(){
         	myfile << input_index_ << "\t" << i << "\t" << conn_[i]->max_avg << "\t" << conn_[i]->max_max << "\n";
         }
         myfile.close();
-
+*/
         /*
         double agg_t=0.0;
         for (int i=0 ; i<full_buffer.size() ; i++){
@@ -342,11 +319,6 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
 
-    	if (blocked && is_data_unava){
-    	                double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_block_time).count())/1000.0;
-    	                blocked=0;
-    	                empty_buffer+=time;
-        }
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
@@ -379,11 +351,6 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
 
-        	if (blocked && !is_data_unava){
-        	                        double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_block_time).count())/1000.0;
-        	                        blocked=0;
-        	                        full_buffer[cn]+=time;
-        	}
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
@@ -395,18 +362,6 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             }
 
             return true;
-        }else{ // no buffer space
-            if (!blocked){
-                    start_block_time = std::chrono::high_resolution_clock::now();
-                    blocked=1;
-                    is_data_unava=0;
-            }
-        }
-    }else{ // no available data to send
-        if (!blocked){
-                start_block_time = std::chrono::high_resolution_clock::now();
-                blocked=1;
-                is_data_unava=1;
         }
     }
 
@@ -428,7 +383,7 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index)
         static_cast<unsigned int>((num_cqe_ - 1) / compute_hostnames_.size()));
 
     std::unique_ptr<InputChannelConnection> connection(
-        new InputChannelConnection(eq_, index, input_index_, max_send_wr,
+        new InputChannelConnection(eq_, index, input_index_, conn_.size(), max_send_wr,
                                    max_pending_write_requests));
     return connection;
 }
@@ -441,12 +396,13 @@ void InputChannelSender::connect()
 
     //int rc = MPI_Barrier(MPI_COMM_WORLD);
     //assert(rc == MPI_SUCCESS);
+    conn_.resize(compute_hostnames_.size());
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
             create_input_node_connection(i);
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
                             cq_, av_, FI_ADDR_UNSPEC);
-        conn_.push_back(std::move(connection));
+        conn_.at(i) = (std::move(connection));
     }
 }
 
@@ -622,9 +578,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        conn_[cn]->add_acked_time(std::chrono::duration_cast<std::chrono::microseconds>(
-				std::chrono::high_resolution_clock::now() - time_begin_).count());
-
+        conn_[cn]->add_sent_duration(ts, std::chrono::duration_cast<std::chrono::microseconds>(
+        		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count());
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
@@ -658,17 +613,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS: {
         int cn = wr_id >> 8;
-
-        uint64_t last_sent_timeslice = conn_[cn]->get_last_sent_timeslice();
-        uint32_t sent_count = conn_[cn]->get_sent_time_size();
-        while (last_sent_timeslice != -1 && conn_[cn]->get_recv_status_message().in_acked_timeslice > sent_count){
-        	send_timeslice(cn, last_sent_timeslice +compute_hostnames_.size());
-        	//L_(info) << "[" << cn << "] sent size = " << conn_[cn]->get_acked_time_list().size() << ", acked size = " << conn_[cn]->get_acked_time_list().size() << ", trying to send ts#" << last_sent_timeslice +compute_hostnames_.size() << ", new count = " << conn_[cn]->get_sent_time_size() << ", remote = " << conn_[cn]->get_recv_status_message().in_acked_timeslice;
-        	if (last_sent_timeslice == conn_[cn]->get_last_sent_timeslice())break;
-        	last_sent_timeslice = conn_[cn]->get_last_sent_timeslice();
-        	sent_count = conn_[cn]->get_sent_time_size();
-        }
-
         conn_[cn]->on_complete_recv();
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);

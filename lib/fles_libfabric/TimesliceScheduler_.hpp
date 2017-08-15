@@ -1,0 +1,202 @@
+/*
+ * TimesliceScheduler.hpp
+ *
+ *  Created on: Aug 4, 2017
+ *      Author: Farouk Salem
+ */
+
+#pragma once
+
+#include <algorithm>
+#include <set>
+#include <vector>
+#include <chrono>
+#include "InputSchedulerData.hpp"
+#include <assert.h>
+#include <log.hpp>
+
+namespace tl_libfabric {
+
+class TimesliceScheduler {
+public:
+	TimesliceScheduler(const uint64_t compute_index,
+		const uint32_t input_node_count):
+			compute_index_(compute_index), input_node_count_(input_node_count) {
+
+		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
+			sender_info_.push_back(InputSchedulerData());
+		//sender_info_.resize(input_node_count_);
+		assert(sender_info_.size() == input_node_count_);
+		completed_ts_ = false;
+	}
+
+	TimesliceScheduler() = delete;
+	TimesliceScheduler(const TimesliceScheduler&) = delete;
+	TimesliceScheduler& operator=(const TimesliceScheduler&) = delete;
+
+	/// set the MPI barrier time of TimesliceBuilder
+	void set_compute_MPI_time(
+			std::chrono::high_resolution_clock::time_point compute_MPI_time){
+		compute_MPI_time_ = compute_MPI_time;
+	}
+
+	/// Init compute info
+	void init_compute_time(uint64_t compute_index, uint32_t input_node_count,
+			std::chrono::high_resolution_clock::time_point compute_MPI_time){
+		compute_index_ = compute_index;
+		input_node_count_ = input_node_count;
+		compute_MPI_time_ = compute_MPI_time;
+	}
+
+	/// This method initializes the required data from each input node such as when the MPI barrier is passed
+	void init_input_index_info(uint64_t input_index,
+			std::chrono::high_resolution_clock::time_point MPI_time){
+
+		assert(sender_info_.size() == input_node_count_);
+		sender_info_[input_index].MPI_Barrier_time = MPI_time;
+		sender_info_[input_index].clock_offset = std::chrono::duration_cast
+				<std::chrono::microseconds>(compute_MPI_time_ - MPI_time).count();
+	}
+
+	/// This method adds the received information from an input node to the scheduler data
+	void add_input_ts_info(uint64_t input_index, uint64_t timeslice,
+			std::chrono::high_resolution_clock::time_point sent_time,
+			double duration){
+
+		if (sender_info_[input_index].ts_sent_info_.find(timeslice)
+				== sender_info_[input_index].ts_sent_info_.end()) {
+			sender_info_[input_index].ts_sent_info_.insert(
+					std::pair<uint64_t,
+							std::pair<
+									std::chrono::high_resolution_clock::time_point,
+									uint64_t>>(timeslice,
+							std::pair<
+									std::chrono::high_resolution_clock::time_point,
+									uint64_t>(sent_time, duration)));
+			increament_acked_ts(timeslice);
+			// TODO when to remove some timeslice ?
+			// TODO logging!
+		}
+
+	}
+
+	/// This method gets the sent time for a particular input node and timeslice
+	std::chrono::high_resolution_clock::time_point get_sent_time(
+			uint64_t input_index, uint64_t timeslice){
+
+		uint64_t last_complete_ts = get_last_complete_ts();
+		uint64_t last_complete_ts_duration = ts_duration_.find(last_complete_ts)->second;
+		// get last sent time of the received contribution of the last complete timeslice
+		std::chrono::high_resolution_clock::time_point last_received_contribution_time =
+				sender_info_[(compute_index_ - 1) % input_node_count_].ts_sent_info_.find(
+						last_complete_ts)->second.first
+						+ std::chrono::microseconds(
+								sender_info_[(compute_index_ - 1)
+										% input_node_count_].clock_offset);
+		uint64_t sum_needed_duration = 0;
+		for (uint32_t input_node = compute_index_; input_node != compute_index_;
+				++input_node % input_node_count_) {
+			// TODO to add alpha
+			sum_needed_duration += sender_info_[input_node].ts_sent_info_.find(
+				last_complete_ts)->second.second;
+		}
+
+		std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
+				sum_needed_duration - sender_info_[input_index].clock_offset);
+		// TODO remove the loop and replace it with equation
+		for (uint64_t ts = last_complete_ts+input_node_count_ ; ts<timeslice ; ts+=input_node_count_){
+			sent_time += std::chrono::microseconds((uint64_t)last_complete_ts_duration);
+		}
+		return sent_time;
+
+
+	}
+
+	/// This method gets the duration needed for receiving a complete timeslice after a specific timeslice
+	const uint64_t get_ts_duration(uint64_t timeslice){
+
+		std::map<uint64_t, uint64_t>::iterator duration = ts_duration_.find(
+				timeslice);
+		if (duration == ts_duration_.end()) return MINUS_ONE;
+		return duration->second;
+	}
+
+	///This method returns the latest completed timeslice
+	uint64_t get_last_complete_ts() {
+
+		if (ts_duration_.empty()) {
+			return MINUS_ONE;
+		}
+		return (--ts_duration_.end())->first;
+	}
+
+	bool check_new_ts_completed(){
+		if (completed_ts_) {
+			completed_ts_ = false;
+			return true;
+		}
+		return false;
+	}
+
+private:
+
+	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
+	void increament_acked_ts(uint64_t timeslice){
+
+		std::map<uint64_t, uint32_t>::iterator ts_iterator = acked_ts_count_.find(
+				timeslice);
+		if (ts_iterator == acked_ts_count_.end()) {
+			acked_ts_count_.insert(std::pair<uint64_t, uint32_t>(timeslice, 1));
+			ts_iterator = acked_ts_count_.find(timeslice);
+		} else {
+			++ts_iterator->second;
+		}
+		if (ts_iterator->second == input_node_count_) {
+			calculate_total_ts_duration(timeslice);
+		}
+	}
+
+	/// This calculates the needed duration to receive a complete timeslice from all input nodes
+	void calculate_total_ts_duration(uint64_t timeslice){
+
+		uint64_t total_duration = 0;
+		for (int i = 0; i < input_node_count_; i++) {
+			total_duration +=
+					sender_info_[i].ts_sent_info_.find(timeslice)->second.second;
+		}
+		ts_duration_.insert(
+				std::pair<uint64_t, double>(timeslice, total_duration));
+		completed_ts_ = true;
+		// TODO remove old values
+		// TODO do statistics
+		// TODO add +- theta
+	}
+
+	/// This const variable limits the number of durations of timeslices to be kept
+	const int32_t MAX_DURATION_HISTORY = 100;
+
+	/// The compute node index. The order of input nodes is based on this index
+	uint64_t compute_index_;
+
+	/// The local time of the compute node when the MPI barrier reached
+	std::chrono::high_resolution_clock::time_point compute_MPI_time_;
+
+	/// The number of input nodes which the compute receives data from
+	uint32_t input_node_count_;
+
+	/// This is a list of input nodes with the history of their data
+	std::vector<InputSchedulerData> sender_info_;
+
+	/// A history of the estimated durations <timeslice, duration>
+	std::map<uint64_t, uint64_t> ts_duration_;
+
+	/// Count of the acked contributions from input nodes <timeslice, count>
+	std::map<uint64_t, uint32_t> acked_ts_count_;
+
+	/// Triggers if there are new completed timeslices
+	bool completed_ts_ = false;
+
+};
+
+
+} // namespace tl_libfabric

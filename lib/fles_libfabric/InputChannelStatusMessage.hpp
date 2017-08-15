@@ -22,9 +22,13 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
+    // Time of the MPI barrier
+    std::chrono::high_resolution_clock::time_point MPI_time;
     // last acked time difference from the barrier of predecessor of the target input node
-    uint64_t in_acked_time;
-    uint64_t in_acked_timeslice = -1;
+    std::chrono::high_resolution_clock::time_point sent_time;
+    // The duration needed to send the contribution of the timeslice till receiving the acknowledgment
+    uint64_t sent_duration;
+    uint64_t sent_timeslice = MINUS_ONE;
 };
 }
 

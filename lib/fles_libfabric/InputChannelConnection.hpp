@@ -24,6 +24,7 @@ public:
     /// The InputChannelConnection constructor.
     InputChannelConnection(struct fid_eq* eq, uint_fast16_t connection_index,
                            uint_fast16_t remote_connection_index,
+                           uint_fast16_t remote_connection_count,
                            unsigned int max_send_wr,
                            unsigned int max_pending_write_requests);
 
@@ -78,6 +79,8 @@ public:
                  struct fid_domain* domain, struct fid_cq* cq,
                  struct fid_av* av, fi_addr_t fi_addr);
 
+    void set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) { send_status_message_.MPI_time = time_MPI; }
+
     void reconnect();
 
     void set_partner_addr(struct fid_av* av_);
@@ -86,30 +89,48 @@ public:
 
     void set_remote_info();
 
+    /// Get the needed duration between sending a timeslice and another
     uint64_t get_wait_time() { return wait_time_; }
 
+    /// set the needed duration between sending a timeslice and another
     void set_wait_time(uint64_t wait_time) { wait_time_ = wait_time; }
 
+    /// Get the last sent timeslice
     const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
 
+    /// Set the last sent timeslice
     void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice_ = sent_ts; }
 
-    const uint64_t& get_last_acked_round() const { return last_acked_round_; }
+    /// Add the time of sent a timeslice
+    void add_sent_time(uint64_t timeslice, std::chrono::high_resolution_clock::time_point time) { sent_time_list_.add(timeslice, time); }
 
-    void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
+    /// Check whether a timeslice is sent
+    bool contains_sent_time(uint64_t timeslice) const { return sent_time_list_.contains(timeslice); }
 
-    const std::vector<uint64_t>& get_acked_time_list() const { return acked_time_list_; }
-    const std::vector<double>& get_spent_times_list() const { return spent_times_; }
+    /// get the time when a specific timeslice is sent
+    const std::chrono::high_resolution_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
 
-    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time); data_acked_ = true;}
+    /// Add the needed duration to transmit each timeslice and getting the ack back
+    void add_sent_duration(uint64_t timeslice, double duration) { sent_duration_list_.add(timeslice, duration); data_acked_ = true;}
 
-    void add_sent_time(uint64_t time) { sent_time_list_.push_back(time); }
+    /// Check whether a timeslice is acked
+    bool contains_sent_duration(uint64_t timeslice) const { return sent_duration_list_.contains(timeslice); }
 
-    uint32_t get_sent_time_size() { return sent_time_list_.size(); }
+    /// Get the needed duration to transmit specific timeslice
+    double get_sent_duration(uint64_t timeslice) const { return sent_duration_list_.get(timeslice); }
 
-    const ComputeNodeStatusMessage& get_recv_status_message() const { return recv_status_message_; }
+    /// Return the last acked timeslice
+    const uint64_t get_last_acked_timeslice();
 
-    int64_t max_avg=0,max_max=0;
+    /// Return the last scheduled timeslice from the compute node scheduler
+    uint64_t get_last_scheduled_timeslice() const { return last_scheduled_timeslice_; }
+
+    /// Return the  time to send the last scheduled timeslice from the compute node scheduler
+    std::chrono::high_resolution_clock::time_point get_last_scheduled_time() const { return last_scheduled_time_; }
+
+    /// Calculate when a timeslice should be sent according to the sent duration from the compute node scheduler
+    std::chrono::high_resolution_clock::time_point get_scheduled_sent_time(uint64_t timeslice);
+
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -166,31 +187,19 @@ private:
 
     fi_addr_t partner_addr_ = 0;
 
-    uint64_t last_sent_timeslice_ = -1;
+    uint64_t last_sent_timeslice_ = MINUS_ONE;
 
-    uint64_t last_acked_round_ = 0;
+    /// This list of sent timestamp of latest timeslices
+    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
 
-    std::vector<uint64_t> acked_time_list_;
-    std::vector<uint64_t> sent_time_list_;
+    /// This map contains the spent time to send a receive acknowledgment of timeslices
+    SizedMap<uint64_t, double> sent_duration_list_;
 
+    uint64_t last_scheduled_timeslice_ = MINUS_ONE;
+    std::chrono::high_resolution_clock::time_point last_scheduled_time_;
     uint64_t wait_time_ = 500;
 
-    PID pid_;
-
-    const double PID_DT = 0.001;  //
-    const double PID_KP = 0.001;  // the ratio of the error value; affects the height between the target and the peaks
-    const double PID_KD = 0.9; // rate of changing waiting time
-    const double PID_KI = 0.001;  // bring long term precision to both the magnitude and duration of the error
-
-    std::vector<uint64_t> wait_time_buffer_;
-
-    std::vector<double> spent_times_;
-
-    uint64_t wait_time_buffer_sum;
-
-    int next_wait_time_index_;
-
-    const int64_t PID_SET_POINT=0;
+    const uint_fast16_t MAX_FOLLOWING_TIMESLICE = 50;
 
 };
 }

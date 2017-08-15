@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ConstVariables.hpp"
+#include "SizedMap.hpp"
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>
@@ -28,7 +30,7 @@ class Connection
 public:
     /// The Connection constructor. Creates an endpoint.
     Connection(struct fid_eq* eq, uint_fast16_t connection_index,
-               uint_fast16_t remote_connection_index);
+               uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count);
 
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -104,6 +106,8 @@ public:
     uint64_t total_recv_requests() const { return total_recv_requests_; }
 
     std::chrono::high_resolution_clock::time_point time_begin_;
+
+    void mark_new_ts_completed() {data_acked_ = true;}
     //
 protected:
     //    void dump_send_wr(struct ibv_send_wr* wr);
@@ -126,6 +130,9 @@ protected:
 
     /// Index of this connection in the remote group of connections.
     uint_fast16_t remote_index_;
+
+    /// Count of the connections in the remote group of connections.
+    uint_fast16_t remote_connection_count_;
 
     /// Flag indicating connection finished state.
     bool done_ = false;

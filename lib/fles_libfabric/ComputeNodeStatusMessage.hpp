@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ConstVariables.hpp"
 #include "ComputeNodeBufferPosition.hpp"
 #include "ComputeNodeInfo.hpp"
 #include <chrono>
@@ -22,9 +23,11 @@ struct ComputeNodeStatusMessage {
     ComputeNodeInfo info;
     // address must be not null if connect = true
     unsigned char my_address[64];
-    // last acked time difference from the barrier of predecessor of the target input node
-    uint64_t in_acked_time;
-    uint64_t in_acked_timeslice = -1;
+    // time to send a particular timeslice
+    std::chrono::high_resolution_clock::time_point time_to_send;
+    uint64_t timeslice_to_send = MINUS_ONE;
+    // duration between sending a contribution to another
+    uint64_t duration;
 };
 }
 

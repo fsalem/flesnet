@@ -19,11 +19,13 @@ namespace tl_libfabric
 
 InputChannelConnection::InputChannelConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index, unsigned int max_send_wr,
+    uint_fast16_t remote_connection_index,
+    uint_fast16_t remote_connection_count, unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
-    : Connection(eq, connection_index, remote_connection_index),
+    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       max_pending_write_requests_(max_pending_write_requests),
-      pid_(PID(PID_DT, wait_time_, 0, PID_KP, PID_KD, PID_KI))
+      sent_time_list_(MAX_HISTORY_SIZE),
+      sent_duration_list_(MAX_HISTORY_SIZE)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -42,10 +44,9 @@ InputChannelConnection::InputChannelConnection(
     } else {
         connection_oriented_ = false;
     }
-    wait_time_buffer_.resize(100,0);
-    next_wait_time_index_ = 0;
-    wait_time_buffer_sum = 0;
+
     data_changed_ = true; // to send empty message at the beginning
+    data_acked_ = false; // to send empty message at the beginning
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -237,7 +238,7 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 {
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
-    data_changed_ = true;
+    //data_changed_ = true;
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
@@ -250,13 +251,9 @@ bool InputChannelConnection::try_sync_buffer_positions()
 		}
     }
 
-    if ((data_acked_ || data_changed_) && acked_time_list_.size() == sent_time_list_.size()) { //
-    	if (data_changed_)
-    	{
-        	send_status_message_.wp = cn_wp_;
-    	}
+    if ((data_changed_ || data_acked_)) { //
+		send_status_message_.wp = cn_wp_;
         post_send_status_message();
-
         return true;
     } else {
         return false;
@@ -299,39 +296,12 @@ void InputChannelConnection::on_complete_recv()
     {
     	cn_ack_ = recv_status_message_.ack;
     }
-    // update the wait time based on the last rounds
-	//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_;
-	if (recv_status_message_.in_acked_timeslice != -1 && last_acked_round_ < recv_status_message_.in_acked_timeslice && sent_time_list_.size() > 0) {
-		last_acked_round_ = recv_status_message_.in_acked_timeslice <=  sent_time_list_.size() ? recv_status_message_.in_acked_timeslice : sent_time_list_.size();
+    if (recv_status_message_.timeslice_to_send != MINUS_ONE) {
 
-		/*wait_time_ = std::llabs(
-				sent_time_list_[last_acked_round_ - 1]
-						- recv_status_message_.in_acked_time);
-		if (index_)
-		 L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent_time_list_ = " << sent_time_list_.size() << ", diff = " << wait_time_ << ", recv_status_message_.in_acked_time = " << recv_status_message_.in_acked_time << ", sent_time_list_[last_acked_round_-1] = " << sent_time_list_[last_acked_round_-1];
-		//wait_time_ -= (wait_time_ * 0.1);
-		wait_time_ = 500;
-		*/
-		uint64_t diff = std::llabs(sent_time_list_[last_acked_round_-1] - recv_status_message_.in_acked_time);
-		 for (int i=spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++)
-		 spent_times_.push_back((diff*1.0)/(1000.0));
-
-		 /*wait_time_buffer_sum -= wait_time_buffer_[next_wait_time_index_];
-		 wait_time_buffer_[next_wait_time_index_] = diff;
-		 wait_time_buffer_sum += diff;
-		 next_wait_time_index_ = (next_wait_time_index_+1) % wait_time_buffer_.size();
-
-		 double avg = wait_time_buffer_sum/wait_time_buffer_.size();
-		 max_avg = avg > max_avg ? avg : max_avg;
-		 max_max = (avg*2) > max_max ? (avg*2) : max_max;
-		 pid_.set_max(avg*2);
-		 wait_time_ = pid_.calculate(PID_SET_POINT, diff);*/
-
-		wait_time_ = diff - (diff*0.99);
-		 //wait_time_ = 0;
-
-		//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", recv_status_message_.in_acked_timeslice = " << recv_status_message_.in_acked_timeslice << ", wait_time = " << wait_time_ << ", sent_time = " << sent_time_list_[last_acked_round_-1] << ", remote_time = " << recv_status_message_.in_acked_time;
-	}
+    	set_wait_time(recv_status_message_.duration);
+    	last_scheduled_timeslice_ = recv_status_message_.timeslice_to_send; // this must be smaller than or equal last_sent_timeslice
+    	last_scheduled_time_ = recv_status_message_.time_to_send;
+    }
     post_recv_status_message();
 }
 
@@ -475,13 +445,16 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
-    if (data_acked_ && acked_time_list_.size() > 0) {
-		send_status_message_.in_acked_timeslice = acked_time_list_.size();
-		send_status_message_.in_acked_time =
-				acked_time_list_[acked_time_list_.size() - 1];
-	}
+
+    if (data_acked_) {
+		send_status_message_.sent_timeslice = get_last_acked_timeslice();
+		send_status_message_.sent_time = get_sent_time(send_status_message_.sent_timeslice);
+		send_status_message_.sent_duration = get_sent_duration(send_status_message_.sent_timeslice);
+    }
+
     data_changed_ = false;
     data_acked_ = false;
+
     post_send_msg(&send_wr);
 }
 
@@ -542,5 +515,26 @@ void InputChannelConnection::set_remote_info()
         this->recv_status_message_.info.desc_buffer_size_exp;
 
     this->remote_info_.index = this->recv_status_message_.info.index;
+}
+
+std::chrono::high_resolution_clock::time_point InputChannelConnection::get_scheduled_sent_time(uint64_t timeslice)
+{
+	if (last_scheduled_timeslice_ == MINUS_ONE && last_sent_timeslice_ == MINUS_ONE) {
+		return std::chrono::high_resolution_clock::now()-std::chrono::seconds(10);
+	}
+
+	if (last_scheduled_timeslice_ == MINUS_ONE) { // last_sent_timeslice_ != MINUS_ONE --> at least one timeslice is sent
+   		return get_sent_time(last_sent_timeslice_) +  std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_sent_timeslice_/remote_connection_count_)));
+   	}
+
+	// guidelines are received from the compute scheduler!
+   	return last_scheduled_time_ + std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_scheduled_timeslice_/remote_connection_count_)));
+}
+
+const uint64_t InputChannelConnection::get_last_acked_timeslice()
+{
+	if (sent_duration_list_.size() == 0)
+		return MINUS_ONE;
+	return sent_duration_list_.get_last_key();
 }
 }

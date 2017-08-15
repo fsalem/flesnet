@@ -5,6 +5,7 @@
 #include "ComputeNodeConnection.hpp"
 #include "ConnectionGroup.hpp"
 #include "RingBuffer.hpp"
+#include "TimesliceBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 
 #include <boost/interprocess/ipc/message_queue.hpp>
@@ -15,10 +16,6 @@
 #include <cstdint>
 #include <set>
 #include <string>
-
-#include "ComputeNodeConnection.hpp"
-#include "ConnectionGroup.hpp"
-#include "TimesliceBuffer.hpp"
 
 namespace tl_libfabric
 {
@@ -47,6 +44,9 @@ public:
     void report_status();
 
     void request_abort();
+
+    /// This method triggers if there is a completed timeslice and informs the ComputeConnections accordingly
+    void report_ts_completion();
 
     virtual void operator()() override;
 
@@ -104,6 +104,9 @@ private:
     std::string local_node_name_;
 
     bool drop_;
+
+    TimesliceScheduler* timeslice_scheduler_;
+
     std::vector<std::vector<double>> arrivals_ts, sent_ts;
     std::vector<double> completed_ts;
     std::vector<int> next_ts;

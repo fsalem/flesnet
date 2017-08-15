@@ -29,7 +29,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
-      drop_(drop)
+      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_))
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
@@ -225,9 +225,9 @@ void TimesliceBuilder::bootstrap_wo_connections()
             timeslice_buffer_.get_desc_ptr(index);
 
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
-            eq_, pd_, cq_, av_, index, compute_index_, data_ptr,
+            eq_, pd_, cq_, av_, index, compute_index_, conn_.size(), data_ptr,
             timeslice_buffer_.get_data_size_exp(), desc_ptr,
-            timeslice_buffer_.get_desc_size_exp()));
+            timeslice_buffer_.get_desc_size_exp(), timeslice_scheduler_));
         conn->setup_mr(pd_);
         conn->setup();
         conn_.at(index) = std::move(conn);
@@ -337,9 +337,11 @@ void TimesliceBuilder::operator()()
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
 		//assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
+        timeslice_scheduler_->set_compute_MPI_time(time_begin_);
 
         sync_buffer_positions();
         report_status();
+        report_ts_completion();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
@@ -442,11 +444,12 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
     assert(index < conn_.size() && conn_.at(index) == nullptr);
 
     std::unique_ptr<ComputeNodeConnection> conn(
-        new ComputeNodeConnection(eq_, index, compute_index_, remote_info,
+        new ComputeNodeConnection(eq_, index, compute_index_, conn_.size(), remote_info,
                                   timeslice_buffer_.get_data_ptr(index),
                                   timeslice_buffer_.get_data_size_exp(),
                                   timeslice_buffer_.get_desc_ptr(index),
-                                  timeslice_buffer_.get_desc_size_exp()));
+                                  timeslice_buffer_.get_desc_size_exp(),
+                                  timeslice_scheduler_));
     conn_.at(index) = std::move(conn);
 
     conn_.at(index)->on_connect_request(event, pd_, cq_);
@@ -492,12 +495,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
-        if (conn_[in]->recv_status_message().in_acked_timeslice != -1 && conn_[in]->recv_status_message().in_acked_timeslice >= 0) {
-        	conn_[(in+1)%num_input_nodes_]->add_predecessor_node_info(conn_[in]->recv_status_message().in_acked_timeslice, conn_[in]->recv_status_message().in_acked_time);
-    	}
-        //conn_[in]->inc_ack_pointers(conn_[in]->cn_wp().desc);
-        //add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
-        
+
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
                 std::begin(conn_), std::end(conn_),
@@ -528,11 +526,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                 }
                 completed_ts.push_back(time);
             }
-
-            /*if (completed_ts.size() != last_completed_ts_size){
-				for (auto& conn:conn_)
-					conn->set_prev_in_acked_timeslice(completed_ts.size());
-            }*/
             completely_written_ = new_completely_written;
         }
         break;
@@ -571,5 +564,21 @@ void TimesliceBuilder::poll_ts_completion()
             connection->inc_ack_pointers(acked_);
     } else
         ack_.at(c.ts_pos) = c.ts_pos;
+}
+
+void TimesliceBuilder::report_ts_completion(){
+
+	std::chrono::system_clock::time_point now =
+		std::chrono::system_clock::now();
+
+	bool ts_completed = timeslice_scheduler_->check_new_ts_completed();
+	if (ts_completed) {
+		for (auto& c : conn_) {
+			c->mark_new_ts_completed();
+		}
+	}
+
+	scheduler_.add(std::bind(&TimesliceBuilder::report_ts_completion, this),
+				   now + std::chrono::milliseconds(0));
 }
 }
