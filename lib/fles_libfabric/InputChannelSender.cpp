@@ -143,21 +143,25 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice()
 {
-	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
-	for (uint32_t i=0 ; i< conn_.size() ; i++) {
-		uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == MINUS_ONE ? i : 
-			conn_[i]->get_last_sent_timeslice() + conn_.size();
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+    for (uint32_t i=0 ; i< conn_.size() ; i++) {
+	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == MINUS_ONE ? i :
+		    conn_[i]->get_last_sent_timeslice() + conn_.size();
 
-		if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
-				now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
-			if (try_send_timeslice(next_ts)){
-				conn_[i]->set_last_sent_timeslice(next_ts);
-				conn_[i]->add_sent_time(next_ts, now);
-				sent_timeslices_++;
-			}
-		}
-	}
+	    if (next_ts > max_timeslice_number_) continue;
+
+	    if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
+			    now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
+		    if (try_send_timeslice(next_ts)){
+			    conn_[i]->set_last_sent_timeslice(next_ts);
+			    conn_[i]->add_sent_time(next_ts, now);
+			    sent_timeslices_++;
+		    }
+	    }
+    }
+    if (sent_timeslices_ <= max_timeslice_number_){
 	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), now + std::chrono::milliseconds(0));
+    }
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -231,7 +235,7 @@ void InputChannelSender::operator()()
         report_status();
         send_timeslice();
 
-        while (sent_timeslices_ < max_timeslice_number_ && !abort_) {
+        while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
             	sent_timeslices_++;
             }*/

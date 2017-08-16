@@ -137,13 +137,14 @@ public:
     /// The Libfabric completion notification handler.
     int poll_completion()
     {
-        const int ne_max = 1;
+        const int ne_max = conn_.size()*2;
 
         struct fi_cq_entry wc[ne_max];
         int ne;
         int ne_total = 0;
 
-        while (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
+        //if (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
+        if (ne = fi_cq_read(cq_, &wc, ne_max)) {
             if (ne == -FI_EAVAIL) { // error available
                 struct fi_cq_err_entry err;
                 char buffer[256];
@@ -159,17 +160,17 @@ public:
                 throw LibfabricException("fi_cq_read failed");
             }
 
-            if (ne == -FI_EAGAIN)
-                break;
+            if (ne != -FI_EAGAIN){
 
-            ne_total += ne;
-            for (int i = 0; i < ne; ++i) {
+		ne_total += ne;
+		for (int i = 0; i < ne; ++i) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-                // L_(trace) << "on_completion(wr_id=" <<
-                // (uintptr_t)wc[i].op_context << ")";
-                on_completion((uintptr_t)wc[i].op_context);
+		    // L_(trace) << "on_completion(wr_id=" <<
+		    // (uintptr_t)wc[i].op_context << ")";
+		    on_completion((uintptr_t)wc[i].op_context);
 #pragma GCC diagnostic pop
+		}
             }
         }
 
