@@ -372,6 +372,7 @@ void TimesliceBuilder::operator()()
 }
 
 void TimesliceBuilder::build_time_file(){
+    /*
         std::ofstream myfile;
         myfile.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_ts.out");
         //myfile << "TS\t";
@@ -390,9 +391,11 @@ void TimesliceBuilder::build_time_file(){
                 myfile << (completed_ts[i] - min_arrival) << "\n";
         }
         myfile.close();
+    */
 }
 
 void TimesliceBuilder::build_time_interval_file(){
+    /*
         std::ofstream t_interval_file;
         t_interval_file.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_t_intrval.out");
 
@@ -421,11 +424,12 @@ void TimesliceBuilder::build_time_interval_file(){
                         added=1;
                 }
                 if (added){
-                        t_interval_file << compute_index_ << "\t" << (i*interval) << /*".."<< (((i+1)*interval)-1) <<*/ "\t" << count_arrival_arr[i] << "\t" << count_comp_arr[i] << "\n";
+                        t_interval_file << compute_index_ << "\t" << (i*interval) << "\t" << count_arrival_arr[i] << "\t" << count_comp_arr[i] << "\n";
                 }
         }
 
         t_interval_file.close();
+        */
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
