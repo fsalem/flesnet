@@ -148,16 +148,19 @@ void InputChannelSender::send_timeslice()
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
 
-	    if (next_ts > max_timeslice_number_) continue;
+	if (next_ts > max_timeslice_number_ || (conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
+		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
+		conn_[i]->get_last_sent_timeslice() > conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS))
+	    continue;
 
-	    if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
-			    now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
-		    if (try_send_timeslice(next_ts)){
-			    conn_[i]->set_last_sent_timeslice(next_ts);
-			    conn_[i]->add_sent_time(next_ts, now);
-			    sent_timeslices_++;
-		    }
-	    }
+	if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
+			now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
+		if (try_send_timeslice(next_ts)){
+			conn_[i]->set_last_sent_timeslice(next_ts);
+			conn_[i]->add_sent_time(next_ts, now);
+			sent_timeslices_++;
+		}
+	}
     }
     if (sent_timeslices_ <= max_timeslice_number_){
 	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), now + std::chrono::milliseconds(0));

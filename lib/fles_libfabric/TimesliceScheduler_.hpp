@@ -67,7 +67,6 @@ public:
 	    if (sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
 		    increament_acked_ts(timeslice);
-		    // TODO when to remove some timeslice ?
 		    // TODO logging!
 	    }
 
@@ -155,7 +154,6 @@ private:
 		}
 		ts_duration_.add(timeslice, total_duration);
 		completed_ts_ = true;
-		// TODO remove old values
 		// TODO do statistics
 		// TODO add +- theta
 	}
