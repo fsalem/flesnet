@@ -21,7 +21,8 @@ class TimesliceScheduler {
 public:
 	TimesliceScheduler(const uint64_t compute_index,
 		const uint32_t input_node_count):
-			compute_index_(compute_index), input_node_count_(input_node_count) {
+			compute_index_(compute_index), input_node_count_(input_node_count),
+			ts_duration_(MAX_DURATION_HISTORY), acked_ts_count_(MAX_DURATION_HISTORY){
 
 		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
 			sender_info_.push_back(InputSchedulerData());
@@ -63,97 +64,86 @@ public:
 			std::chrono::high_resolution_clock::time_point sent_time,
 			double duration){
 
-		if (sender_info_[input_index].ts_sent_info_.find(timeslice)
-				== sender_info_[input_index].ts_sent_info_.end()) {
-			sender_info_[input_index].ts_sent_info_.insert(
-					std::pair<uint64_t,
-							std::pair<
-									std::chrono::high_resolution_clock::time_point,
-									uint64_t>>(timeslice,
-							std::pair<
-									std::chrono::high_resolution_clock::time_point,
-									uint64_t>(sent_time, duration)));
-			increament_acked_ts(timeslice);
-			// TODO when to remove some timeslice ?
-			// TODO logging!
-		}
+	    if (sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
+		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
+		    increament_acked_ts(timeslice);
+		    // TODO when to remove some timeslice ?
+		    // TODO logging!
+	    }
 
 	}
 
 	/// This method gets the sent time for a particular input node and timeslice
 	std::chrono::high_resolution_clock::time_point get_sent_time(
-			uint64_t input_index, uint64_t timeslice){
+		    uint64_t input_index, uint64_t timeslice){
 
-		uint64_t last_complete_ts = get_last_complete_ts();
-		uint64_t last_complete_ts_duration = ts_duration_.find(last_complete_ts)->second;
-		// get last sent time of the received contribution of the last complete timeslice
-		std::chrono::high_resolution_clock::time_point last_received_contribution_time =
-				sender_info_[(compute_index_ - 1) % input_node_count_].ts_sent_info_.find(
-						last_complete_ts)->second.first
-						+ std::chrono::microseconds(
-								sender_info_[(compute_index_ - 1)
-										% input_node_count_].clock_offset);
-		uint64_t sum_needed_duration = 0;
-		for (uint32_t input_node = compute_index_; input_node != compute_index_;
-				++input_node % input_node_count_) {
-			// TODO to add alpha
-			sum_needed_duration += sender_info_[input_node].ts_sent_info_.find(
-				last_complete_ts)->second.second;
-		}
+	    uint64_t last_complete_ts = get_last_complete_ts();
+	    uint64_t last_complete_ts_duration = ts_duration_.get(last_complete_ts);
+	    // get last sent time of the received contribution of the last complete timeslice
+	    std::chrono::high_resolution_clock::time_point last_received_contribution_time =
+			    sender_info_[(compute_index_ - 1) % input_node_count_].ts_sent_info_.get(
+					    last_complete_ts).first
+					    + std::chrono::microseconds(
+							    sender_info_[(compute_index_ - 1)
+									    % input_node_count_].clock_offset);
+	    uint64_t sum_needed_duration = 0;
+	    for (uint32_t input_node = compute_index_; input_node != compute_index_;
+			    ++input_node % input_node_count_) {
+		    // TODO to add alpha
+		    sum_needed_duration += sender_info_[input_node].ts_sent_info_.get(last_complete_ts).second;
+	    }
 
-		std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
-				sum_needed_duration - sender_info_[input_index].clock_offset);
-		// TODO remove the loop and replace it with equation
-		for (uint64_t ts = last_complete_ts+input_node_count_ ; ts<timeslice ; ts+=input_node_count_){
-			sent_time += std::chrono::microseconds((uint64_t)last_complete_ts_duration);
-		}
-		return sent_time;
+	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
+			    sum_needed_duration - sender_info_[input_index].clock_offset);
 
+	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts<timeslice ; ts+=input_node_count_){
+		    sent_time += std::chrono::microseconds(last_complete_ts_duration);
+	    }
 
+	    return sent_time;
 	}
 
 	/// This method gets the duration needed for receiving a complete timeslice after a specific timeslice
-	const uint64_t get_ts_duration(uint64_t timeslice){
+	uint64_t get_ts_duration(uint64_t timeslice){
 
-		std::map<uint64_t, uint64_t>::iterator duration = ts_duration_.find(
-				timeslice);
-		if (duration == ts_duration_.end()) return MINUS_ONE;
-		return duration->second;
+	    if (ts_duration_.contains(timeslice)) return ts_duration_.get(timeslice);
+
+	    return ConstVariables::MINUS_ONE;
 	}
 
 	///This method returns the latest completed timeslice
 	uint64_t get_last_complete_ts() {
 
-		if (ts_duration_.empty()) {
-			return MINUS_ONE;
-		}
-		return (--ts_duration_.end())->first;
+	    if (ts_duration_.size() == 0) {
+		    return ConstVariables::MINUS_ONE;
+	    }
+	    return ts_duration_.get_last_key();
 	}
 
 	bool check_new_ts_completed(){
-		if (completed_ts_) {
-			completed_ts_ = false;
-			return true;
-		}
-		return false;
+
+	    if (completed_ts_) {
+		    completed_ts_ = false;
+		    return true;
+	    }
+	    return false;
 	}
 
 private:
 
 	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
-	void increament_acked_ts(uint64_t timeslice){
+	void increament_acked_ts(uint64_t timeslice) {
 
-		std::map<uint64_t, uint32_t>::iterator ts_iterator = acked_ts_count_.find(
-				timeslice);
-		if (ts_iterator == acked_ts_count_.end()) {
-			acked_ts_count_.insert(std::pair<uint64_t, uint32_t>(timeslice, 1));
-			ts_iterator = acked_ts_count_.find(timeslice);
-		} else {
-			++ts_iterator->second;
-		}
-		if (ts_iterator->second == input_node_count_) {
-			calculate_total_ts_duration(timeslice);
-		}
+	    uint32_t count = 1;
+	    if (acked_ts_count_.contains(timeslice)) {
+		count = acked_ts_count_.get(timeslice)+1;
+		acked_ts_count_.update(timeslice,count);
+	    } else {
+		acked_ts_count_.add(timeslice, count);
+	    }
+	    if (count == input_node_count_) {
+		calculate_total_ts_duration(timeslice);
+	    }
 	}
 
 	/// This calculates the needed duration to receive a complete timeslice from all input nodes
@@ -161,11 +151,9 @@ private:
 
 		uint64_t total_duration = 0;
 		for (int i = 0; i < input_node_count_; i++) {
-			total_duration +=
-					sender_info_[i].ts_sent_info_.find(timeslice)->second.second;
+			total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
 		}
-		ts_duration_.insert(
-				std::pair<uint64_t, double>(timeslice, total_duration));
+		ts_duration_.add(timeslice, total_duration);
 		completed_ts_ = true;
 		// TODO remove old values
 		// TODO do statistics
@@ -188,10 +176,10 @@ private:
 	std::vector<InputSchedulerData> sender_info_;
 
 	/// A history of the estimated durations <timeslice, duration>
-	std::map<uint64_t, uint64_t> ts_duration_;
+	SizedMap<uint64_t, uint64_t> ts_duration_;
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
-	std::map<uint64_t, uint32_t> acked_ts_count_;
+	SizedMap<uint64_t, uint32_t> acked_ts_count_;
 
 	/// Triggers if there are new completed timeslices
 	bool completed_ts_ = false;

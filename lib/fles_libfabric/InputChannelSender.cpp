@@ -145,7 +145,7 @@ void InputChannelSender::send_timeslice()
 {
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
-	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == MINUS_ONE ? i :
+	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
 
 	    if (next_ts > max_timeslice_number_) continue;

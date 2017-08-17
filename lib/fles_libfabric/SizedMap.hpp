@@ -2,6 +2,7 @@
 #pragma once
 
 #include <map>
+#include "ConstVariables.hpp"
 
 namespace tl_libfabric {
 template <typename KEY, typename VALUE>
@@ -9,9 +10,9 @@ class SizedMap
 {
 public:
 	SizedMap(uint32_t max_map_size);
-	SizedMap() = delete;
-	SizedMap(const SizedMap&) = delete;
-	SizedMap& operator=(const SizedMap&) = delete;
+	SizedMap();
+	//SizedMap(const SizedMap&) = delete;
+	//SizedMap& operator=(const SizedMap&) = delete;
 
 	bool add(const KEY key, const VALUE val);
 
@@ -37,6 +38,12 @@ private:
 template <typename KEY, typename VALUE>
 SizedMap<KEY,VALUE>::SizedMap(uint32_t max_map_size) :
 	MAX_MAP_SIZE_(max_map_size){
+
+}
+
+template <typename KEY, typename VALUE>
+SizedMap<KEY,VALUE>::SizedMap() :
+	MAX_MAP_SIZE_(ConstVariables::MAX_HISTORY_SIZE){
 
 }
 

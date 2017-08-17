@@ -24,8 +24,8 @@ InputChannelConnection::InputChannelConnection(
     unsigned int max_pending_write_requests)
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       max_pending_write_requests_(max_pending_write_requests),
-      sent_time_list_(MAX_HISTORY_SIZE),
-      sent_duration_list_(MAX_HISTORY_SIZE)
+      sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
+      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -296,7 +296,7 @@ void InputChannelConnection::on_complete_recv()
     {
     	cn_ack_ = recv_status_message_.ack;
     }
-    if (recv_status_message_.timeslice_to_send != MINUS_ONE) {
+    if (recv_status_message_.timeslice_to_send != ConstVariables::MINUS_ONE) {
 
     	set_wait_time(recv_status_message_.duration);
     	last_scheduled_timeslice_ = recv_status_message_.timeslice_to_send; // this must be smaller than or equal last_sent_timeslice
@@ -519,11 +519,11 @@ void InputChannelConnection::set_remote_info()
 
 std::chrono::high_resolution_clock::time_point InputChannelConnection::get_scheduled_sent_time(uint64_t timeslice)
 {
-	if (last_scheduled_timeslice_ == MINUS_ONE && last_sent_timeslice_ == MINUS_ONE) {
+	if (last_scheduled_timeslice_ == ConstVariables::MINUS_ONE && last_sent_timeslice_ == ConstVariables::MINUS_ONE) {
 		return std::chrono::high_resolution_clock::now()-std::chrono::seconds(10);
 	}
 
-	if (last_scheduled_timeslice_ == MINUS_ONE) { // last_sent_timeslice_ != MINUS_ONE --> at least one timeslice is sent
+	if (last_scheduled_timeslice_ == ConstVariables::MINUS_ONE) { // last_sent_timeslice_ != ConstVariables::MINUS_ONE --> at least one timeslice is sent
    		return get_sent_time(last_sent_timeslice_) +  std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_sent_timeslice_/remote_connection_count_)));
    	}
 
@@ -531,10 +531,10 @@ std::chrono::high_resolution_clock::time_point InputChannelConnection::get_sched
    	return last_scheduled_time_ + std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_scheduled_timeslice_/remote_connection_count_)));
 }
 
-const uint64_t InputChannelConnection::get_last_acked_timeslice()
+uint64_t InputChannelConnection::get_last_acked_timeslice()
 {
 	if (sent_duration_list_.size() == 0)
-		return MINUS_ONE;
+		return ConstVariables::MINUS_ONE;
 	return sent_duration_list_.get_last_key();
 }
 }

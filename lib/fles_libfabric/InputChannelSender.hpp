@@ -132,9 +132,9 @@ private:
 
     bool abort_ = false;
 
-    uint64_t init_wait_time_ = ZERO;
+    uint64_t init_wait_time_ = ConstVariables::ZERO;
 
-    uint64_t sent_timeslices_ = ZERO;
+    uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
     void build_time_file();
 

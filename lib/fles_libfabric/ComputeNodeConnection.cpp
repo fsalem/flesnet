@@ -290,7 +290,7 @@ void ComputeNodeConnection::on_complete_recv()
     	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
     }
 
-    if (recv_status_message_.sent_timeslice != MINUS_ONE) {
+    if (recv_status_message_.sent_timeslice != ConstVariables::MINUS_ONE) {
     	timeslice_scheduler_->add_input_ts_info(index_, recv_status_message_.sent_timeslice, recv_status_message_.sent_time, recv_status_message_.sent_duration);
     }
     post_recv_status_message();

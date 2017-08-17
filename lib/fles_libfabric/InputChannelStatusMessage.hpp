@@ -28,7 +28,7 @@ struct InputChannelStatusMessage {
     std::chrono::high_resolution_clock::time_point sent_time;
     // The duration needed to send the contribution of the timeslice till receiving the acknowledgment
     uint64_t sent_duration;
-    uint64_t sent_timeslice = MINUS_ONE;
+    uint64_t sent_timeslice = ConstVariables::MINUS_ONE;
 };
 }
 

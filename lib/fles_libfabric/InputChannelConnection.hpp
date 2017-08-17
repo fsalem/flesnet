@@ -120,7 +120,7 @@ public:
     double get_sent_duration(uint64_t timeslice) const { return sent_duration_list_.get(timeslice); }
 
     /// Return the last acked timeslice
-    const uint64_t get_last_acked_timeslice();
+    uint64_t get_last_acked_timeslice();
 
     /// Return the last scheduled timeslice from the compute node scheduler
     uint64_t get_last_scheduled_timeslice() const { return last_scheduled_timeslice_; }
@@ -187,7 +187,7 @@ private:
 
     fi_addr_t partner_addr_ = 0;
 
-    uint64_t last_sent_timeslice_ = MINUS_ONE;
+    uint64_t last_sent_timeslice_ = ConstVariables::MINUS_ONE;
 
     /// This list of sent timestamp of latest timeslices
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
@@ -195,11 +195,9 @@ private:
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;
 
-    uint64_t last_scheduled_timeslice_ = MINUS_ONE;
+    uint64_t last_scheduled_timeslice_ = ConstVariables::MINUS_ONE;
     std::chrono::high_resolution_clock::time_point last_scheduled_time_;
     uint64_t wait_time_ = 500;
-
-    const uint_fast16_t MAX_FOLLOWING_TIMESLICE = 50;
 
 };
 }
