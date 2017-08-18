@@ -93,7 +93,7 @@ bool SizedMap<KEY,VALUE>::remove(const KEY key)
 
 template <typename KEY, typename VALUE>
 bool SizedMap<KEY,VALUE>::contains(const KEY key) const {
-	return false ? map_.find(key) == map_.end() : true;
+	return map_.find(key) == map_.end() ? false : true;
 }
 
 template <typename KEY, typename VALUE>

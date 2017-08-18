@@ -148,9 +148,13 @@ void InputChannelSender::send_timeslice()
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
 
-	if (next_ts > max_timeslice_number_ || (conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
+	if (next_ts > max_timeslice_number_ ||
+		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() > conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS))
+		conn_[i]->get_last_sent_timeslice() > conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
+		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
+		conn_[i]->get_last_sent_timeslice() > ConstVariables::MAX_OVER_SCHEDULER_TS))
 	    continue;
 
 	if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&

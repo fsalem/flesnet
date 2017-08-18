@@ -64,7 +64,7 @@ public:
 			std::chrono::high_resolution_clock::time_point sent_time,
 			double duration){
 
-	    if (sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
+	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
 		    increament_acked_ts(timeslice);
 		    // TODO logging!
@@ -128,6 +128,14 @@ public:
 	    return false;
 	}
 
+	void build_ack_time_file(){
+
+	}
+
+	void build_scheduled_time_file(){
+
+	}
+
 private:
 
 	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
@@ -148,14 +156,14 @@ private:
 	/// This calculates the needed duration to receive a complete timeslice from all input nodes
 	void calculate_total_ts_duration(uint64_t timeslice){
 
-		uint64_t total_duration = 0;
-		for (int i = 0; i < input_node_count_; i++) {
-			total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
-		}
-		ts_duration_.add(timeslice, total_duration);
-		completed_ts_ = true;
-		// TODO do statistics
-		// TODO add +- theta
+	    uint64_t total_duration = 0;
+	    for (uint32_t i = 0; i < input_node_count_; i++) {
+		    total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
+	    }
+	    ts_duration_.add(timeslice, total_duration);
+	    completed_ts_ = true;
+	    // TODO do statistics
+	    // TODO add +- theta
 	}
 
 	/// This const variable limits the number of durations of timeslices to be kept
@@ -181,6 +189,12 @@ private:
 
 	/// Triggers if there are new completed timeslices
 	bool completed_ts_ = false;
+
+
+	/// LOGGING
+	std::chrono::high_resolution_clock::time_point first_arrival_time_;
+	// timeslice, [{proposed, actual}]
+	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times;
 
 };
 

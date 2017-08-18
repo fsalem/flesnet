@@ -339,9 +339,9 @@ void TimesliceBuilder::operator()()
         time_begin_ = std::chrono::high_resolution_clock::now();
         timeslice_scheduler_->set_compute_MPI_time(time_begin_);
 
+        report_ts_completion();
         sync_buffer_positions();
         report_status();
-        report_ts_completion();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
@@ -362,74 +362,13 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        build_time_file();
-        build_time_interval_file();
+        timeslice_scheduler_->build_ack_time_file();
+        timeslice_scheduler_->build_scheduled_time_file();
 
         summary();
     } catch (std::exception& e) {
         L_(error) << "exception in TimesliceBuilder: " << e.what();
     }
-}
-
-void TimesliceBuilder::build_time_file(){
-    /*
-        std::ofstream myfile;
-        myfile.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_ts.out");
-        //myfile << "TS\t";
-        //for (int i=0 ; i < num_input_nodes_ ; i++)
-        //      myfile << "Sent#" << i << "\tArrival#" << i << "\t";
-        //myfile << "COMPLETION\n";
-        double min_arrival;
-        for (int i=0 ; i<arrivals_ts.size() ; i++){
-                myfile << compute_index_ << "\t" << (i*num_input_nodes_+compute_index_) << "\t";
-                min_arrival = arrivals_ts[i][0];
-                for (int j=0 ; j < num_input_nodes_ ; j++){
-                        myfile << sent_ts[i][j] << "\t" << arrivals_ts[i][j] << "\t";
-                        if (min_arrival > arrivals_ts[i][j]) min_arrival = arrivals_ts[i][j];
-                }
-                myfile << completed_ts[i] << "\t";
-                myfile << (completed_ts[i] - min_arrival) << "\n";
-        }
-        myfile.close();
-    */
-}
-
-void TimesliceBuilder::build_time_interval_file(){
-    /*
-        std::ofstream t_interval_file;
-        t_interval_file.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_t_intrval.out");
-
-        double interval=10.0;
-        double max_arrival=-1;
-        for (int j=0 ; j < num_input_nodes_ ; j++){
-                if (arrivals_ts[arrivals_ts.size()-1][j] > max_arrival)
-                        max_arrival=arrivals_ts[arrivals_ts.size()-1][j];
-        }
-        int arrival_arr_size=max_arrival/interval+1, comp_arr_size=completed_ts[completed_ts.size()-1]/interval+1;
-        long int count_arrival_arr[arrival_arr_size]={0}, count_comp_arr[comp_arr_size]={0};
-
-        for (int i=0 ; i<arrivals_ts.size() ; i++){
-                for (int j=0 ; j < num_input_nodes_ ; j++){
-                        count_arrival_arr[(int)(arrivals_ts[i][j]/interval)]++;
-                }
-                count_comp_arr[(int)(completed_ts[i]/interval)]++;
-        }
-        bool added;
-        for (int i=0 ; i<arrival_arr_size || i < comp_arr_size ; i++){
-                added=0;
-                if (i<arrival_arr_size && count_arrival_arr[i] > 0){
-                        added=1;
-                }
-                if (i < comp_arr_size && count_comp_arr[i] > 0){
-                        added=1;
-                }
-                if (added){
-                        t_interval_file << compute_index_ << "\t" << (i*interval) << "\t" << count_arrival_arr[i] << "\t" << count_comp_arr[i] << "\n";
-                }
-        }
-
-        t_interval_file.close();
-        */
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
