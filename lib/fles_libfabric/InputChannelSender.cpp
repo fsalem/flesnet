@@ -9,6 +9,7 @@
 #include <chrono>
 #include <log.hpp>
 #include <rdma/fi_domain.h>
+#include <iomanip>
 
 namespace tl_libfabric
 {
@@ -143,31 +144,48 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice()
 {
-    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
 
-	if (next_ts > max_timeslice_number_ ||
-		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
+	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
+		scheduled_sent_time = conn_[i]->get_scheduled_sent_time(next_ts);
+	if (next_ts > max_timeslice_number_) continue;
+	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_sent_timeslice() > conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS) ||
 		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() > ConstVariables::MAX_OVER_SCHEDULER_TS))
+		conn_[i]->get_last_sent_timeslice() > ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
+	    if (now >= scheduled_sent_time && trigger_blocked_times_.find(next_ts) == trigger_blocked_times_.end()){
+		trigger_blocked_times_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
+	    }
 	    continue;
+	}
 
-	if (conn_[i]->get_last_acked_timeslice() == conn_[i]->get_last_sent_timeslice() &&
-			now >= conn_[i]->get_scheduled_sent_time(next_ts)) {
+
+	if (now >= scheduled_sent_time) {
 		if (try_send_timeslice(next_ts)){
 			conn_[i]->set_last_sent_timeslice(next_ts);
 			conn_[i]->add_sent_time(next_ts, now);
 			sent_timeslices_++;
+
+			proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
+				std::pair<int64_t, int64_t>(
+			    std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
+			    std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
+			);
+			if (trigger_blocked_times_.find(next_ts) != trigger_blocked_times_.end()){
+			    blocked_times_.insert(std::pair<int64_t,int64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(now - trigger_blocked_times_.find(next_ts)->second).count()));
+			    trigger_blocked_times_.erase(next_ts);
+			}
+
 		}
 	}
     }
     if (sent_timeslices_ <= max_timeslice_number_){
-	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), now + std::chrono::milliseconds(0));
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(0));
     }
 }
 
@@ -281,41 +299,28 @@ void InputChannelSender::operator()()
         }
 
         summary();
-        build_time_file();
+        build_scheduled_time_file();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }
 }
 
-void InputChannelSender::build_time_file(){
-/*      std::ofstream myfile;
-        myfile.open (std::to_string(input_index_)+".input_ts.out");
-        for (int i=0 ; i<max_timeslice_number_ ; i++){
-        	myfile << input_index_ << "\t" << (i%compute_hostnames_.size()) << "\t" << i << "\t" << (waiting_times_[i]/1000.0) << "\t" << conn_[(i%compute_hostnames_.size())]->get_spent_times_list()[(int)(i/compute_hostnames_.size())] << "\n";
-        }
-        myfile.close();
+void InputChannelSender::build_scheduled_time_file(){
+    std::ofstream log_file;
+    log_file.open(std::to_string(input_index_)+".proposed_vs_sent_time.out");
 
-        myfile.open (std::to_string(input_index_)+".input_max_ts.out");
-        for (int i=0 ; i<compute_hostnames_.size() ; i++){
-        	myfile << input_index_ << "\t" << i << "\t" << conn_[i]->max_avg << "\t" << conn_[i]->max_max << "\n";
-        }
-        myfile.close();
-*/
-        /*
-        double agg_t=0.0;
-        for (int i=0 ; i<full_buffer.size() ; i++){
-                myfile << input_index_ << "\t" << i << "\t" << full_buffer[i] << "\n";
-                L_(info) << "Compute node#" << i << " delayed processing for " << full_buffer[i] << "ms";
-                agg_t+=full_buffer[i];
-        }
-        //L_(info) << "Node is blocked due to insuffient data for " << empty_buffer << "ms";
-        myfile.close();
+    log_file << std::setw(25) << "Compute Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Blocked" << std::setw(25) << "Diff" << "\n";
 
-        myfile.open (std::to_string(full_buffer.size())+"."+std::to_string(input_index_)+".input_agg_t.out");
-        myfile << input_index_ << "\t" << empty_buffer << "\t" << agg_t << "\n";
-        L_(info) << "Node is blocked due to insuffient data for " << empty_buffer << "ms and due to full compute buffer for " << agg_t << "ms" << " [sum:" <<((empty_buffer+agg_t)/1000.0) << "s]";
-        myfile.close();
-        */
+    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
+    while (it != proposed_actual_times_.end()){
+	int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
+	log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
+
+	++it;
+    }
+
+    log_file.flush();
+    log_file.close();
 }
 
 bool InputChannelSender::try_send_timeslice(uint64_t timeslice)

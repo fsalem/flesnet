@@ -136,7 +136,11 @@ private:
 
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
-    void build_time_file();
+    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_;
+    std::map<uint64_t, uint64_t > blocked_times_;
+    std::map<uint64_t, std::chrono::system_clock::time_point > trigger_blocked_times_;
+
+    void build_scheduled_time_file();
 
     struct SendBufferStatus {
         std::chrono::system_clock::time_point time;

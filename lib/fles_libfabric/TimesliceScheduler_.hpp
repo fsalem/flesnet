@@ -7,13 +7,15 @@
 
 #pragma once
 
+#include "InputSchedulerData.hpp"
 #include <algorithm>
 #include <set>
 #include <vector>
 #include <chrono>
-#include "InputSchedulerData.hpp"
 #include <assert.h>
 #include <log.hpp>
+#include <fstream>
+#include <iomanip>
 
 namespace tl_libfabric {
 
@@ -68,6 +70,24 @@ public:
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
 		    increament_acked_ts(timeslice);
 		    // TODO logging!
+
+		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_.find(timeslice);
+
+		    if (it == proposed_actual_times_.end()){
+			proposed_actual_times_.insert(std::pair<uint64_t,
+				std::vector<std::pair<int64_t, int64_t> > >(timeslice, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
+			it = proposed_actual_times_.find(timeslice);
+		    }
+
+		    if (get_last_complete_ts() == ConstVariables::MINUS_ONE){
+			it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
+				std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
+		    }else{
+			it->second[input_index] = std::make_pair<int64_t, int64_t>(
+				std::chrono::duration_cast<std::chrono::microseconds>(get_sent_time(input_index, timeslice) - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
+				std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset
+				);
+		    }
 	    }
 
 	}
@@ -134,6 +154,26 @@ public:
 
 	void build_scheduled_time_file(){
 
+	    std::ofstream log_file;
+	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_sent_time.out");
+
+
+	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << "\n";
+
+	    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_.begin();
+	    std::vector<std::pair<int64_t, int64_t>> times;
+	    while (it != proposed_actual_times_.end()){
+		times = it->second;
+		for (uint32_t i=0 ; i<times.size() ; i++){
+		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) << (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << "\n";
+		}
+
+		log_file.flush();
+		++it;
+	    }
+
+
+	    log_file.close();
 	}
 
 private:
@@ -192,9 +232,8 @@ private:
 
 
 	/// LOGGING
-	std::chrono::high_resolution_clock::time_point first_arrival_time_;
 	// timeslice, [{proposed, actual}]
-	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times;
+	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_;
 
 };
 
