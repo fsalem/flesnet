@@ -110,6 +110,12 @@ public:
     /// get the time when a specific timeslice is sent
     const std::chrono::high_resolution_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
 
+    /// Add the scheduled time of sent a timeslice
+    void add_scheduled_already_sent_time(uint64_t timeslice, std::chrono::high_resolution_clock::time_point time) { scheduled_time_list_.add(timeslice, time); }
+
+    /// get the scheduled time when a specific timeslice is sent
+    const std::chrono::high_resolution_clock::time_point get_scheduled_already_sent_time(uint64_t timeslice) const { return scheduled_time_list_.get(timeslice); }
+
     /// Add the needed duration to transmit each timeslice and getting the ack back
     void add_sent_duration(uint64_t timeslice, double duration) { sent_duration_list_.add(timeslice, duration); data_acked_ = true;}
 
@@ -191,6 +197,9 @@ private:
 
     /// This list of sent timestamp of latest timeslices
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
+
+    /// This list of scheduled timestamp of sent timeslices
+    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> scheduled_time_list_;
 
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;

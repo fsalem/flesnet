@@ -449,6 +449,7 @@ void InputChannelConnection::post_send_status_message()
     if (data_acked_) {
 		send_status_message_.sent_timeslice = get_last_acked_timeslice();
 		send_status_message_.sent_time = get_sent_time(send_status_message_.sent_timeslice);
+		send_status_message_.proposed_time = get_scheduled_already_sent_time(send_status_message_.sent_timeslice);
 		send_status_message_.sent_duration = get_sent_duration(send_status_message_.sent_timeslice);
     }
 

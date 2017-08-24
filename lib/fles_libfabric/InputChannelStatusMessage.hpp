@@ -26,6 +26,7 @@ struct InputChannelStatusMessage {
     std::chrono::high_resolution_clock::time_point MPI_time;
     // last acked time difference from the barrier of predecessor of the target input node
     std::chrono::high_resolution_clock::time_point sent_time;
+    std::chrono::high_resolution_clock::time_point proposed_time;
     // The duration needed to send the contribution of the timeslice till receiving the acknowledgment
     uint64_t sent_duration;
     uint64_t sent_timeslice = ConstVariables::MINUS_ONE;

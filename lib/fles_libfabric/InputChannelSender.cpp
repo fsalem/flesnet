@@ -169,6 +169,7 @@ void InputChannelSender::send_timeslice()
 		if (try_send_timeslice(next_ts)){
 			conn_[i]->set_last_sent_timeslice(next_ts);
 			conn_[i]->add_sent_time(next_ts, now);
+			conn_[i]->add_scheduled_already_sent_time(next_ts, now);
 			sent_timeslices_++;
 
 			proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,

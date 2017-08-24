@@ -64,6 +64,7 @@ public:
 	/// This method adds the received information from an input node to the scheduler data
 	void add_input_ts_info(uint64_t input_index, uint64_t timeslice,
 			std::chrono::high_resolution_clock::time_point sent_time,
+			std::chrono::high_resolution_clock::time_point proposed_time,
 			double duration){
 
 	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
@@ -79,15 +80,8 @@ public:
 			it = proposed_actual_times_.find(timeslice);
 		    }
 
-		    if (get_last_complete_ts() == ConstVariables::MINUS_ONE){
-			it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
-				std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
-		    }else{
-			it->second[input_index] = std::make_pair<int64_t, int64_t>(
-				std::chrono::duration_cast<std::chrono::microseconds>(get_sent_time(input_index, timeslice) - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
-				std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset
-				);
-		    }
+		    it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
+			std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
 	    }
 
 	}
