@@ -153,10 +153,10 @@ void InputChannelSender::send_timeslice()
 	if (next_ts > max_timeslice_number_) continue;
 	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() > conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		conn_[i]->get_last_sent_timeslice() >= conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS) ||
 		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() > ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		conn_[i]->get_last_sent_timeslice() >= ConstVariables::MAX_OVER_SCHEDULER_TS) ||
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
 	    if (now >= scheduled_sent_time && trigger_blocked_times_.find(next_ts) == trigger_blocked_times_.end()){
 		trigger_blocked_times_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
@@ -169,7 +169,7 @@ void InputChannelSender::send_timeslice()
 		if (try_send_timeslice(next_ts)){
 			conn_[i]->set_last_sent_timeslice(next_ts);
 			conn_[i]->add_sent_time(next_ts, now);
-			conn_[i]->add_scheduled_already_sent_time(next_ts, now);
+			conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
 			sent_timeslices_++;
 
 			proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,

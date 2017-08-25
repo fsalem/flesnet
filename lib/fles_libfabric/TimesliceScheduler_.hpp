@@ -72,16 +72,18 @@ public:
 		    increament_acked_ts(timeslice);
 		    // TODO logging!
 
-		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_.find(timeslice);
+		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(timeslice);
 
-		    if (it == proposed_actual_times_.end()){
-			proposed_actual_times_.insert(std::pair<uint64_t,
+		    if (it == proposed_actual_times_log_.end()){
+			proposed_actual_times_log_.insert(std::pair<uint64_t,
 				std::vector<std::pair<int64_t, int64_t> > >(timeslice, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
-			it = proposed_actual_times_.find(timeslice);
+			it = proposed_actual_times_log_.find(timeslice);
 		    }
 
 		    it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
 			std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
+
+		    if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
 	    }
 
 	}
@@ -152,14 +154,14 @@ public:
 	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_sent_time.out");
 
 
-	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << "\n";
+	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << "\n";
 
-	    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_.begin();
+	    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.begin();
 	    std::vector<std::pair<int64_t, int64_t>> times;
-	    while (it != proposed_actual_times_.end()){
+	    while (it != proposed_actual_times_log_.end()){
 		times = it->second;
 		for (uint32_t i=0 ; i<times.size() ; i++){
-		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) << (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << "\n";
+		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) << (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << std::setw(25) << (durations_log_.find(it->first)->second*1.0)/1000.0 << "\n";
 		}
 
 		log_file.flush();
@@ -195,6 +197,7 @@ private:
 		    total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
 	    }
 	    ts_duration_.add(timeslice, total_duration);
+	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
 	    completed_ts_ = true;
 	    // TODO do statistics
 	    // TODO add +- theta
@@ -227,7 +230,9 @@ private:
 
 	/// LOGGING
 	// timeslice, [{proposed, actual}]
-	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_;
+	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_log_;
+	///
+	std::map<uint64_t, uint64_t> durations_log_;
 
 };
 
