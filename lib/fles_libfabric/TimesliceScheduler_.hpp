@@ -52,7 +52,7 @@ public:
 	}
 
 	/// This method initializes the required data from each input node such as when the MPI barrier is passed
-	void init_input_index_info(uint64_t input_index,
+	void init_input_index_info(uint32_t input_index,
 			std::chrono::high_resolution_clock::time_point MPI_time){
 
 		assert(sender_info_.size() == input_node_count_);
@@ -62,7 +62,7 @@ public:
 	}
 
 	/// This method adds the received information from an input node to the scheduler data
-	void add_input_ts_info(uint64_t input_index, uint64_t timeslice,
+	void add_input_ts_info(uint32_t input_index, uint64_t timeslice,
 			std::chrono::high_resolution_clock::time_point sent_time,
 			std::chrono::high_resolution_clock::time_point proposed_time,
 			double duration){
@@ -90,7 +90,7 @@ public:
 
 	/// This method gets the sent time for a particular input node and timeslice
 	std::chrono::high_resolution_clock::time_point get_sent_time(
-		    uint64_t input_index, uint64_t timeslice){
+		    uint32_t input_index, uint64_t timeslice){
 
 	    uint64_t last_complete_ts = get_last_complete_ts();
 	    uint64_t last_complete_ts_duration = ts_duration_.get(last_complete_ts);
@@ -102,10 +102,10 @@ public:
 							    sender_info_[(compute_index_ - 1)
 									    % input_node_count_].clock_offset);
 	    uint64_t sum_needed_duration = 0;
-	    for (uint32_t input_node = compute_index_; input_node != compute_index_;
-			    ++input_node % input_node_count_) {
+	    for (uint32_t i = compute_index_; i != input_index;
+		    i = ((i+1) % input_node_count_)) {
 		    // TODO to add alpha
-		    sum_needed_duration += sender_info_[input_node].ts_sent_info_.get(last_complete_ts).second;
+		    sum_needed_duration += sender_info_[i].ts_sent_info_.get(last_complete_ts).second;
 	    }
 
 	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
@@ -114,6 +114,9 @@ public:
 	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts<timeslice ; ts+=input_node_count_){
 		    sent_time += std::chrono::microseconds(last_complete_ts_duration);
 	    }
+
+	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
+		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
 
 	    return sent_time;
 	}
@@ -154,14 +157,17 @@ public:
 	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_sent_time.out");
 
 
-	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << "\n";
+	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << std::setw(25) << "Scheduled(t)" << "\n";
 
 	    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.begin();
 	    std::vector<std::pair<int64_t, int64_t>> times;
 	    while (it != proposed_actual_times_log_.end()){
 		times = it->second;
+		std::map<uint64_t, std::vector<int64_t> >::iterator it_scheduled = proposed_times_log_.find(it->first);
 		for (uint32_t i=0 ; i<times.size() ; i++){
-		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) << (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << std::setw(25) << (durations_log_.find(it->first)->second*1.0)/1000.0 << "\n";
+		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) <<
+			    (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << std::setw(25) <<
+			    (durations_log_.find(it->first)->second*1.0)/1000.0 << std::setw(25) << (it_scheduled->second[i]*1.0)/1000.0 << "\n";
 		}
 
 		log_file.flush();
@@ -198,9 +204,15 @@ private:
 	    }
 	    ts_duration_.add(timeslice, total_duration);
 	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
+	    proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
+	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
+	    for (int i=0 ; i<input_node_count_ ; i++){
+		it->second[i] = std::chrono::duration_cast<std::chrono::microseconds>(get_sent_time(i,timeslice) - compute_MPI_time_).count() + sender_info_[i].clock_offset;
+	    }
+
 	    completed_ts_ = true;
 	    // TODO do statistics
-	    // TODO add +- theta
+	    // TODO add +/- theta
 	}
 
 	/// This const variable limits the number of durations of timeslices to be kept
@@ -233,8 +245,12 @@ private:
 	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_log_;
 	///
 	std::map<uint64_t, uint64_t> durations_log_;
+	///
+	std::map<uint64_t, std::vector<int64_t> > proposed_times_log_;
+
 
 };
 
 
 } // namespace tl_libfabric
+
