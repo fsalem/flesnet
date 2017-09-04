@@ -118,6 +118,14 @@ public:
 	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
 		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
 
+	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
+	    if (it == proposed_times_log_.end()){
+		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
+		it = proposed_times_log_.find(timeslice);
+	    }
+
+	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
+
 	    return sent_time;
 	}
 
@@ -204,11 +212,6 @@ private:
 	    }
 	    ts_duration_.add(timeslice, total_duration);
 	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
-	    proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
-	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
-	    for (int i=0 ; i<input_node_count_ ; i++){
-		it->second[i] = std::chrono::duration_cast<std::chrono::microseconds>(get_sent_time(i,timeslice) - compute_MPI_time_).count() + sender_info_[i].clock_offset;
-	    }
 
 	    completed_ts_ = true;
 	    // TODO do statistics
