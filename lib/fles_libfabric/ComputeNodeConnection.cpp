@@ -274,15 +274,17 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 		    send_status_message_.timeslice_to_send += interval_length;
 		    send_status_message_.duration = timeslice_scheduler_->get_ts_duration(last_complete_ts);
 		    send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+        	}else{
+        	    data_acked_ = false;
         	}
             }
         }
-        
-        post_send_status_message();
-        return true;
-    } else {
-        return false;
+        if (data_acked_ || data_changed_){
+	    post_send_status_message();
+	    return true;
+        }
     }
+        return false;
 }
 
 void ComputeNodeConnection::on_complete_recv()
