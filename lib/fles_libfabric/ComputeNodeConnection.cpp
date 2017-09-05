@@ -9,6 +9,7 @@
 #include <cassert>
 #include <log.hpp>
 #include <rdma/fi_cm.h>
+#include <cmath>
 
 namespace tl_libfabric
 {
