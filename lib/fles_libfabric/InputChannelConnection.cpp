@@ -298,9 +298,17 @@ void InputChannelConnection::on_complete_recv()
     }
     if (recv_status_message_.timeslice_to_send != ConstVariables::MINUS_ONE) {
 
-    	set_wait_time(recv_status_message_.duration);
-    	last_scheduled_timeslice_ = recv_status_message_.timeslice_to_send; // this must be smaller than or equal last_sent_timeslice
-    	last_scheduled_time_ = recv_status_message_.time_to_send;
+	int_fast16_t arr_index = last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE ? 0 :
+		(last_scheduled_timeslices_[0] != ConstVariables::MINUS_ONE &&
+			(last_scheduled_timeslices_[1] == ConstVariables::MINUS_ONE ||
+	    		    last_scheduled_timeslices_[1] < recv_status_message_.timeslice_to_send) ? 1:-1);
+
+	if (arr_index != -1) {
+	    wait_times_[arr_index] = recv_status_message_.duration;
+	    last_scheduled_timeslices_[arr_index] = recv_status_message_.timeslice_to_send; // this must be smaller than or equal last_sent_timeslice
+	    last_scheduled_times_[arr_index] = recv_status_message_.time_to_send;
+	    update_last_scheduled_info();
+	}
     }
     post_recv_status_message();
 }
@@ -520,16 +528,16 @@ void InputChannelConnection::set_remote_info()
 
 std::chrono::high_resolution_clock::time_point InputChannelConnection::get_scheduled_sent_time(uint64_t timeslice)
 {
-	if (last_scheduled_timeslice_ == ConstVariables::MINUS_ONE && last_sent_timeslice_ == ConstVariables::MINUS_ONE) {
+	if (last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE && last_sent_timeslice_ == ConstVariables::MINUS_ONE) {
 		return std::chrono::high_resolution_clock::now()-std::chrono::seconds(10);
 	}
 
-	if (last_scheduled_timeslice_ == ConstVariables::MINUS_ONE) { // last_sent_timeslice_ != ConstVariables::MINUS_ONE --> at least one timeslice is sent
-   		return get_sent_time(last_sent_timeslice_) +  std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_sent_timeslice_/remote_connection_count_)));
+	if (last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE) { // last_sent_timeslice_ != ConstVariables::MINUS_ONE --> at least one timeslice is sent
+   		return get_sent_time(last_sent_timeslice_) +  std::chrono::microseconds(wait_times_[0] *((timeslice/remote_connection_count_)-(last_sent_timeslice_/remote_connection_count_)));
    	}
 
 	// guidelines are received from the compute scheduler!
-   	return last_scheduled_time_ + std::chrono::microseconds(wait_time_ *((timeslice/remote_connection_count_)-(last_scheduled_timeslice_/remote_connection_count_)));
+   	return last_scheduled_times_[0] + std::chrono::microseconds(wait_times_[0] *((timeslice/remote_connection_count_)-(last_scheduled_timeslices_[0]/remote_connection_count_)));
 }
 
 uint64_t InputChannelConnection::get_last_acked_timeslice()
@@ -537,5 +545,24 @@ uint64_t InputChannelConnection::get_last_acked_timeslice()
 	if (sent_duration_list_.size() == 0)
 		return ConstVariables::MINUS_ONE;
 	return sent_duration_list_.get_last_key();
+}
+
+void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
+{
+    last_sent_timeslice_ = sent_ts;
+    update_last_scheduled_info();
+}
+
+void InputChannelConnection::update_last_scheduled_info()
+{
+    //L_(info) << "[update] last_sent=" << last_sent_timeslice_ << ", last_scheduled=" << last_scheduled_timeslices_[1];
+    if (last_scheduled_timeslices_[1] != ConstVariables::MINUS_ONE &&
+	    (last_sent_timeslice_ == last_scheduled_timeslices_[1] ||
+		    last_sent_timeslice_+remote_connection_count_ == last_scheduled_timeslices_[1])) {
+
+	last_scheduled_times_[0] = last_scheduled_times_[1];
+	last_scheduled_timeslices_[0] = last_scheduled_timeslices_[1];
+	wait_times_[0] = wait_times_[1];
+    }
 }
 }

@@ -250,14 +250,31 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
+
     if ((data_acked_ || data_changed_) && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
 
-        if (data_acked_){
-			uint64_t last_ts = timeslice_scheduler_->get_last_complete_ts();
-			send_status_message_.timeslice_to_send = last_ts+remote_connection_count_;
-			send_status_message_.duration = timeslice_scheduler_->get_ts_duration(last_ts);
-			send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+        /// TODO here, it's assumed that # of input nodes = compute nodes
+        uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * remote_connection_count_;
+        uint32_t send_position = std::floor(ConstVariables::SCHEDULER_INTERVAL_LENGTH / 2) * remote_connection_count_;
+
+
+        if (data_acked_)
+        {
+            uint16_t last_complete_ts = timeslice_scheduler_->get_last_complete_ts();
+
+            if (send_status_message_.timeslice_to_send == ConstVariables::MINUS_ONE){
+        	assert (last_complete_ts == remote_index_);
+		send_status_message_.timeslice_to_send = remote_index_;
+		send_status_message_.duration = timeslice_scheduler_->get_ts_duration(send_status_message_.timeslice_to_send);
+		send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+            }else{
+        	if (last_complete_ts == send_status_message_.timeslice_to_send + send_position){
+		    send_status_message_.timeslice_to_send += interval_length;
+		    send_status_message_.duration = timeslice_scheduler_->get_ts_duration(last_complete_ts);
+		    send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+        	}
+            }
         }
         
         post_send_status_message();

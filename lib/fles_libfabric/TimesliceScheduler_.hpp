@@ -28,9 +28,10 @@ public:
 
 		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
 			sender_info_.push_back(InputSchedulerData());
-		//sender_info_.resize(input_node_count_);
-		assert(sender_info_.size() == input_node_count_);
+
+		alpha_percentage_.resize(input_node_count,0);
 		completed_ts_ = false;
+
 	}
 
 	TimesliceScheduler() = delete;
@@ -70,8 +71,8 @@ public:
 	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
 		    increament_acked_ts(timeslice);
-		    // TODO logging!
 
+		    /// Logging
 		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(timeslice);
 
 		    if (it == proposed_actual_times_log_.end()){
@@ -84,6 +85,7 @@ public:
 			std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
 
 		    if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
+		    /// END OF Logging
 	    }
 
 	}
@@ -104,9 +106,9 @@ public:
 	    uint64_t sum_needed_duration = 0;
 	    for (uint32_t i = compute_index_; i != input_index;
 		    i = ((i+1) % input_node_count_)) {
-		    // TODO to add alpha
 		    sum_needed_duration += sender_info_[i].ts_sent_info_.get(last_complete_ts).second;
 	    }
+	    sum_needed_duration += (sum_needed_duration * alpha_percentage_[input_index]);
 
 	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
 			    sum_needed_duration - sender_info_[input_index].clock_offset);
@@ -118,6 +120,7 @@ public:
 	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
 		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
 
+	    /// Logging
 	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
 	    if (it == proposed_times_log_.end()){
 		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
@@ -125,6 +128,7 @@ public:
 	    }
 
 	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
+	    /// END OF Logging
 
 	    return sent_time;
 	}
@@ -164,18 +168,18 @@ public:
 	    std::ofstream log_file;
 	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_sent_time.out");
 
-
-	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << std::setw(25) << "Scheduled(t)" << "\n";
+	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << "\n";
 
 	    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.begin();
 	    std::vector<std::pair<int64_t, int64_t>> times;
+
 	    while (it != proposed_actual_times_log_.end()){
 		times = it->second;
-		std::map<uint64_t, std::vector<int64_t> >::iterator it_scheduled = proposed_times_log_.find(it->first);
+
 		for (uint32_t i=0 ; i<times.size() ; i++){
 		    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << (times[i].first*1.0)/1000.0 << std::setw(25) <<
 			    (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << std::setw(25) <<
-			    (durations_log_.find(it->first)->second*1.0)/1000.0 << std::setw(25) << (it_scheduled->second[i]*1.0)/1000.0 << "\n";
+			    (durations_log_.find(it->first)->second*1.0)/1000.0 << "\n";
 		}
 
 		log_file.flush();
@@ -210,12 +214,13 @@ private:
 	    for (uint32_t i = 0; i < input_node_count_; i++) {
 		    total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
 	    }
+	    total_duration += (total_duration * theta_percentage_);
+
 	    ts_duration_.add(timeslice, total_duration);
 	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
 
 	    completed_ts_ = true;
 	    // TODO do statistics
-	    // TODO add +/- theta
 	}
 
 	/// This const variable limits the number of durations of timeslices to be kept
@@ -238,6 +243,12 @@ private:
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
 	SizedMap<uint64_t, uint32_t> acked_ts_count_;
+
+	/// Theta to increase/decrease the duration needed to receive a complete timeslice -- <= 1.0
+	double theta_percentage_ = 0;
+
+	/// Alpha to increase/decrease the time to send timeslices -- <= 1.0
+	std::vector<double> alpha_percentage_;
 
 	/// Triggers if there are new completed timeslices
 	bool completed_ts_ = false;

@@ -144,6 +144,8 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice()
 {
+    uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size();
+
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
@@ -153,10 +155,10 @@ void InputChannelSender::send_timeslice()
 	if (next_ts > max_timeslice_number_) continue;
 	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() >= conn_[i]->get_last_scheduled_timeslice() + ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		conn_[i]->get_last_sent_timeslice() >= conn_[i]->get_last_scheduled_timeslice() + interval_length) ||
 		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() >= ConstVariables::MAX_OVER_SCHEDULER_TS) ||
+		conn_[i]->get_last_sent_timeslice() >= interval_length) ||
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
 	    if (now >= scheduled_sent_time && trigger_blocked_times_.find(next_ts) == trigger_blocked_times_.end()){
 		trigger_blocked_times_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));

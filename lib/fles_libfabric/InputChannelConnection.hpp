@@ -89,17 +89,17 @@ public:
 
     void set_remote_info();
 
-    /// Get the needed duration between sending a timeslice and another
-    uint64_t get_wait_time() { return wait_time_; }
+    /// TODO Get the needed duration between sending a timeslice and another
+    uint64_t get_wait_time() { return wait_times_[0]; }
 
-    /// set the needed duration between sending a timeslice and another
-    void set_wait_time(uint64_t wait_time) { wait_time_ = wait_time; }
+    /// TODO set the needed duration between sending a timeslice and another
+    void set_wait_time(uint64_t wait_time) { wait_times_[0] = wait_time; }
 
     /// Get the last sent timeslice
     const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
 
     /// Set the last sent timeslice
-    void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice_ = sent_ts; }
+    void set_last_sent_timeslice(uint64_t sent_ts);
 
     /// Add the time of sent a timeslice
     void add_sent_time(uint64_t timeslice, std::chrono::high_resolution_clock::time_point time) { sent_time_list_.add(timeslice, time); }
@@ -129,10 +129,10 @@ public:
     uint64_t get_last_acked_timeslice();
 
     /// Return the last scheduled timeslice from the compute node scheduler
-    uint64_t get_last_scheduled_timeslice() const { return last_scheduled_timeslice_; }
+    uint64_t get_last_scheduled_timeslice() const { return last_scheduled_timeslices_[0]; }
 
     /// Return the  time to send the last scheduled timeslice from the compute node scheduler
-    std::chrono::high_resolution_clock::time_point get_last_scheduled_time() const { return last_scheduled_time_; }
+    std::chrono::high_resolution_clock::time_point get_last_scheduled_time() const { return last_scheduled_times_[0]; }
 
     /// Calculate when a timeslice should be sent according to the sent duration from the compute node scheduler
     std::chrono::high_resolution_clock::time_point get_scheduled_sent_time(uint64_t timeslice);
@@ -144,6 +144,9 @@ private:
 
     /// Post a send work request (WR) to the send queue
     void post_send_status_message();
+
+    /// This update the last scheduled timeslice, time, and duration
+    void update_last_scheduled_info();
 
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
@@ -204,9 +207,14 @@ private:
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;
 
-    uint64_t last_scheduled_timeslice_ = ConstVariables::MINUS_ONE;
-    std::chrono::high_resolution_clock::time_point last_scheduled_time_;
-    uint64_t wait_time_ = 500;
+    /// This holds up to two scheduled timeslices for the current interval and the following interval
+    uint64_t last_scheduled_timeslices_[2] = {ConstVariables::MINUS_ONE, ConstVariables::MINUS_ONE};
+
+    /// This holds up to two scheduled times for the current interval and the following interval
+    std::chrono::high_resolution_clock::time_point last_scheduled_times_[2];
+
+    /// This holds up to two scheduled durations for the current interval and the following interval
+    uint64_t wait_times_[2] = {500,0};
 
 };
 }
