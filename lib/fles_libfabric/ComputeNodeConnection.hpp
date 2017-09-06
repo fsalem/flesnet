@@ -151,6 +151,8 @@ public:
 
     bool is_connection_finalized();
 
+    std::map<uint64_t,std::chrono::system_clock::time_point> send_interval_times_log_;
+
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();

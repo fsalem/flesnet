@@ -262,7 +262,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 
         if (data_acked_)
         {
-            uint16_t last_complete_ts = timeslice_scheduler_->get_last_complete_ts();
+            uint64_t last_complete_ts = timeslice_scheduler_->get_last_complete_ts();
 
             if (send_status_message_.timeslice_to_send == ConstVariables::MINUS_ONE){
         	assert (last_complete_ts == remote_index_);
@@ -278,6 +278,9 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
         	    data_acked_ = false;
         	}
             }
+        }
+        if (data_acked_){
+            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::system_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
         }
         if (data_acked_ || data_changed_){
 	    post_send_status_message();

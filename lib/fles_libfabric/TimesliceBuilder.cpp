@@ -365,10 +365,39 @@ void TimesliceBuilder::operator()()
         timeslice_scheduler_->build_ack_time_file();
         timeslice_scheduler_->build_scheduled_time_file();
 
+        build_time_file();
         summary();
     } catch (std::exception& e) {
         L_(error) << "exception in TimesliceBuilder: " << e.what();
     }
+}
+
+void TimesliceBuilder::build_time_file(){
+    std::ofstream log_file;
+    log_file.open(std::to_string(compute_index_)+"compute.scheduler_send_time.out");
+
+    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "send(t)" << "\n";
+
+    std::map<uint64_t,std::chrono::system_clock::time_point>::iterator it;
+    for (int i=0 ; i< conn_.size() ; i++){
+	it = conn_[i]->send_interval_times_log_.begin();
+	while (it != conn_[i]->send_interval_times_log_.end()){
+	    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << std::chrono::duration_cast
+			<std::chrono::microseconds>(it->second - time_begin_).count()/1000.0 << "\n";
+	    it++;
+	}
+    }
+
+    /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
+    while (it != proposed_actual_times_.end()){
+    int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
+    log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
+
+    ++it;
+    }*/
+
+    log_file.flush();
+    log_file.close();
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,

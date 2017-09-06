@@ -155,10 +155,10 @@ void InputChannelSender::send_timeslice()
 	if (next_ts > max_timeslice_number_) continue;
 	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() >= conn_[i]->get_last_scheduled_timeslice() + interval_length) ||
+		next_ts >= conn_[i]->get_last_scheduled_timeslice() + interval_length) ||
 		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
-		conn_[i]->get_last_sent_timeslice() >= interval_length) ||
+		next_ts >= interval_length) ||
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
 	    if (now >= scheduled_sent_time && trigger_blocked_times_.find(next_ts) == trigger_blocked_times_.end()){
 		trigger_blocked_times_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
@@ -174,11 +174,11 @@ void InputChannelSender::send_timeslice()
 			conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
 			sent_timeslices_++;
 
-			proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
+			/*proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
 				std::pair<int64_t, int64_t>(
 			    std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
 			    std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
-			);
+			);*/
 			if (trigger_blocked_times_.find(next_ts) != trigger_blocked_times_.end()){
 			    blocked_times_.insert(std::pair<int64_t,int64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(now - trigger_blocked_times_.find(next_ts)->second).count()));
 			    trigger_blocked_times_.erase(next_ts);
@@ -302,7 +302,7 @@ void InputChannelSender::operator()()
         }
 
         summary();
-        build_scheduled_time_file();
+        //build_scheduled_time_file();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }
@@ -314,13 +314,13 @@ void InputChannelSender::build_scheduled_time_file(){
 
     log_file << std::setw(25) << "Compute Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Blocked" << std::setw(25) << "Diff" << "\n";
 
-    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
+    /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
     while (it != proposed_actual_times_.end()){
 	int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
 	log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
 
 	++it;
-    }
+    }*/
 
     log_file.flush();
     log_file.close();
