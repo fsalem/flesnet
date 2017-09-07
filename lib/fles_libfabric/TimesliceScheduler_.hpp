@@ -19,12 +19,14 @@
 
 namespace tl_libfabric {
 
+
 class TimesliceScheduler {
 public:
 	TimesliceScheduler(const uint64_t compute_index,
 		const uint32_t input_node_count):
 			compute_index_(compute_index), input_node_count_(input_node_count),
-			ts_duration_(MAX_DURATION_HISTORY), acked_ts_count_(MAX_DURATION_HISTORY){
+			ts_duration_(MAX_DURATION_HISTORY), ts_duration_stats_(ConstVariables::SCHEDULER_INTERVAL_LENGTH),
+			acked_ts_count_(MAX_DURATION_HISTORY){
 
 		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
 			sender_info_.push_back(InputSchedulerData());
@@ -141,6 +143,18 @@ public:
 	    return ConstVariables::MINUS_ONE;
 	}
 
+
+	/// This method gets the duration needed for receiving a complete timeslice after a specific timeslice
+	uint64_t get_median_ts_duration(uint64_t timeslice){
+
+	    if (ts_duration_stats_.contains(timeslice)) return ts_duration_stats_.get(timeslice).median;
+	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
+
+	    TimeSchedulerStatsData stats = calculate_stats_data(timeslice);
+	    ts_duration_stats_.add(timeslice,stats);
+	    return stats.median;
+	}
+
 	///This method returns the latest completed timeslice
 	uint64_t get_last_complete_ts() {
 
@@ -192,6 +206,13 @@ public:
 
 private:
 
+	/// This struct contains the needed data for update theta and alpha. It contains the variance, median, and mean of set of durations
+	struct TimeSchedulerStatsData {
+	    uint64_t mean = 0;
+	    uint64_t median = 0;
+	    uint64_t variance = 0;
+	};
+
 	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
 	void increament_acked_ts(uint64_t timeslice) {
 
@@ -223,6 +244,34 @@ private:
 	    // TODO do statistics
 	}
 
+	TimeSchedulerStatsData calculate_stats_data(uint64_t timeslice){
+
+	    TimeSchedulerStatsData statsData;
+	    std::vector<uint64_t> values;
+	    uint64_t sum =0;
+	    SizedMap<uint64_t, uint64_t>::iterator start_duration_it = ts_duration_.get_iterator(timeslice);
+	    // get values of up to an interval and calculate the sum
+	    while (values.size() < ConstVariables::SCHEDULER_INTERVAL_LENGTH){
+		values.push_back(start_duration_it->second);
+		sum += start_duration_it->second;
+		if (start_duration_it == ts_duration_.get_begin_iterator())break;
+		--start_duration_it;
+	    }
+	    std::sort(values.begin(), values.end());
+
+	    statsData.mean = (sum/values.size());
+	    statsData.median = values[values.size()/2];
+
+	    // calculate variance
+	    statsData.variance = 0;
+	    for (int i=0 ; i<values.size() ; i++){
+		statsData.variance += (values[i] - statsData.mean);
+	    }
+	    statsData.variance /=values.size();
+
+	    return statsData;
+	}
+
 	/// This const variable limits the number of durations of timeslices to be kept
 	const int32_t MAX_DURATION_HISTORY = 100;
 
@@ -240,6 +289,9 @@ private:
 
 	/// A history of the estimated durations <timeslice, duration>
 	SizedMap<uint64_t, uint64_t> ts_duration_;
+
+	/// A history of the mean durations till specific timeslice <timeslice, duration>
+	SizedMap<uint64_t, TimeSchedulerStatsData> ts_duration_stats_;
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
 	SizedMap<uint64_t, uint32_t> acked_ts_count_;

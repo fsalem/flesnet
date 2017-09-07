@@ -9,28 +9,36 @@ template <typename KEY, typename VALUE>
 class SizedMap
 {
 public:
-	SizedMap(uint32_t max_map_size);
-	SizedMap();
-	//SizedMap(const SizedMap&) = delete;
-	//SizedMap& operator=(const SizedMap&) = delete;
+    SizedMap(uint32_t max_map_size);
+    SizedMap();
+    //SizedMap(const SizedMap&) = delete;
+    //SizedMap& operator=(const SizedMap&) = delete;
 
-	bool add(const KEY key, const VALUE val);
+    bool add(const KEY key, const VALUE val);
 
-	bool update(const KEY key, const VALUE val);
+    bool update(const KEY key, const VALUE val);
 
-	bool remove(const KEY key);
+    bool remove(const KEY key);
 
-	bool contains(const KEY key) const;
+    bool contains(const KEY key) const;
 
-	uint32_t size() const;
+    uint32_t size() const;
 
-	VALUE get(const KEY key) const;
+    VALUE get(const KEY key) const;
 
-	KEY get_last_key() const;
+    KEY get_last_key() const;
+
+    typename std::map<KEY,VALUE>::iterator get_begin_iterator();
+
+    typename std::map<KEY,VALUE>::iterator get_iterator(const KEY key);
+
+    typename std::map<KEY,VALUE>::iterator get_end_iterator();
+
+    typedef typename std::map<KEY,VALUE>::iterator iterator;
 
 private:
 
-	typename std::map<KEY,VALUE> map_;
+    typename std::map<KEY,VALUE> map_;
     const uint32_t MAX_MAP_SIZE_;
 };
 
@@ -114,4 +122,18 @@ KEY SizedMap<KEY,VALUE>::get_last_key() const {
 	return (--map_.end())->first;
 }
 
+template <typename KEY, typename VALUE>
+typename std::map<KEY,VALUE>::iterator SizedMap<KEY,VALUE>::get_begin_iterator() {
+    return map_.begin();
+}
+
+template <typename KEY, typename VALUE>
+typename std::map<KEY,VALUE>::iterator SizedMap<KEY,VALUE>::get_iterator(const KEY key) {
+    return map_.find(key);
+}
+
+template <typename KEY, typename VALUE>
+typename std::map<KEY,VALUE>::iterator SizedMap<KEY,VALUE>::get_end_iterator() {
+    return map_.end();
+}
 } //namespace tl_libfabric
