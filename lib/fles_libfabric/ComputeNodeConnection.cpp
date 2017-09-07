@@ -270,7 +270,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 		send_status_message_.duration = timeslice_scheduler_->get_ts_duration(send_status_message_.timeslice_to_send);
 		send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
             }else{
-        	if (last_complete_ts == send_status_message_.timeslice_to_send + send_position){
+        	if (last_complete_ts >= send_status_message_.timeslice_to_send + send_position){
 		    send_status_message_.timeslice_to_send += interval_length;
 		    send_status_message_.duration = timeslice_scheduler_->get_ts_duration(last_complete_ts);
 		    send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);

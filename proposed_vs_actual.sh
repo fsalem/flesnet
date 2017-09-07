@@ -5,6 +5,7 @@ Test_CASES=${#array[@]}
 #echo "Test_CASES=$Test_CASES"
 
 FILE_NAME="${array[0]}/${array[1]}.compute.proposed_vs_sent_time.out"
+FILE_NAME2="${array[0]}/${array[1]}compute.scheduler_send_time.out"
 
 INPUT_COUNT=$(awk -v max=0 'FNR > 1 {if($1>=max){max=$1+1}}END{print max} ' ../$FILE_NAME)
 START_TS=$(awk -v min=10000 'FNR > 1 {if($2<min){min=$2}}END{print min} ' ../$FILE_NAME)
@@ -14,7 +15,9 @@ CMD_F1="$LABEL 'Proposed vs actual sending times of Compute node#${array[1]}'; p
 
 CMD_F1="$CMD_F1'../$FILE_NAME' using 3:4 with linespoints title 'Proposed times', "
 
-CMD_F1="$CMD_F1'../$FILE_NAME' using 3:5 with linespoints title 'Actual times' "
+CMD_F1="$CMD_F1'../$FILE_NAME' using 3:5 with linespoints title 'Actual times', "
+
+CMD_F1="$CMD_F1'../$FILE_NAME2' using 3:4 with points title 'Interval send times' "
 
 
 echo "CMD_F1=$CMD_F1"
