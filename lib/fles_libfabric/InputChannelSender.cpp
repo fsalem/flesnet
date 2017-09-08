@@ -160,31 +160,47 @@ void InputChannelSender::send_timeslice()
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
 		next_ts >= interval_length) ||
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
-	    if (now >= scheduled_sent_time && trigger_blocked_times_.find(next_ts) == trigger_blocked_times_.end()){
-		trigger_blocked_times_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
+	    if (now >= scheduled_sent_time && temp_scheduler_blocked_times_log_.find(next_ts) == temp_scheduler_blocked_times_log_.end()){
+		temp_scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
 	    }
 	    continue;
 	}
 
 
+
 	if (now >= scheduled_sent_time) {
-		if (try_send_timeslice(next_ts)){
-			conn_[i]->set_last_sent_timeslice(next_ts);
-			conn_[i]->add_sent_time(next_ts, now);
-			conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
-			sent_timeslices_++;
 
-			/*proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
-				std::pair<int64_t, int64_t>(
-			    std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
-			    std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
-			);*/
-			if (trigger_blocked_times_.find(next_ts) != trigger_blocked_times_.end()){
-			    blocked_times_.insert(std::pair<int64_t,int64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(now - trigger_blocked_times_.find(next_ts)->second).count()));
-			    trigger_blocked_times_.erase(next_ts);
-			}
+	    if (temp_scheduler_blocked_times_log_.find(next_ts) != temp_scheduler_blocked_times_log_.end()){
+		scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
+			std::pair<uint64_t, uint64_t>(
+			std::chrono::duration_cast<std::chrono::microseconds>(temp_scheduler_blocked_times_log_.find(next_ts)->second - time_begin_).count(),
+			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count())));
+		temp_scheduler_blocked_times_log_.erase(next_ts);
+	    }
 
+	    if (try_send_timeslice(next_ts)){
+		    conn_[i]->set_last_sent_timeslice(next_ts);
+		    conn_[i]->add_sent_time(next_ts, now);
+		    conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
+		    sent_timeslices_++;
+
+		    /*proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
+			    std::pair<int64_t, int64_t>(
+			std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
+			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
+		    );*/
+		    if (temp_buffer_blocked_times_log_.find(next_ts) != temp_buffer_blocked_times_log_.end()){
+			buffer_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
+				std::pair<uint64_t, uint64_t>(
+				std::chrono::duration_cast<std::chrono::microseconds>(temp_buffer_blocked_times_log_.find(next_ts)->second - time_begin_).count(),
+				std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count())));
+			temp_buffer_blocked_times_log_.erase(next_ts);
+		    }
+	    }else{
+		if (temp_buffer_blocked_times_log_.find(next_ts) == temp_buffer_blocked_times_log_.end()){
+		    temp_buffer_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
 		}
+	    }
 	}
     }
     if (sent_timeslices_ <= max_timeslice_number_){
@@ -302,7 +318,7 @@ void InputChannelSender::operator()()
         }
 
         summary();
-        //build_scheduled_time_file();
+        build_scheduled_time_file();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }
@@ -310,9 +326,15 @@ void InputChannelSender::operator()()
 
 void InputChannelSender::build_scheduled_time_file(){
     std::ofstream log_file;
-    log_file.open(std::to_string(input_index_)+".proposed_vs_sent_time.out");
+    log_file.open(std::to_string(input_index_)+".blocked_times.out");
 
-    log_file << std::setw(25) << "Compute Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Blocked" << std::setw(25) << "Diff" << "\n";
+    log_file << std::setw(25) << "Compute Index" <<
+	    std::setw(25) << "Timeslice" <<
+	    std::setw(25) << "Contribution" <<
+	    std::setw(25) << "s(scheduler)" <<
+	    std::setw(25) << "e(scheduler)" <<
+	    std::setw(25) << "s(buffer)" <<
+	    std::setw(25) << "e(buffer)" << "\n";
 
     /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
     while (it != proposed_actual_times_.end()){
@@ -321,6 +343,21 @@ void InputChannelSender::build_scheduled_time_file(){
 
 	++it;
     }*/
+    std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator it1, it2;
+    for (uint64_t ts=0, cn = 0 ; ts <= max_timeslice_number_ ; cn = target_cn_index(++ts) ){
+	it1 = scheduler_blocked_times_log_.find(ts);
+	it2 = buffer_blocked_times_log_.find(ts);
+	if (it1 != scheduler_blocked_times_log_.end() || it2 != buffer_blocked_times_log_.end()){
+	    log_file << std::setw(25) << cn <<
+		    std::setw(25) << ts <<
+		    std::setw(25) << ts + cn <<
+		    std::setw(25) << (it1 != scheduler_blocked_times_log_.end() ? it1->second.first : 0) <<
+		    std::setw(25) << (it1 != scheduler_blocked_times_log_.end() ? it1->second.second : 0) <<
+		    std::setw(25) << (it2 != buffer_blocked_times_log_.end() ? it2->second.first : 0) <<
+		    std::setw(25) << (it2 != buffer_blocked_times_log_.end() ? it2->second.second : 0) << "\n";
+	    log_file.flush();
+	}
+    }
 
     log_file.flush();
     log_file.close();

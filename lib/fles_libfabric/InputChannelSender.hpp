@@ -136,9 +136,13 @@ private:
 
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
-    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_;
-    std::map<uint64_t, uint64_t > blocked_times_;
-    std::map<uint64_t, std::chrono::system_clock::time_point > trigger_blocked_times_;
+    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_log_;
+
+    std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
+    std::map<uint64_t, std::chrono::system_clock::time_point > temp_scheduler_blocked_times_log_;
+
+    std::map<uint64_t, std::pair<uint64_t, uint64_t> > buffer_blocked_times_log_;
+    std::map<uint64_t, std::chrono::system_clock::time_point > temp_buffer_blocked_times_log_;
 
     void build_scheduled_time_file();
 
