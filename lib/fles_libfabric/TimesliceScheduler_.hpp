@@ -115,7 +115,7 @@ public:
 	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
 			    sum_needed_duration - sender_info_[input_index].clock_offset);
 
-	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts<=timeslice ; ts+=input_node_count_){
+	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts < timeslice ; ts+=input_node_count_){
 		    sent_time += std::chrono::microseconds(last_complete_ts_duration);
 	    }
 
