@@ -97,7 +97,7 @@ public:
 		    uint32_t input_index, uint64_t timeslice){
 
 	    uint64_t last_complete_ts = get_last_complete_ts();
-	    uint64_t last_complete_ts_duration = ts_duration_.get(last_complete_ts);
+	    uint64_t last_complete_ts_duration = get_median_ts_duration(last_complete_ts);
 	    uint32_t last_input_node = (compute_index_ - 1) % input_node_count_;
 	    // get last sent time of the received contribution of the last complete timeslice
 	    std::chrono::high_resolution_clock::time_point last_received_contribution_time =
@@ -144,15 +144,28 @@ public:
 	}
 
 
-	/// This method gets the duration needed for receiving a complete timeslice after a specific timeslice
+	/// This method gets the median duration for receiving an interval of timeslices before a specific timeslice
 	uint64_t get_median_ts_duration(uint64_t timeslice){
 
-	    if (ts_duration_stats_.contains(timeslice)) return ts_duration_stats_.get(timeslice).median;
 	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
 
-	    TimeSchedulerStatsData stats = calculate_stats_data(timeslice);
-	    ts_duration_stats_.add(timeslice,stats);
-	    return stats.median;
+	    return calculate_stats_data(timeslice).median;
+	}
+
+	/// This method gets the mean duration for receiving an interval of timeslices before a specific timeslice
+	uint64_t get_mean_ts_duration(uint64_t timeslice){
+
+	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
+
+	    return calculate_stats_data(timeslice).mean;
+	}
+
+	/// This method gets the variance of receiving an interval of timeslices before a specific timeslice
+	uint64_t get_variance_ts_duration(uint64_t timeslice){
+
+	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
+
+	    return calculate_stats_data(timeslice).variance;
 	}
 
 	///This method returns the latest completed timeslice
@@ -246,6 +259,8 @@ private:
 
 	TimeSchedulerStatsData calculate_stats_data(uint64_t timeslice){
 
+	    if (ts_duration_stats_.contains(timeslice)) return ts_duration_stats_.get(timeslice);
+
 	    TimeSchedulerStatsData statsData;
 	    std::vector<uint64_t> values;
 	    uint64_t sum =0;
@@ -268,6 +283,8 @@ private:
 		statsData.variance += (values[i] - statsData.mean);
 	    }
 	    statsData.variance /=values.size();
+
+	    ts_duration_stats_.add(timeslice,statsData);
 
 	    return statsData;
 	}
