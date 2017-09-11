@@ -23,8 +23,8 @@ namespace tl_libfabric {
 class TimesliceScheduler {
 public:
 	TimesliceScheduler(const uint64_t compute_index,
-		const uint32_t input_node_count):
-			compute_index_(compute_index), input_node_count_(input_node_count),
+		const uint32_t input_node_count, const uint32_t interval_length):
+			compute_index_(compute_index), input_node_count_(input_node_count), INTERVAL_LENGTH(interval_length),
 			ts_duration_(MAX_DURATION_HISTORY), ts_duration_stats_(ConstVariables::SCHEDULER_INTERVAL_LENGTH),
 			acked_ts_count_(MAX_DURATION_HISTORY){
 
@@ -118,6 +118,77 @@ public:
 	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts < timeslice ; ts+=input_node_count_){
 		    sent_time += std::chrono::microseconds(last_complete_ts_duration);
 	    }
+
+	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
+		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
+
+	    /// Logging
+	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
+	    if (it == proposed_times_log_.end()){
+		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
+		it = proposed_times_log_.find(timeslice);
+	    }
+
+	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
+	    /// END OF Logging
+
+	    return sent_time;
+	}
+
+	/// This method gets the sent time for a particular input node and timeslice
+	std::chrono::high_resolution_clock::time_point get_next_interval_sent_time(
+		    uint32_t input_index, uint64_t timeslice){
+
+	    uint64_t last_complete_ts = get_last_complete_ts();
+	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
+	    uint32_t interval_index = (last_complete_ts / (INTERVAL_LENGTH * input_node_count_)); // fraction will be thrown away
+	    uint32_t current_interval_start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
+	    uint32_t count_received_ts_in_interval = ((last_complete_ts - current_interval_start_ts) / input_node_count_) + 1;
+
+	    uint32_t next_interval_start_ts = ((interval_index+1) * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
+	    assert (timeslice == next_interval_start_ts);
+	    uint32_t count_ts_to_next_interval = ((next_interval_start_ts - last_complete_ts) / input_node_count_) - 1;
+
+	    /*L_(info) << "INTERVAL_LENGTH = " << INTERVAL_LENGTH
+		    << " last_complete_ts = " << last_complete_ts
+		    << " interval_index = " << interval_index
+		    << " current_interval_start_ts = " << current_interval_start_ts
+		    << " count_received_ts_in_interval = " << count_received_ts_in_interval
+		    << " next_interval_start_ts = " << next_interval_start_ts
+		    << " count_ts_to_next_interval = " << count_ts_to_next_interval;*/
+
+
+
+	    // get first sent time of the received contribution of the interval interval_index
+	    std::chrono::high_resolution_clock::time_point first_interval_received_contribution_time =
+			    sender_info_[compute_index_].ts_sent_info_.get(current_interval_start_ts).first
+					    + std::chrono::microseconds(
+							    sender_info_[compute_index_].clock_offset);
+
+	    // get last sent time of the received contribution of the last complete timeslice
+	    uint32_t last_input_node = (compute_index_ - 1) % input_node_count_;
+	    std::chrono::high_resolution_clock::time_point last_received_contribution_time =
+			    sender_info_[last_input_node].ts_sent_info_.get(last_complete_ts).first
+					    + std::chrono::microseconds(
+							    sender_info_[last_input_node].clock_offset);
+
+	    // Get the average duration per timeslice within a particular interval
+	    uint64_t average_duration_per_ts = std::chrono::duration_cast<std::chrono::microseconds>(
+		    last_received_contribution_time - first_interval_received_contribution_time).count() / count_received_ts_in_interval;
+
+
+	    // build the time gap between different input nodes
+	    uint64_t sum_needed_duration = 0;
+	    for (uint32_t i = compute_index_; i != input_index;
+		    i = ((i+1) % input_node_count_)) {
+		    // TODO this duration should be the median duration of each input node ... not the last duration!
+		    sum_needed_duration += sender_info_[i].ts_sent_info_.get(last_complete_ts).second;
+	    }
+	    sum_needed_duration += (sum_needed_duration * alpha_percentage_[input_index]);
+
+	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
+		    (count_ts_to_next_interval * average_duration_per_ts) +
+	    			    sum_needed_duration - sender_info_[input_index].clock_offset);
 
 	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
 		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
@@ -291,6 +362,9 @@ private:
 
 	/// This const variable limits the number of durations of timeslices to be kept
 	const int32_t MAX_DURATION_HISTORY = 100;
+
+	/// This const variable determines the interval length that a new sent_time and duration will be generated
+	const uint32_t INTERVAL_LENGTH;
 
 	/// The compute node index. The order of input nodes is based on this index
 	uint64_t compute_index_;

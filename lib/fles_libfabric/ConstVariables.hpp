@@ -11,7 +11,7 @@ struct ConstVariables {
     const static uint64_t MINUS_ONE = -1;
     const static uint64_t ZERO = 0;
 
-    const static uint32_t SCHEDULER_INTERVAL_LENGTH = 5;
+    const static uint32_t SCHEDULER_INTERVAL_LENGTH = 20;
     const static uint32_t MAX_HISTORY_SIZE = 200;
 };
 }

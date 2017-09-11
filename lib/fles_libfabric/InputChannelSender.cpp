@@ -331,10 +331,12 @@ void InputChannelSender::build_scheduled_time_file(){
     log_file << std::setw(25) << "Compute Index" <<
 	    std::setw(25) << "Timeslice" <<
 	    std::setw(25) << "Contribution" <<
-	    std::setw(25) << "s(scheduler)" <<
-	    std::setw(25) << "e(scheduler)" <<
-	    std::setw(25) << "s(buffer)" <<
-	    std::setw(25) << "e(buffer)" << "\n";
+	    std::setw(25) << "scheduler(s)" <<
+	    std::setw(25) << "scheduler(e)" <<
+	    std::setw(25) << "scheduler(diff)" <<
+	    std::setw(25) << "buffer(s)" <<
+	    std::setw(25) << "buffer(e)" <<
+	    std::setw(25) << "buffer(diff)" << "\n";
 
     /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
     while (it != proposed_actual_times_.end()){
@@ -348,13 +350,20 @@ void InputChannelSender::build_scheduled_time_file(){
 	it1 = scheduler_blocked_times_log_.find(ts);
 	it2 = buffer_blocked_times_log_.find(ts);
 	if (it1 != scheduler_blocked_times_log_.end() || it2 != buffer_blocked_times_log_.end()){
+	    double it1_s = (it1 != scheduler_blocked_times_log_.end() ? (it1->second.first*1.0)/1000.0 : 0),
+		    it1_e = (it1 != scheduler_blocked_times_log_.end() ? (it1->second.second*1.0)/1000.0 : 0),
+		    it2_s = (it2 != buffer_blocked_times_log_.end() ? (it2->second.first*1.0)/1000.0 : 0),
+		    it2_e = (it2 != buffer_blocked_times_log_.end() ? (it2->second.second*1.0)/1000.0 : 0);
+
 	    log_file << std::setw(25) << cn <<
 		    std::setw(25) << ts <<
-		    std::setw(25) << ts + cn <<
-		    std::setw(25) << (it1 != scheduler_blocked_times_log_.end() ? it1->second.first : 0) <<
-		    std::setw(25) << (it1 != scheduler_blocked_times_log_.end() ? it1->second.second : 0) <<
-		    std::setw(25) << (it2 != buffer_blocked_times_log_.end() ? it2->second.first : 0) <<
-		    std::setw(25) << (it2 != buffer_blocked_times_log_.end() ? it2->second.second : 0) << "\n";
+		    std::setw(25) << ts+input_index_ <<
+		    std::setw(25) << it1_s <<
+		    std::setw(25) << it1_e <<
+		    std::setw(25) << (it1_e - it1_s) <<
+		    std::setw(25) << it2_s <<
+		    std::setw(25) << it2_e <<
+		    std::setw(25) << (it2_e - it2_s) << "\n";
 	    log_file.flush();
 	}
     }

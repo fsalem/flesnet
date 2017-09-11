@@ -29,7 +29,8 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
-      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_))
+      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,
+	      ConstVariables::SCHEDULER_INTERVAL_LENGTH))
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
@@ -374,7 +375,7 @@ void TimesliceBuilder::operator()()
 
 void TimesliceBuilder::build_time_file(){
     std::ofstream log_file;
-    log_file.open(std::to_string(compute_index_)+"compute.scheduler_send_time.out");
+    log_file.open(std::to_string(compute_index_)+".compute.scheduler_send_time.out");
 
     log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "send(t)" << "\n";
 

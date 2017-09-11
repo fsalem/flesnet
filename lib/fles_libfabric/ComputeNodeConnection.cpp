@@ -256,7 +256,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
         send_status_message_.ack = cn_ack_;
 
         /// TODO here, it's assumed that # of input nodes = compute nodes
-        uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * remote_connection_count_;
+        uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * remote_connection_count_; // Compute nodes receive timeslices with gap equals to # of compute nodes
         uint32_t send_position = std::floor(ConstVariables::SCHEDULER_INTERVAL_LENGTH / 2) * remote_connection_count_;
 
 
@@ -273,7 +273,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
         	if (last_complete_ts >= send_status_message_.timeslice_to_send + send_position){
 		    send_status_message_.timeslice_to_send += interval_length;
 		    send_status_message_.duration = timeslice_scheduler_->get_median_ts_duration(last_complete_ts);
-		    send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
+		    send_status_message_.time_to_send = timeslice_scheduler_->get_next_interval_sent_time(index_,send_status_message_.timeslice_to_send);
         	}else{
         	    data_acked_ = false;
         	}
