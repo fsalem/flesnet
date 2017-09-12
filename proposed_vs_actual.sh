@@ -5,7 +5,7 @@ Test_CASES=${#array[@]}
 #echo "Test_CASES=$Test_CASES"
 
 FILE_NAME="../${array[0]}/${array[1]}.compute.proposed_vs_sent_time.out"
-FILE_NAME2="../${array[0]}/${array[1]}compute.scheduler_send_time.out"
+FILE_NAME2="../${array[0]}/${array[1]}.compute.scheduler_send_time.out"
 
 POSTFIX_FILENAME=".blocked_times.out"
 FILE_NAME3="../${array[0]}/${array[1]}.ALL_blocked_times.out"
@@ -16,7 +16,7 @@ INPUT_COUNT=$(awk -v max=0 'FNR > 1 {if($1>=max){max=$1+1}}END{print max} ' $FIL
 START_TS=$(awk -v min=10000 'FNR > 1 {if($2<min){min=$2}}END{print min} ' $FILE_NAME)
 
 LABEL="set xlabel 'contribution number'; set ylabel 'Time in ms'; set xtics $START_TS,$INPUT_COUNT; set ytics 0,10; set xrange [$START_TS:1000]; set title"
-CMD_F1="$LABEL 'Proposed vs actual sending times of Compute node#${array[1]}'; plot "
+CMD_F1="$LABEL 'Proposed vs actual sending times of Compute node#${array[1]} in ${array[0]}'; plot "
 
 CMD_F1="$CMD_F1'$FILE_NAME' using 3:4 with linespoints title 'Proposed times', "
 

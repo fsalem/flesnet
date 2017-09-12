@@ -140,9 +140,9 @@ public:
 		    uint32_t input_index, uint64_t timeslice){
 
 	    uint64_t last_complete_ts = get_last_complete_ts();
+	    uint64_t interval_index = get_timeslice_interval(last_complete_ts);// fraction will be thrown away
 	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
-	    uint32_t interval_index = (last_complete_ts / (INTERVAL_LENGTH * input_node_count_)); // fraction will be thrown away
-	    uint32_t current_interval_start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
+	    uint64_t current_interval_start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
 	    uint32_t count_received_ts_in_interval = ((last_complete_ts - current_interval_start_ts) / input_node_count_) + 1;
 
 	    uint32_t next_interval_start_ts = ((interval_index+1) * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
@@ -172,10 +172,10 @@ public:
 					    + std::chrono::microseconds(
 							    sender_info_[last_input_node].clock_offset);
 
+
 	    // Get the average duration per timeslice within a particular interval
 	    uint64_t average_duration_per_ts = std::chrono::duration_cast<std::chrono::microseconds>(
 		    last_received_contribution_time - first_interval_received_contribution_time).count() / count_received_ts_in_interval;
-
 
 	    // build the time gap between different input nodes
 	    uint64_t sum_needed_duration = 0;
@@ -212,6 +212,16 @@ public:
 	    if (ts_duration_.contains(timeslice)) return ts_duration_.get(timeslice);
 
 	    return ConstVariables::MINUS_ONE;
+	}
+
+	/// This method returns the adjusted duration for receiving a complete timeslice after a specific timeslice. Theta is a factor in the calculations
+	uint64_t get_adjusted_ts_duration(uint64_t timeslice){
+
+	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
+
+	    uint64_t interval = get_timeslice_interval(timeslice);
+	    TimeSchedulerStatsData stats_data = calculate_stats_data(timeslice);
+	    return (stats_data.median + (stats_data.median * get_adjusted_theta(interval-2)));
 	}
 
 
@@ -257,10 +267,6 @@ public:
 	    return false;
 	}
 
-	void build_ack_time_file(){
-
-	}
-
 	void build_scheduled_time_file(){
 
 	    std::ofstream log_file;
@@ -297,6 +303,10 @@ private:
 	    uint64_t variance = 0;
 	};
 
+	uint32_t get_timeslice_interval(uint64_t timeslice){
+	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
+	    return(timeslice / (INTERVAL_LENGTH * input_node_count_)); // fraction will be thrown away
+	}
 	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
 	void increament_acked_ts(uint64_t timeslice) {
 
@@ -319,7 +329,7 @@ private:
 	    for (uint32_t i = 0; i < input_node_count_; i++) {
 		    total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
 	    }
-	    total_duration += (total_duration * theta_percentage_);
+	    //total_duration += (total_duration * theta_percentage_);
 
 	    ts_duration_.add(timeslice, total_duration);
 	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
@@ -358,6 +368,35 @@ private:
 	    ts_duration_stats_.add(timeslice,statsData);
 
 	    return statsData;
+	}
+
+	uint64_t get_actual_interval_duration(uint32_t interval_index){
+	    uint32_t start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
+	    uint32_t last_ts = start_ts + (INTERVAL_LENGTH * input_node_count_); // the last ts in this interval_index
+	    if (!ts_duration_.contains(start_ts) || !ts_duration_.contains(last_ts)) return ConstVariables::MINUS_ONE;
+	    uint64_t sum =0;
+	    SizedMap<uint64_t, uint64_t>::iterator start_duration_it = ts_duration_.get_iterator(start_ts);
+	    SizedMap<uint64_t, uint64_t>::iterator last_duration_it = ts_duration_.get_iterator(last_ts);
+	    // get values of up to an interval and calculate the sum
+	    while (true){
+		sum += start_duration_it->second;
+		if (start_duration_it == last_duration_it)break;
+		++start_duration_it;
+	    }
+	    return sum;
+	}
+
+	double get_adjusted_theta(uint32_t interval_index){
+
+	    if (interval_index < 0) return 0;
+	    uint64_t interval_duration = get_actual_interval_duration(interval_index);
+	    // incomplete interval
+	    if (interval_duration == ConstVariables::MINUS_ONE) return 0;
+
+	    uint64_t prev_interval_duration = get_actual_interval_duration(interval_index - 1);
+	    if (interval_duration <= prev_interval_duration) return -0.1;
+
+	    return 0.1;
 	}
 
 	/// This const variable limits the number of durations of timeslices to be kept
