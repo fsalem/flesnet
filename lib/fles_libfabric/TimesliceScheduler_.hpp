@@ -220,8 +220,20 @@ public:
 	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
 
 	    uint64_t interval = get_timeslice_interval(timeslice);
+	    std::map<uint64_t, std::pair<uint64_t,uint64_t> >::iterator it = interval_duration_log_.find(interval+1);
+	    if (it != interval_duration_log_.end() && it->second.second != ConstVariables::MINUS_ONE) return it->second.second;
+
 	    TimeSchedulerStatsData stats_data = calculate_stats_data(timeslice);
-	    return (stats_data.median + (stats_data.median * get_adjusted_theta(interval-2)));
+	    uint64_t adjusted_duration = (stats_data.median + (stats_data.median * get_adjusted_theta(interval)));
+
+	    if (it == interval_duration_log_.end()){
+		interval_duration_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(interval+1, std::pair<uint64_t, uint64_t>(ConstVariables::MINUS_ONE, adjusted_duration)));
+	    }else{
+		it->second.second = adjusted_duration;
+
+	    }
+	    return adjusted_duration;
+
 	}
 
 
@@ -285,6 +297,32 @@ public:
 			    (times[i].second*1.0)/1000.0 << std::setw(25) << ((times[i].second - times[i].first)*1.0)/1000.0 << std::setw(25) <<
 			    (durations_log_.find(it->first)->second*1.0)/1000.0 << "\n";
 		}
+
+		log_file.flush();
+		++it;
+	    }
+
+
+	    log_file.close();
+	}
+
+	void build_duration_file(){
+
+	    std::ofstream log_file;
+	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_taken_duration.out");
+
+	    log_file << std::setw(25) << "Interval" << std::setw(25) << "Duration(proposed)" << std::setw(25) << "Duration(Taken)" << std::setw(25) << "Diff(p-t)" << "\n";
+
+	    std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator it = interval_duration_log_.begin();
+	    int64_t diff, taken_duration, proposed_duration;
+	    while (it != interval_duration_log_.end()){
+		taken_duration = it->second.first == ConstVariables::MINUS_ONE ? -1 : it->second.first;
+		proposed_duration = it->second.second == ConstVariables::MINUS_ONE ? -1 : it->second.second*INTERVAL_LENGTH;
+		diff = taken_duration != -1 && proposed_duration != -1 ? proposed_duration - taken_duration : -1;
+		    log_file << std::setw(25) << it->first << std::setw(25) <<
+			    proposed_duration << std::setw(25) <<
+			    taken_duration << std::setw(25) <<
+			    diff << "\n";
 
 		log_file.flush();
 		++it;
@@ -371,6 +409,10 @@ private:
 	}
 
 	uint64_t get_actual_interval_duration(uint32_t interval_index){
+
+	    std::map<uint64_t, std::pair<uint64_t,uint64_t> >::iterator interval_it = interval_duration_log_.find(interval_index);
+	    if (interval_it != interval_duration_log_.end() && interval_it->second.first != ConstVariables::MINUS_ONE) return interval_it->second.first;
+
 	    uint32_t start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
 	    uint32_t last_ts = start_ts + (INTERVAL_LENGTH * input_node_count_); // the last ts in this interval_index
 	    if (!ts_duration_.contains(start_ts) || !ts_duration_.contains(last_ts)) return ConstVariables::MINUS_ONE;
@@ -383,18 +425,29 @@ private:
 		if (start_duration_it == last_duration_it)break;
 		++start_duration_it;
 	    }
+	    if (interval_it == interval_duration_log_.end()){
+		interval_duration_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(interval_index, std::pair<uint64_t, uint64_t>(sum,ConstVariables::MINUS_ONE)));
+	    }else{
+		interval_it->second.first = sum;
+	    }
 	    return sum;
 	}
 
-	double get_adjusted_theta(uint32_t interval_index){
+	// This method finds the theta by the last two completed intervals
+	double get_adjusted_theta(uint64_t current_interval_index){
 
-	    if (interval_index < 0) return 0;
-	    uint64_t interval_duration = get_actual_interval_duration(interval_index);
-	    // incomplete interval
-	    if (interval_duration == ConstVariables::MINUS_ONE) return 0;
+	    if (current_interval_index <= 1) return 0;
 
-	    uint64_t prev_interval_duration = get_actual_interval_duration(interval_index - 1);
-	    if (interval_duration <= prev_interval_duration) return -0.1;
+	    uint64_t prev_interval_duration = get_actual_interval_duration(current_interval_index-1);
+
+	    // previous interval is incomplete
+	    if (prev_interval_duration != ConstVariables::MINUS_ONE){
+		return 0;
+	    }
+
+	    uint64_t pre_prev_interval_duration = get_actual_interval_duration(current_interval_index - 2);
+
+	    if (prev_interval_duration <= pre_prev_interval_duration) return -0.1;
 
 	    return 0.1;
 	}
@@ -443,6 +496,8 @@ private:
 	std::map<uint64_t, uint64_t> durations_log_;
 	///
 	std::map<uint64_t, std::vector<int64_t> > proposed_times_log_;
+	/// interval index, <taken duration, proposed duration gap>
+	std::map<uint64_t, std::pair<uint64_t, uint64_t> > interval_duration_log_;
 
 
 };
