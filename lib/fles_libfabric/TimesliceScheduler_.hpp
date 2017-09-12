@@ -314,10 +314,10 @@ public:
 	    log_file << std::setw(25) << "Interval" << std::setw(25) << "Duration(proposed)" << std::setw(25) << "Duration(Taken)" << std::setw(25) << "Diff(p-t)" << "\n";
 
 	    std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator it = interval_duration_log_.begin();
-	    int64_t diff, taken_duration, proposed_duration;
+	    double diff, taken_duration, proposed_duration;
 	    while (it != interval_duration_log_.end()){
-		taken_duration = it->second.first == ConstVariables::MINUS_ONE ? -1 : it->second.first;
-		proposed_duration = it->second.second == ConstVariables::MINUS_ONE ? -1 : it->second.second*INTERVAL_LENGTH;
+		taken_duration = it->second.first == ConstVariables::MINUS_ONE ? -1 : (it->second.first*1.0)/1000.0;
+		proposed_duration = it->second.second == ConstVariables::MINUS_ONE ? -1 : (it->second.second*INTERVAL_LENGTH*1.0)/1000.0;
 		diff = taken_duration != -1 && proposed_duration != -1 ? proposed_duration - taken_duration : -1;
 		    log_file << std::setw(25) << it->first << std::setw(25) <<
 			    proposed_duration << std::setw(25) <<
