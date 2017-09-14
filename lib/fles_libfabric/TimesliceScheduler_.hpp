@@ -72,8 +72,10 @@ public:
 
 	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
-		    if (sender_info_[input_index].min_duration == ConstVariables::MINUS_ONE || sender_info_[input_index].min_duration > duration){
+		    if (sender_info_[input_index].min_duration == ConstVariables::MINUS_ONE){
 			sender_info_[input_index].min_duration = duration;
+		    }else{
+			sender_info_[input_index].min_duration = get_min_micro_ts_duration(input_index);
 		    }
 		    increament_acked_ts(timeslice);
 
@@ -362,11 +364,12 @@ private:
 	    //total_duration += (total_duration * theta_percentage_);
 
 	    ts_duration_.add(timeslice, total_duration);
-	    if (min_ts_duration_ == ConstVariables::MINUS_ONE || total_duration < min_ts_duration_){
+	    if (min_ts_duration_ == ConstVariables::MINUS_ONE){
 		min_ts_duration_ = total_duration;
+	    }else{
+		min_ts_duration_ = get_min_ts_duration();
 	    }
 	    completed_ts_ = true;
-
 
 	    //logging
 	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
@@ -427,9 +430,6 @@ private:
 	    }else{
 		interval_it->second.first = sum;
 	    }
-	    if (min_interval_duration_ == ConstVariables::MINUS_ONE || min_interval_duration_ > sum){
-		min_interval_duration_ = sum;
-	    }
 	    return sum;
 	}
 
@@ -451,6 +451,41 @@ private:
 
 	    return 0.1;
 	}
+
+	uint64_t get_min_micro_ts_duration(uint32_t input_index){
+
+	    if (sender_info_[input_index].ts_sent_info_.size() == 0)return ConstVariables::MINUS_ONE;
+
+	    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > >::iterator
+		    start_it = sender_info_[input_index].ts_sent_info_.get_begin_iterator() ,
+		    end_it = sender_info_[input_index].ts_sent_info_.get_end_iterator();
+	    uint64_t min = start_it->second.second;
+	    while (++start_it != end_it){
+		if (min > start_it->second.second){
+		    min = start_it->second.second;
+		}
+	    }
+	    return min;
+
+	}
+
+	uint64_t get_min_ts_duration(){
+
+	    if (ts_duration_.size() == 0)return ConstVariables::MINUS_ONE;
+
+	    SizedMap< uint64_t, uint64_t >::iterator
+		    start_it = ts_duration_.get_begin_iterator() ,
+		    end_it = ts_duration_.get_end_iterator();
+	    uint64_t min = start_it->second;
+	    while (++start_it != end_it){
+		if (min > start_it->second){
+		    min = start_it->second;
+		}
+	    }
+	    return min;
+
+	}
+
 
 	/// This const variable limits the number of durations of timeslices to be kept
 	const int32_t MAX_DURATION_HISTORY = 100;
@@ -487,8 +522,6 @@ private:
 
 	/// Triggers if there are new completed timeslices
 	bool completed_ts_ = false;
-
-	uint64_t min_interval_duration_ = ConstVariables::MINUS_ONE;
 
 	uint64_t min_ts_duration_ = ConstVariables::MINUS_ONE;
 
