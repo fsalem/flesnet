@@ -363,7 +363,7 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        timeslice_scheduler_->build_ack_time_file();
+        timeslice_scheduler_->build_duration_file();
         timeslice_scheduler_->build_scheduled_time_file();
 
         build_time_file();

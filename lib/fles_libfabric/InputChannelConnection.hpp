@@ -214,7 +214,7 @@ private:
     std::chrono::high_resolution_clock::time_point last_scheduled_times_[2];
 
     /// This holds up to two scheduled durations for the current interval and the following interval
-    uint64_t wait_times_[2] = {500,0};
+    uint64_t wait_times_[2] = {0,0};
 
 };
 }
