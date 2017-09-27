@@ -265,7 +265,6 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
             uint64_t last_complete_ts = timeslice_scheduler_->get_last_complete_ts();
 
             if (send_status_message_.timeslice_to_send == ConstVariables::MINUS_ONE){
-        	assert (last_complete_ts == remote_index_);
 		send_status_message_.timeslice_to_send = remote_index_;
 		send_status_message_.duration = timeslice_scheduler_->get_ts_duration(send_status_message_.timeslice_to_send);
 		send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);

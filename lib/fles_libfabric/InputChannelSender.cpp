@@ -144,8 +144,78 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::send_timeslice()
 {
-    uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size();
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+    bool ts_sent = false;
 
+    for (std::set<InputSchedulerData>::iterator data = schedulerData_.begin() ; data != schedulerData_.end() ; ++data){
+	if (data->next_micro_timeslices > max_timeslice_number_){
+	    continue;
+	}
+
+	if (data->next_scheduled_time > now){
+	    /// Logging
+	    if (temp_scheduler_blocked_times_log_.find(data->next_micro_timeslices) == temp_scheduler_blocked_times_log_.end()){
+		temp_scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(data->next_micro_timeslices, now));
+	    }
+	    break;
+	}
+
+	if (conn_[data->compute_index]->get_last_acked_timeslice() != conn_[data->compute_index]->get_last_sent_timeslice()){
+	    if (temp_ack_blocked_times_log_.find(data->next_micro_timeslices) == temp_ack_blocked_times_log_.end()){
+		temp_ack_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(data->next_micro_timeslices, now));
+	    }
+	    continue;
+	}
+
+	/// Logging  --- waiting time because of late ACK respond!
+	if (temp_ack_blocked_times_log_.find(data->next_micro_timeslices) != temp_ack_blocked_times_log_.end()){
+	    ack_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(data->next_micro_timeslices,
+		    std::pair<uint64_t, uint64_t>(
+		    std::chrono::duration_cast<std::chrono::microseconds>(temp_ack_blocked_times_log_.find(data->next_micro_timeslices)->second - time_begin_).count(),
+		    std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count())));
+	    temp_ack_blocked_times_log_.erase(data->next_micro_timeslices);
+	}
+
+	/// Logging  --- waiting time because of compute scheduler
+	if (temp_scheduler_blocked_times_log_.find(data->next_micro_timeslices) != temp_scheduler_blocked_times_log_.end()){
+	    scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(data->next_micro_timeslices,
+		    std::pair<uint64_t, uint64_t>(
+		    std::chrono::duration_cast<std::chrono::microseconds>(temp_scheduler_blocked_times_log_.find(data->next_micro_timeslices)->second - time_begin_).count(),
+		    std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count())));
+	    temp_scheduler_blocked_times_log_.erase(data->next_micro_timeslices);
+	}
+
+	//L_(info) << "cn=" << data->compute_index << ", sent=" << data->sent_micro_timeslices << ", next=" << data->next_micro_timeslices << " in " << std::chrono::duration_cast<std::chrono::microseconds>(data->next_scheduled_time - now).count();
+	if (try_send_timeslice(data->next_micro_timeslices)){
+	    conn_[data->compute_index]->set_last_sent_timeslice(data->next_micro_timeslices);
+	    conn_[data->compute_index]->add_sent_time(data->next_micro_timeslices, now);
+	    conn_[data->compute_index]->add_scheduled_already_sent_time(data->next_micro_timeslices, data->next_scheduled_time);
+	    sent_timeslices_++;
+	    ts_sent = true;
+
+	    /// Logging
+	    if (temp_buffer_blocked_times_log_.find(data->next_micro_timeslices) != temp_buffer_blocked_times_log_.end()){
+		buffer_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(data->next_micro_timeslices,
+			std::pair<uint64_t, uint64_t>(
+			std::chrono::duration_cast<std::chrono::microseconds>(temp_buffer_blocked_times_log_.find(data->next_micro_timeslices)->second - time_begin_).count(),
+			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count())));
+		temp_buffer_blocked_times_log_.erase(data->next_micro_timeslices);
+	    }
+
+	    uint64_t next_ts = data->next_micro_timeslices+conn_.size();
+	    InputSchedulerData next_entry(data->compute_index, data->sent_micro_timeslices+1, next_ts, conn_[data->compute_index]->get_scheduled_sent_time(next_ts));
+	    schedulerData_.erase(data);
+	    schedulerData_.insert(next_entry);
+	    assert(schedulerData_.size() == conn_.size());
+	    break;
+	}else{
+	    if (temp_buffer_blocked_times_log_.find(data->next_micro_timeslices) == temp_buffer_blocked_times_log_.end()){
+		temp_buffer_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(data->next_micro_timeslices, now));
+	    }
+	}
+    }
+    /*
+    uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size();
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
 		    conn_[i]->get_last_sent_timeslice() + conn_.size();
@@ -165,10 +235,11 @@ void InputChannelSender::send_timeslice()
 	    }
 	    continue;
 	}
+	*/
 
 
 
-	if (now >= scheduled_sent_time) {
+	/*if (now >= scheduled_sent_time) {
 
 	    if (temp_scheduler_blocked_times_log_.find(next_ts) != temp_scheduler_blocked_times_log_.end()){
 		scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
@@ -184,11 +255,11 @@ void InputChannelSender::send_timeslice()
 		    conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
 		    sent_timeslices_++;
 
-		    /*proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
-			    std::pair<int64_t, int64_t>(
-			std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
-			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
-		    );*/
+//		    proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
+//			    std::pair<int64_t, int64_t>(
+//			std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
+//			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
+//		    );
 		    if (temp_buffer_blocked_times_log_.find(next_ts) != temp_buffer_blocked_times_log_.end()){
 			buffer_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
 				std::pair<uint64_t, uint64_t>(
@@ -202,9 +273,9 @@ void InputChannelSender::send_timeslice()
 		}
 	    }
 	}
-    }
+    }*/
     if (sent_timeslices_ <= max_timeslice_number_){
-	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(0));
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), std::chrono::high_resolution_clock::now() + std::chrono::microseconds(ts_sent ? input_gap_:0));
     }
 }
 
@@ -269,9 +340,10 @@ void InputChannelSender::operator()()
         //assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
-        for (auto& c : conn_){
-        	c->set_time_MPI(time_begin_);
-        	c->set_wait_time(init_wait_time_);
+        for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
+	    conn_[indx]->set_time_MPI(time_begin_);
+	    conn_[indx]->set_wait_time(init_wait_time_);
+	    schedulerData_.insert(InputSchedulerData(indx,0,indx,time_begin_));
         }
 
         sync_buffer_positions();
@@ -643,8 +715,12 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        conn_[cn]->add_sent_duration(ts, std::chrono::duration_cast<std::chrono::microseconds>(
-        		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count());
+        double duration = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
+        conn_[cn]->add_sent_duration(ts, duration);
+        if (input_gap_ > duration / 2){
+            input_gap_ = duration / 2;
+        }
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {

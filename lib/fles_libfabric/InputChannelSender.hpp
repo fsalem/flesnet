@@ -136,6 +136,32 @@ private:
 
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
+    struct InputSchedulerData{
+	uint32_t compute_index;
+	uint64_t sent_micro_timeslices;
+	uint64_t next_micro_timeslices;
+	std::chrono::system_clock::time_point next_scheduled_time;
+
+	InputSchedulerData (uint32_t compute_index, uint64_t sent_micro_timeslices, uint64_t next_micro_timeslices, std::chrono::system_clock::time_point next_scheduled_time){
+	    this->compute_index = compute_index;
+	    this->sent_micro_timeslices = sent_micro_timeslices;
+	    this->next_micro_timeslices = next_micro_timeslices;
+	    this->next_scheduled_time = next_scheduled_time;
+	}
+	bool operator<(const InputSchedulerData& data) const {
+	    if (this->next_scheduled_time == data.next_scheduled_time) {
+		if (this->sent_micro_timeslices == data.sent_micro_timeslices)
+		    return this->compute_index < data.compute_index ? true : false;
+		return this->sent_micro_timeslices < data.sent_micro_timeslices ? true : false;
+	    }
+	    return this->next_scheduled_time < data.next_scheduled_time ? true : false;
+	}
+
+    };
+    std::set<InputSchedulerData> schedulerData_;
+
+    uint64_t input_gap_ = 1000; // in microseconds;
+
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_log_;
 
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
@@ -143,6 +169,9 @@ private:
 
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > buffer_blocked_times_log_;
     std::map<uint64_t, std::chrono::system_clock::time_point > temp_buffer_blocked_times_log_;
+
+    std::map<uint64_t, std::pair<uint64_t, uint64_t> > ack_blocked_times_log_;
+    std::map<uint64_t, std::chrono::system_clock::time_point > temp_ack_blocked_times_log_;
 
     void build_scheduled_time_file();
 
