@@ -152,7 +152,8 @@ void InputChannelSender::send_timeslice()
 	    continue;
 	}
 
-	if (data->next_scheduled_time > now){
+	if (data->next_scheduled_time > now &&
+		!(data == schedulerData_.begin() && (++schedulerData_.begin())->sent_micro_timeslices > data->sent_micro_timeslices )){
 	    /// Logging
 	    if (temp_scheduler_blocked_times_log_.find(data->next_micro_timeslices) == temp_scheduler_blocked_times_log_.end()){
 		temp_scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(data->next_micro_timeslices, now));
@@ -205,8 +206,9 @@ void InputChannelSender::send_timeslice()
 	    uint64_t next_ts = data->next_micro_timeslices+conn_.size();
 	    InputSchedulerData next_entry(data->compute_index, data->sent_micro_timeslices+1, next_ts, conn_[data->compute_index]->get_scheduled_sent_time(next_ts));
 	    schedulerData_.erase(data);
-	    schedulerData_.insert(next_entry);
-	    assert(schedulerData_.size() == conn_.size());
+	    if (next_ts <= max_timeslice_number_){
+		schedulerData_.insert(next_entry);
+	    }
 	    break;
 	}else{
 	    if (temp_buffer_blocked_times_log_.find(data->next_micro_timeslices) == temp_buffer_blocked_times_log_.end()){

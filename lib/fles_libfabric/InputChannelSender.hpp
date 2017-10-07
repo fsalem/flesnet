@@ -149,12 +149,12 @@ private:
 	    this->next_scheduled_time = next_scheduled_time;
 	}
 	bool operator<(const InputSchedulerData& data) const {
-	    if (this->next_scheduled_time == data.next_scheduled_time) {
-		if (this->sent_micro_timeslices == data.sent_micro_timeslices)
+	    if (this->sent_micro_timeslices == data.sent_micro_timeslices) {
+		if (this->next_scheduled_time == data.next_scheduled_time)
 		    return this->compute_index < data.compute_index ? true : false;
-		return this->sent_micro_timeslices < data.sent_micro_timeslices ? true : false;
+		return this->next_scheduled_time < data.next_scheduled_time ? true : false;
 	    }
-	    return this->next_scheduled_time < data.next_scheduled_time ? true : false;
+	    return this->sent_micro_timeslices < data.sent_micro_timeslices ? true : false;
 	}
 
     };
