@@ -23,12 +23,6 @@ struct ComputeNodeStatusMessage {
     ComputeNodeInfo info;
     // address must be not null if connect = true
     unsigned char my_address[64];
-    // last acked timeslice from predecessor and successor
-    uint64_t acked_timeslice = MINUS_ONE;
-    // last acked time difference from the barrier of predecessor of the target input node
-    uint64_t predecessor_acked_time;
-    // last acked time difference from the barrier of successor of the target input node
-	uint64_t successor_acked_time;
 };
 }
 

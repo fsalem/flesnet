@@ -230,6 +230,10 @@ void Parameters::parse_options(int argc, char* argv[])
     config_add("init-wait-time",
                po::value<uint64_t>(&init_wait_time_),
                "initial wait time in microseconds");
+    config_add(
+            "min-recv-ts-to-process",
+            po::value<int32_t>(&min_recv_ts_to_process_)->default_value(-1),
+            "the min number of connections to send timeslices to start processing");
 
     po::options_description cmdline_options("Allowed options");
     cmdline_options.add(generic).add(config);
@@ -356,6 +360,13 @@ void Parameters::parse_options(int argc, char* argv[])
 
     if (cn_desc_buffer_size_exp_ == 0)
         cn_desc_buffer_size_exp_ = suggest_cn_desc_buffer_size_exp();
+
+    if (min_recv_ts_to_process_ == -1) {
+	min_recv_ts_to_process_ = input_nodes_.size();
+    } else {
+	min_recv_ts_to_process_ =
+	    ((min_recv_ts_to_process_ * 1.0) / 100.0) * input_nodes_.size();
+    }
 
     if (!standalone_) {
         L_(debug) << "input nodes (" << input_nodes_.size()

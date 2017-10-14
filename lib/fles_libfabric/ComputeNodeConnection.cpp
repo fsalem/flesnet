@@ -29,7 +29,6 @@ ComputeNodeConnection::ComputeNodeConnection(
     max_send_sge_ = 1;
     max_recv_wr_ = 1;
     max_recv_sge_ = 1;
-    max_timeslice_info_.first = MINUS_ONE;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -56,7 +55,6 @@ ComputeNodeConnection::ComputeNodeConnection(
     max_send_sge_ = 1;
     max_recv_wr_ = 1;
     max_recv_sge_ = 1;
-    max_timeslice_info_.first = MINUS_ONE;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -91,8 +89,6 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    data_acked_ = false;
-    data_changed_ = false;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
@@ -237,32 +233,20 @@ void ComputeNodeConnection::on_disconnected(struct fi_eq_cm_entry* event)
 
 void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 {
+  //L_(info) << "[" << index_ << "] late_desc = " << late_desc << ", sent = " << cn_wp().desc << ", acked = " << cn_ack_.desc << ", ack_pos = " << ack_pos;
+    if (late_desc < ack_pos) {
+	late_desc = ack_pos;
+    }
+    if (cn_wp().desc < ack_pos) {
+	ack_pos = cn_wp().desc;
+    }
+
     cn_ack_.desc = ack_pos;
 
     const fles::TimesliceComponentDescriptor& acked_ts =
         desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
 
     cn_ack_.data = acked_ts.offset + acked_ts.size;
-
-    data_changed_ = true;
-}
-
-bool ComputeNodeConnection::try_sync_buffer_positions()
-{
-    if ((data_acked_ || data_changed_) && !send_status_message_.final) {
-        send_status_message_.ack = cn_ack_;
-        if (data_acked_){
-			send_status_message_.acked_timeslice = max_timeslice_info_.first;
-			send_status_message_.predecessor_acked_time = max_timeslice_info_.second.first;
-			send_status_message_.successor_acked_time = max_timeslice_info_.second.second;
-			data_acked_ = false;
-        }
-
-        post_send_status_message();
-        return true;
-    } else {
-        return false;
-    }
 }
 
 void ComputeNodeConnection::on_complete_recv()
@@ -280,9 +264,17 @@ void ComputeNodeConnection::on_complete_recv()
                   << " (wp.desc=" << recv_status_message_.wp.desc << ")";
     }
     // to handle receiving sync messages out of sent order!
-    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc)
-    	cn_wp_ = recv_status_message_.wp;
+    cn_wp_ = recv_status_message_.wp;
+
     post_recv_status_message();
+
+    if (late_desc > cn_ack_.desc && cn_wp_.desc > cn_ack_.desc){
+	inc_ack_pointers(late_desc > cn_wp_.desc ? cn_wp_.desc : late_desc);
+    }
+
+    send_status_message_.ack = cn_ack_;
+
+    post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }

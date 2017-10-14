@@ -58,8 +58,6 @@ public:
 
     virtual void setup_mr(struct fid_domain* pd) override;
 
-    virtual bool try_sync_buffer_positions() override;
-
     /// Connection handler function, called on successful connection.
     /**
      \param event RDMA connection manager event structure
@@ -146,20 +144,6 @@ public:
 
     bool is_connection_finalized();
 
-    void add_predecessor_node_info(uint64_t timeslice, uint64_t time) {
-    	if (predecessor_node_info_.find(timeslice) == predecessor_node_info_.end()){
-    		//predecessor_node_info_.insert(std::make_pair(timeslice,time));
-    		update_max_timeslice_info(predecessor_node_info_, timeslice, true);
-    	}
-    }
-
-    void add_successor_node_info(uint64_t timeslice, uint64_t time) {
-    	if (successor_node_info_.find(timeslice) == successor_node_info_.end()){
-    		//successor_node_info_.insert(std::make_pair(timeslice,time));
-    		update_max_timeslice_info(successor_node_info_, timeslice, false);
-    	}
-    }
-
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
@@ -167,6 +151,8 @@ private:
     InputChannelStatusMessage recv_status_message_ =
         InputChannelStatusMessage();
     ComputeNodeBufferPosition cn_wp_ = ComputeNodeBufferPosition();
+
+    uint64_t late_desc = 0; ///< The position in the description buffer which other compute connections have acked it.
 
     struct fid_mr* mr_data_ = nullptr;
     struct fid_mr* mr_desc_ = nullptr;
@@ -199,60 +185,5 @@ private:
     uint32_t pending_send_requests_{0};
 
     fi_addr_t partner_addr_;
-
-    // last acked time and ts of Input node #(index_ - 1)
-    std::map<uint64_t,uint64_t> predecessor_node_info_;
-    std::map<uint64_t,uint64_t> successor_node_info_;
-    // max timeslice info from the predecessor and successor {timeslice number, {predecessor timestamp, successor timestamp}}
-    std::pair<uint64_t,std::pair<uint64_t,uint64_t>> max_timeslice_info_;
-
-    void update_max_timeslice_info(std::map<uint64_t,uint64_t>& node_info, uint64_t timeslice, uint64_t time) {
-
-    	if ((max_timeslice_info_.first != MINUS_ONE && max_timeslice_info_.first >= timeslice) || node_info.find(timeslice) != node_info.end()){
-    	    		return;
-    	}
-
-    	node_info.insert(std::make_pair(timeslice,time));
-
-
-    	std::map<uint64_t,uint64_t>::iterator predecessor_iterator = predecessor_node_info_.find(timeslice),
-    	    			successor_iterator = successor_node_info_.find(timeslice);
-
-    	/*// successor node doesn't acked this particular timeslice but acked a following one!
-    	if (predecessor_node && successor_iterator == successor_node_info_.end() && successor_node_info_.size() > 0 && (--successor_node_info_.end())->first > timeslice){
-    		successor_iterator = get_first_applicable_timeslice(successor_node_info_, timeslice);
-    	}
-
-    	// predecessor node doesn't acked this particular timeslice but acked a following one!
-		if (!predecessor_node && predecessor_iterator == predecessor_node_info_.end() && predecessor_node_info_.size() > 0 && (--predecessor_node_info_.end())->first > timeslice){
-			predecessor_iterator = get_first_applicable_timeslice(predecessor_node_info_, timeslice);
-		}*/
-
-    	if (successor_iterator != successor_node_info_.end() && predecessor_iterator != predecessor_node_info_.end()) {
-
-    		max_timeslice_info_.first = timeslice;
-			max_timeslice_info_.second.first = predecessor_iterator->second;
-			max_timeslice_info_.second.second = successor_iterator->second;
-
-			predecessor_node_info_.erase(predecessor_node_info_.begin(), ++predecessor_iterator);
-			successor_node_info_.erase(successor_node_info_.begin(), ++successor_iterator);
-
-			data_acked_ = true;
-		}
-    }
-
-    std::map<uint64_t,uint64_t>::iterator get_first_applicable_timeslice(std::map<uint64_t,uint64_t>& node_info, uint64_t timeslice){
-
-    	std::map<uint64_t,uint64_t>::iterator iterator = node_info.end();
-    	do{
-    		--iterator;
-    		if (iterator->first < timeslice){
-				break;
-			}
-    	}while (iterator != node_info.begin());
-
-    	return iterator;
-    }
-
 };
 }

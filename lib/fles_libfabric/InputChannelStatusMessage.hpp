@@ -22,9 +22,6 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
-    // last acked time difference from the barrier of predecessor of the target input node
-    uint64_t in_acked_time;
-    uint64_t in_acked_timeslice = -1;
 };
 }
 

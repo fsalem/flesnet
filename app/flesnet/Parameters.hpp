@@ -112,6 +112,8 @@ public:
     /// Retrieve the number of completion queue entries.
     uint32_t num_cqe() const { return num_cqe_; }
 
+    /// Retrieve the min number of connections to send timeslices to start processing.
+    int32_t min_recv_ts_to_process() const { return min_recv_ts_to_process_; }
     /// Retrieve the list of participating input nodes.
     std::vector<std::string> const input_nodes() const { return input_nodes_; }
 
@@ -191,6 +193,8 @@ private:
     uint64_t init_wait_time_ = 0;
 
     uint32_t num_cqe_ = 1000000;
+
+    int32_t min_recv_ts_to_process_ = -1;
 
     /// The list of participating input nodes.
     std::vector<std::string> input_nodes_;

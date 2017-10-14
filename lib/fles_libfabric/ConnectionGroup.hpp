@@ -306,17 +306,6 @@ protected:
         }
     }
 
-    void sync_buffer_positions()
-    {
-        for (auto& c : conn_) {
-            c->try_sync_buffer_positions();
-        }
-
-        auto now = std::chrono::system_clock::now();
-        scheduler_.add(std::bind(&ConnectionGroup::sync_buffer_positions, this),
-                       now + std::chrono::milliseconds(0));
-    }
-
     const uint32_t num_cqe_ = 1000000;
 
     /// Libfabric protection domain.

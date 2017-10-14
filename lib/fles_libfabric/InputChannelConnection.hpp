@@ -58,7 +58,7 @@ public:
     virtual void setup_mr(struct fid_domain* pd) override;
     virtual void setup() override;
 
-    virtual bool try_sync_buffer_positions() override;
+    bool try_sync_buffer_positions();
 
     /// Connection handler function, called on successful connection.
     /**
@@ -86,22 +86,13 @@ public:
 
     void set_remote_info();
 
-    uint64_t get_wait_time() { return wait_time_; }
-
-    void set_wait_time(uint64_t wait_time) { wait_time_ = wait_time; }
-
     const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
 
     void set_last_sent_timeslice(uint64_t sent_ts) { last_sent_timeslice_ = sent_ts; }
 
-    const uint64_t& get_last_acked_round() const { return last_acked_round_; }
-
-    void set_last_acked_round(uint64_t acked_ts) { last_acked_round_ = acked_ts; }
-
     const std::vector<uint64_t>& get_acked_time_list() const { return acked_time_list_; }
-    const std::vector<double>& get_spent_times_list() const { return spent_times_; }
 
-    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time); data_acked_ = true;}
+    void add_acked_time(uint64_t time) { acked_time_list_.push_back(time);}
 
     void add_sent_time(uint64_t time) { sent_time_list_.push_back(time); }
 
@@ -117,9 +108,6 @@ private:
 
     /// Post a send work request (WR) to the send queue
     void post_send_status_message();
-
-    ///Update the wait_time variable according to the times sent from the compute node
-    void update_wait_time_interval();
 
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
@@ -171,31 +159,8 @@ private:
 
     uint64_t last_sent_timeslice_ = -1;
 
-    uint64_t last_acked_round_ = 0;
-
     std::vector<uint64_t> acked_time_list_;
     std::vector<uint64_t> sent_time_list_;
-
-    uint64_t wait_time_ = 500;
-
-    PID pid_;
-
-    const double PID_DT = 0.001;  //
-    const double PID_KP = 0.001;  // the ratio of the error value; affects the height between the target and the peaks
-    const double PID_KD = 0.9; // rate of changing waiting time
-    const double PID_KI = 0.001;  // bring long term precision to both the magnitude and duration of the error
-
-    std::vector<uint64_t> wait_time_buffer_;
-
-    std::vector<double> spent_times_;
-
-    uint64_t wait_time_buffer_sum;
-
-    int next_wait_time_index_;
-
-    const int64_t PID_SET_POINT=0;
-
-    const int64_t MAX_WAIT_TIME=20000;
 
 };
 }

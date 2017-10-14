@@ -22,8 +22,7 @@ InputChannelConnection::InputChannelConnection(
     uint_fast16_t remote_connection_index, unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
     : Connection(eq, connection_index, remote_connection_index),
-      max_pending_write_requests_(max_pending_write_requests),
-      pid_(PID(PID_DT, wait_time_, 0, PID_KP, PID_KD, PID_KI))
+      max_pending_write_requests_(max_pending_write_requests)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -42,11 +41,6 @@ InputChannelConnection::InputChannelConnection(
     } else {
         connection_oriented_ = false;
     }
-    wait_time_buffer_.resize(100,0);
-    next_wait_time_index_ = 0;
-    wait_time_buffer_sum = 0;
-    data_changed_ = true; // to send empty message at the beginning
-    data_acked_ = false;
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -238,26 +232,14 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 {
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
-    data_changed_ = true;
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
-    if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
-		if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
-			send_status_message_.final = true;
-			send_status_message_.abort = abort_;
-			data_changed_ = true;
-		}
-    }
-
-    if ((data_acked_ || data_changed_)) { //
-    	if (data_changed_)
-    	{
-        	send_status_message_.wp = cn_wp_;
-    	}
+    if (our_turn_) {
+        our_turn_ = false;
+        send_status_message_.wp = cn_wp_;
         post_send_status_message();
-
         return true;
     } else {
         return false;
@@ -276,9 +258,18 @@ uint64_t InputChannelConnection::skip_required(uint64_t data_size)
 
 void InputChannelConnection::finalize(bool abort)
 {
-    finalize_ = true;
-    abort_ = abort;
-    data_changed_ = true;
+  finalize_ = true;
+      abort_ = abort;
+      if (our_turn_) {
+          our_turn_ = false;
+          if (cn_wp_ == cn_ack_ || abort_) {
+              send_status_message_.final = true;
+              send_status_message_.abort = abort_;
+          } else {
+              send_status_message_.wp = cn_wp_;
+          }
+          post_send_status_message();
+  }
 }
 
 void InputChannelConnection::on_complete_write() { pending_write_requests_--; }
@@ -293,17 +284,26 @@ void InputChannelConnection::on_complete_recv()
     if (false) {
         L_(trace) << "[i" << remote_index_ << "] "
                   << "[" << index_ << "] "
-                  << "receive completion, new cn_ack_.data="
-                  << recv_status_message_.ack.data;
+                  << "receive completion, new cn_ack_.desc="
+                  << recv_status_message_.ack.desc;
     }
-    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc)
+    if (cn_ack_.desc < recv_status_message_.ack.desc)
     {
     	cn_ack_ = recv_status_message_.ack;
     }
-    // update the wait time based on the last rounds
-	update_wait_time_interval();
-
     post_recv_status_message();
+
+    if (get_partner_addr() || connection_oriented_) {
+            if (cn_wp_ == send_status_message_.wp && finalize_) {
+                if (cn_wp_ == cn_ack_ || abort_) {
+                    send_status_message_.final = true;
+                    send_status_message_.abort = abort_;
+                }
+                post_send_status_message();
+            } else {
+                our_turn_ = true;
+            }
+    }
 }
 
 void InputChannelConnection::setup_mr(struct fid_domain* pd)
@@ -446,55 +446,7 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
-    if (data_acked_ && acked_time_list_.size() > 0) {
-		send_status_message_.in_acked_timeslice = acked_time_list_.size();
-		send_status_message_.in_acked_time =
-				acked_time_list_[acked_time_list_.size() - 1];
-	}
-    data_changed_ = false;
-    data_acked_ = false;
     post_send_msg(&send_wr);
-}
-
-void InputChannelConnection::update_wait_time_interval()
-{
-	if (recv_status_message_.acked_timeslice != MINUS_ONE && (last_acked_round_ == MINUS_ONE || last_acked_round_ < recv_status_message_.acked_timeslice) && sent_time_list_.size() > 0 ){
-		last_acked_round_ = recv_status_message_.acked_timeslice;
-		if (sent_time_list_.size() < recv_status_message_.acked_timeslice) {
-			wait_time_ /= 2.0;
-			//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", wait_time/2 = " << wait_time_ << ", sent = " << sent_time_list_.size() << ", acked = " << recv_status_message_.acked_timeslice;
-		}else {
-			uint64_t predecessor_diff = (sent_time_list_[last_acked_round_-1] - recv_status_message_.predecessor_acked_time),
-					successor_diff = (recv_status_message_.successor_acked_time - sent_time_list_[last_acked_round_-1]),
-					avg_diff;
-
-			if (predecessor_diff  >= ZERO && successor_diff >= ZERO) {
-				avg_diff = (predecessor_diff + successor_diff)/2.0;
-				//L_(info) << "[" << index_<< "]!!!! NICEEEEEEEE";
-			}else{
-				if (predecessor_diff < ZERO && successor_diff < ZERO) {
-					avg_diff = 0;
-					//L_(info) << "[" << index_<< "]!!!! ALL < ZERO";
-				}else{
-					if (predecessor_diff >= ZERO){
-						avg_diff = predecessor_diff;
-						//L_(info) << "[" << index_<< "]!!!! SUCC < ZERO";
-					}else{
-						avg_diff = successor_diff;
-						//L_(info) << "[" << index_<< "]!!!! PRED < ZERO";
-					}
-				}
-			}
-
-			wait_time_ = avg_diff - (avg_diff*0.2);
-			if (wait_time_ > MAX_WAIT_TIME)wait_time_ = MAX_WAIT_TIME;
-			//L_(info) << "[" << index_<< "] last acked round = " << last_acked_round_ << ", wait_time = " << wait_time_ << ", last_acked_round_ = " << last_acked_round_ << ", sent = " << sent_time_list_.size() << ", acked = " << recv_status_message_.acked_timeslice;
-
-			for (uint32_t i = spent_times_.size() ; i < (last_acked_round_-spent_times_.size()) ; i++) {
-				spent_times_.push_back((avg_diff*1.0)/(1000.0));
-			}
-		}
-	}
 }
 
 void InputChannelConnection::connect(const std::string& hostname,

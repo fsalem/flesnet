@@ -31,12 +31,13 @@ namespace tl_libfabric
 class TimesliceBuilder : public ConnectionGroup<ComputeNodeConnection>
 {
 public:
-    /// The ComputeBuffer constructor.
-    TimesliceBuilder(uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
-                     unsigned short service, uint32_t num_input_nodes,
-                     uint32_t timeslice_size,
-                     volatile sig_atomic_t* signal_status, bool drop,
-                     std::string local_node_name);
+  /// The ComputeBuffer constructor.
+  TimesliceBuilder(uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
+		   unsigned short service, uint32_t num_input_nodes,
+		   uint32_t timeslice_size,
+		   volatile sig_atomic_t* signal_status, bool drop,
+		   std::string local_node_name,
+		   int32_t min_recv_ts_to_process);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;
@@ -73,6 +74,28 @@ private:
     void build_time_file();
     void build_time_interval_file();
 
+    uint64_t get_majority_recv_ts(int min_num_conn)
+    {
+	std::set<uint64_t> conn_descs; // std::set is already a sorted set
+	for (auto& conn : conn_) {
+	    conn_descs.insert(conn->cn_wp().desc);
+	}
+	std::set<uint64_t>::iterator it = conn_descs.end();
+	while (1) {
+	    --it;
+	    int cur_num_conn = 0;
+	    for (auto& conn : conn_) {
+		if (conn->cn_wp().desc >= (*it))
+		    cur_num_conn++;
+	    }
+	    if (cur_num_conn >= min_num_conn)
+		return (*it);
+	    if (it == conn_descs.begin())
+		break;
+	}
+	return 0;
+    }
+
     fid_cq* listening_cq_;
     uint64_t compute_index_;
 
@@ -102,6 +125,8 @@ private:
     volatile sig_atomic_t* signal_status_;
 
     std::string local_node_name_;
+
+    int32_t min_recv_ts_to_process_;
 
     bool drop_;
     std::vector<std::vector<double>> arrivals_ts, sent_ts;

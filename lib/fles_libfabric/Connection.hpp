@@ -79,7 +79,6 @@ public:
     virtual void setup() = 0;
     virtual void setup_mr(struct fid_domain* pd) = 0;
 
-    virtual bool try_sync_buffer_positions() = 0;
     //
     //    /// Handle RDMA_CM_EVENT_ROUTE_RESOLVED event for this connection.
     //    virtual void on_route_resolved();
@@ -144,12 +143,6 @@ protected:
     struct fid_ep* ep_ = nullptr;
 
     bool connection_oriented_ = false;
-
-    /// check if new data should be sent
-    bool data_changed_= false;
-
-    /// check if new data is acked and should be sent
-    bool data_acked_= false;
 
 private:
     //    /// Low-level communication parameters.

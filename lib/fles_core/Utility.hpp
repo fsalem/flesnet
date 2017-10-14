@@ -51,6 +51,7 @@ inline std::string bar_graph(std::vector<T> values, std::string symbols,
 
     T sum = 0;
     for (T n : values) {
+	if (n < 0)continue;
         assert(n >= 0);
         sum += n;
     }
@@ -60,6 +61,7 @@ inline std::string bar_graph(std::vector<T> values, std::string symbols,
         filled += static_cast<float>(values[i]) / static_cast<float>(sum);
         uint32_t chars =
             static_cast<uint32_t>(round(filled * static_cast<float>(length)));
+        if (s.size() > chars) continue;
         s.append(std::string(chars - s.size(), symbols[i % symbols.size()]));
     }
 

@@ -17,27 +17,26 @@
 namespace tl_libfabric
 {
 
-TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
-                                   TimesliceBuffer& timeslice_buffer,
-                                   unsigned short service,
-                                   uint32_t num_input_nodes,
-                                   uint32_t timeslice_size,
-                                   volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name)
+TimesliceBuilder::TimesliceBuilder(
+    uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
+    unsigned short service, uint32_t num_input_nodes, uint32_t timeslice_size,
+    volatile sig_atomic_t* signal_status, bool drop,
+    std::string local_node_name, int32_t min_recv_ts_to_process)
     : ConnectionGroup(local_node_name), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
-      drop_(drop)
+      drop_(drop), min_recv_ts_to_process_(min_recv_ts_to_process)
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
     if (Provider::getInst()->is_connection_oriented()) {
-        connection_oriented_ = true;
+	connection_oriented_ = true;
     } else {
-        connection_oriented_ = false;
+	connection_oriented_ = false;
     }
+    L_(info) << "min_recv_ts_to_process_ = " << min_recv_ts_to_process_;
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -335,10 +334,9 @@ void TimesliceBuilder::operator()()
 
         next_ts.resize(num_input_nodes_, 0);
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
-		//assert(rc == MPI_SUCCESS);
+	//assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
-        sync_buffer_positions();
         report_status();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
@@ -360,70 +358,10 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        build_time_file();
-        build_time_interval_file();
-
         summary();
     } catch (std::exception& e) {
         L_(error) << "exception in TimesliceBuilder: " << e.what();
     }
-}
-
-void TimesliceBuilder::build_time_file(){
-        std::ofstream myfile;
-        myfile.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_ts.out");
-        //myfile << "TS\t";
-        //for (int i=0 ; i < num_input_nodes_ ; i++)
-        //      myfile << "Sent#" << i << "\tArrival#" << i << "\t";
-        //myfile << "COMPLETION\n";
-        double min_arrival;
-        for (size_t i=0 ; i<arrivals_ts.size() ; i++){
-                myfile << compute_index_ << "\t" << (i*num_input_nodes_+compute_index_) << "\t";
-                min_arrival = arrivals_ts[i][0];
-                for (size_t j=0 ; j < num_input_nodes_ ; j++){
-                        myfile << sent_ts[i][j] << "\t" << arrivals_ts[i][j] << "\t";
-                        if (min_arrival > arrivals_ts[i][j]) min_arrival = arrivals_ts[i][j];
-                }
-                myfile << completed_ts[i] << "\t";
-                myfile << (completed_ts[i] - min_arrival) << "\n";
-        }
-        myfile.close();
-}
-
-void TimesliceBuilder::build_time_interval_file(){
-        std::ofstream t_interval_file;
-        t_interval_file.open (std::to_string(num_input_nodes_)+"."+std::to_string(compute_index_)+".compute_t_intrval.out");
-
-        double interval=10.0;
-        double max_arrival=-1;
-        for (size_t j=0 ; j < num_input_nodes_ ; j++){
-                if (arrivals_ts[arrivals_ts.size()-1][j] > max_arrival)
-                        max_arrival=arrivals_ts[arrivals_ts.size()-1][j];
-        }
-        int arrival_arr_size=max_arrival/interval+1, comp_arr_size=completed_ts[completed_ts.size()-1]/interval+1;
-        long int count_arrival_arr[arrival_arr_size]={0}, count_comp_arr[comp_arr_size]={0};
-
-        for (size_t i=0 ; i<arrivals_ts.size() ; i++){
-                for (size_t j=0 ; j < num_input_nodes_ ; j++){
-                        count_arrival_arr[(int)(arrivals_ts[i][j]/interval)]++;
-                }
-                count_comp_arr[(int)(completed_ts[i]/interval)]++;
-        }
-        bool added;
-        for (size_t i=0 ; i<arrival_arr_size || i < comp_arr_size ; i++){
-                added=0;
-                if (i<arrival_arr_size && count_arrival_arr[i] > 0){
-                        added=1;
-                }
-                if (i < comp_arr_size && count_comp_arr[i] > 0){
-                        added=1;
-                }
-                if (added){
-                        t_interval_file << compute_index_ << "\t" << (i*interval) << /*".."<< (((i+1)*interval)-1) <<*/ "\t" << count_arrival_arr[i] << "\t" << count_comp_arr[i] << "\n";
-                }
-        }
-
-        t_interval_file.close();
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
@@ -492,29 +430,22 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
-        if (conn_[in]->recv_status_message().in_acked_timeslice != -1 && conn_[in]->recv_status_message().in_acked_timeslice >= 0) {
-        	conn_[(in+1)%num_input_nodes_]->add_predecessor_node_info(conn_[in]->recv_status_message().in_acked_timeslice, conn_[in]->recv_status_message().in_acked_time);
-        	conn_[(in-1)%num_input_nodes_]->add_successor_node_info(conn_[in]->recv_status_message().in_acked_timeslice, conn_[in]->recv_status_message().in_acked_time);
-    	}
-        //conn_[in]->inc_ack_pointers(conn_[in]->cn_wp().desc);
-        //add_arrival_ts(conn_[in]->recv_status_message().time_sent_, conn_[in]->cn_wp().desc, in);
-        
-        if (connected_ == conn_.size() && in == red_lantern_) {
-            auto new_red_lantern = std::min_element(
+        if (connected_ == conn_.size() /*&& in == red_lantern_*/) {
+            /*auto new_red_lantern = std::min_element(
                 std::begin(conn_), std::end(conn_),
                 [](const std::unique_ptr<ComputeNodeConnection>& v1,
                    const std::unique_ptr<ComputeNodeConnection>& v2) {
                     return v1->cn_wp().desc < v2->cn_wp().desc;
-                });
+                });*/
 
-            uint64_t new_completely_written = (*new_red_lantern)->cn_wp().desc;
-            red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);
+            /*uint64_t new_completely_written = (*new_red_lantern)->cn_wp().desc;
+            red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);*/
+            uint64_t new_completely_written = get_majority_recv_ts(min_recv_ts_to_process_);
+            //L_(info) << "COMP from ["<< in <<"] completely_written_ =" << completely_written_ << ", new_completely_written = " << new_completely_written;
 
-            double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
-//            int last_completed_ts_size = completed_ts.size();
             for (uint64_t tpos = completely_written_;
                  tpos < new_completely_written; ++tpos) {
-                if (!drop_) {
+                if (!drop_ && false) {
                     uint64_t ts_index = UINT64_MAX;
                     if (conn_.size() > 0) {
                         ts_index = timeslice_buffer_.get_desc(0, tpos).ts_num;
@@ -527,13 +458,8 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                 } else {
                     timeslice_buffer_.send_completion({tpos});
                 }
-                completed_ts.push_back(time);
             }
 
-            /*if (completed_ts.size() != last_completed_ts_size){
-				for (auto& conn:conn_)
-					conn->set_prev_in_acked_timeslice(completed_ts.size());
-            }*/
             completely_written_ = new_completely_written;
         }
         break;
@@ -541,22 +467,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     default:
         throw LibfabricException("wc for unknown wr_id");
     }
-}
-
-void TimesliceBuilder::add_arrival_ts(double sent_time , uint64_t desc, int cn){
-        for (size_t ts=arrivals_ts.size() ; ts < desc ; ts++){
-                std::vector<double> tmp(num_input_nodes_,0.0);
-                arrivals_ts.push_back(tmp);
-                sent_ts.push_back(tmp);
-        }
-
-        double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
-
-        while (desc > next_ts[cn]){
-                arrivals_ts[next_ts[cn]][cn]=time;
-                sent_ts[next_ts[cn]][cn]=sent_time;
-                next_ts[cn]++;
-        }
 }
 
 void TimesliceBuilder::poll_ts_completion()
