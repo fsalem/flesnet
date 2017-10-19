@@ -42,7 +42,7 @@ public:
     bool write_request_available();
 
     /// Increment target write pointers after data has been sent.
-    void inc_write_pointers(uint64_t data_size, uint64_t desc_size);
+    void inc_write_pointers(uint64_t timeslice, uint64_t data_size, uint64_t desc_size);
 
     // Get number of bytes to skip in advance (to avoid buffer wrap)
     uint64_t skip_required(uint64_t data_size);
@@ -117,7 +117,7 @@ public:
     const std::chrono::high_resolution_clock::time_point get_scheduled_already_sent_time(uint64_t timeslice) const { return scheduled_time_list_.get(timeslice); }
 
     /// Add the needed duration to transmit each timeslice and getting the ack back
-    void add_sent_duration(uint64_t timeslice, double duration) { sent_duration_list_.add(timeslice, duration); data_acked_ = true;}
+    void add_sent_duration(uint64_t timeslice, double duration) { sent_duration_list_.add(timeslice, duration);}
 
     /// Check whether a timeslice is acked
     bool contains_sent_duration(uint64_t timeslice) const { return sent_duration_list_.contains(timeslice); }
@@ -137,6 +137,8 @@ public:
     /// Calculate when a timeslice should be sent according to the sent duration from the compute node scheduler
     std::chrono::high_resolution_clock::time_point get_scheduled_sent_time(uint64_t timeslice);
 
+    ///
+    void update_write_options(uint64_t timeslice);
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -169,6 +171,9 @@ private:
 
     /// Local version of CN write pointers
     ComputeNodeBufferPosition cn_wp_ = ComputeNodeBufferPosition();
+
+    /// Local version of CN write pointers to be updated for sync messages
+    ComputeNodeBufferPosition cn_wp_sync_ = ComputeNodeBufferPosition();
 
     /// Send buffer for input channel status (including CN write pointers)
     InputChannelStatusMessage send_status_message_ =
@@ -206,6 +211,9 @@ private:
 
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;
+
+    /// This list includes the write pointers for timeslices (timeslice,[ [data_size, desc_size], ack received])
+    SizedMap<uint64_t, std::pair<std::pair<uint64_t ,uint64_t>, bool>> write_pointer_list_;
 
     /// This holds up to two scheduled timeslices for the current interval and the following interval
     uint64_t last_scheduled_timeslices_[2] = {ConstVariables::MINUS_ONE, ConstVariables::MINUS_ONE};

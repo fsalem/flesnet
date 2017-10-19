@@ -17,8 +17,8 @@ struct InputSchedulerData {
     int64_t clock_offset;
     /// <timeslice number, <sent_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
     SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > > ts_sent_info_;
-    uint64_t min_duration = ConstVariables::MINUS_ONE;
-
+    // TODO add a list of durations to simplify the median calculations
+    uint64_t median_duration = ConstVariables::MINUS_ONE; // of the last MAX_HISTORY_SIZE timeslices
 };
 }
 

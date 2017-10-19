@@ -49,7 +49,10 @@ public:
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection
-    void send_timeslice();
+    void send_timeslice_compute_scheduler();
+
+    // A scheduling calls to send timeslices to each connection
+    void send_timeslice_input_scheduler();
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);

@@ -142,7 +142,7 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
-void InputChannelSender::send_timeslice()
+void InputChannelSender::send_timeslice_input_scheduler()
 {
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     bool ts_sent = false;
@@ -216,7 +216,14 @@ void InputChannelSender::send_timeslice()
 	    }
 	}
     }
-    /*
+
+    if (sent_timeslices_ <= max_timeslice_number_){
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice_input_scheduler, this), std::chrono::high_resolution_clock::now() + std::chrono::microseconds(ts_sent ? input_gap_:0));
+    }
+}
+
+void InputChannelSender::send_timeslice_compute_scheduler()
+{
     uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size();
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
 	    uint64_t next_ts = conn_[i]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? i :
@@ -224,7 +231,9 @@ void InputChannelSender::send_timeslice()
 
 	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
 		scheduled_sent_time = conn_[i]->get_scheduled_sent_time(next_ts);
+
 	if (next_ts > max_timeslice_number_) continue;
+
 	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
 		next_ts >= conn_[i]->get_last_scheduled_timeslice() + interval_length) ||
@@ -232,16 +241,16 @@ void InputChannelSender::send_timeslice()
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
 		next_ts >= interval_length) ||
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
+
 	    if (now >= scheduled_sent_time && temp_scheduler_blocked_times_log_.find(next_ts) == temp_scheduler_blocked_times_log_.end()){
 		temp_scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::chrono::system_clock::time_point >(next_ts, now));
 	    }
 	    continue;
 	}
-	*/
 
 
 
-	/*if (now >= scheduled_sent_time) {
+	if (now >= scheduled_sent_time) {
 
 	    if (temp_scheduler_blocked_times_log_.find(next_ts) != temp_scheduler_blocked_times_log_.end()){
 		scheduler_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
@@ -275,9 +284,9 @@ void InputChannelSender::send_timeslice()
 		}
 	    }
 	}
-    }*/
+    }
     if (sent_timeslices_ <= max_timeslice_number_){
-	scheduler_.add(std::bind(&InputChannelSender::send_timeslice, this), std::chrono::high_resolution_clock::now() + std::chrono::microseconds(ts_sent ? input_gap_:0));
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslice_compute_scheduler, this), std::chrono::high_resolution_clock::now());
     }
 }
 
@@ -351,7 +360,8 @@ void InputChannelSender::operator()()
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-        send_timeslice();
+        //send_timeslice_compute_scheduler();
+        send_timeslice_input_scheduler();
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
@@ -493,7 +503,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
-            conn_[cn]->inc_write_pointers(total_length, 1);
+            conn_[cn]->inc_write_pointers(timeslice, total_length, 1);
 
             if (data_end > sent_data_){
             	sent_desc_ = desc_offset + desc_length;
@@ -720,6 +730,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
         conn_[cn]->add_sent_duration(ts, duration);
+        conn_[cn]->update_write_options(ts);
         if (input_gap_ > duration / 2){
             input_gap_ = duration / 2;
         }

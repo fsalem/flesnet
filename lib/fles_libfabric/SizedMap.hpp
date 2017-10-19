@@ -2,6 +2,7 @@
 #pragma once
 
 #include <map>
+#include <assert.h>
 #include "ConstVariables.hpp"
 
 namespace tl_libfabric {
@@ -64,6 +65,7 @@ bool SizedMap<KEY,VALUE>::add(const KEY key, const VALUE val)
 
 	if (map_.size() == MAX_MAP_SIZE_) {
 		map_.erase(map_.begin());
+		assert (map_.size() == MAX_MAP_SIZE_ - 1);
 	}
 
 	map_.insert (std::pair<KEY,VALUE>(key,val));

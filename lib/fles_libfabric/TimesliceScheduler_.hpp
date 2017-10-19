@@ -72,10 +72,10 @@ public:
 
 	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
 		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
-		    if (sender_info_[input_index].min_duration == ConstVariables::MINUS_ONE){
-			sender_info_[input_index].min_duration = duration;
+		    if (sender_info_[input_index].median_duration == ConstVariables::MINUS_ONE){
+			sender_info_[input_index].median_duration = duration;
 		    }else{
-			sender_info_[input_index].min_duration = get_min_micro_ts_duration(input_index);
+			sender_info_[input_index].median_duration = get_median_micro_ts_duration(input_index);
 		    }
 		    increament_acked_ts(timeslice);
 
@@ -113,7 +113,7 @@ public:
 	    uint64_t sum_needed_duration = 0;
 	    for (uint32_t i = compute_index_; i != input_index;
 		    i = ((i+1) % input_node_count_)) {
-		    sum_needed_duration += sender_info_[i].min_duration;
+		    sum_needed_duration += sender_info_[i].median_duration;
 	    }
 	    sum_needed_duration += (sum_needed_duration * alpha_percentage_[input_index]);
 
@@ -151,6 +151,8 @@ public:
 	    uint32_t count_received_ts_in_interval = ((last_complete_ts - current_interval_start_ts) / input_node_count_) + 1;
 
 	    uint32_t next_interval_start_ts = ((interval_index+1) * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
+	    if (timeslice != next_interval_start_ts)
+		L_(info) << "ERROR next time -> ts = " <<timeslice << ", next_interval = " << next_interval_start_ts << ", last = " << last_complete_ts << ", interval = " << interval_index << ", cur interval = " << current_interval_start_ts << ", count = " << count_received_ts_in_interval;
 	    assert (timeslice == next_interval_start_ts);
 	    uint32_t count_ts_to_next_interval = ((next_interval_start_ts - last_complete_ts) / input_node_count_) - 1;
 
@@ -175,7 +177,7 @@ public:
 	    uint64_t sum_needed_duration = 0;
 	    for (uint32_t i = compute_index_; i != input_index;
 		    i = ((i+1) % input_node_count_)) {
-		    sum_needed_duration += sender_info_[i].min_duration;
+		    sum_needed_duration += sender_info_[i].median_duration;
 	    }
 	    sum_needed_duration += (sum_needed_duration * alpha_percentage_[input_index]);
 
@@ -213,19 +215,16 @@ public:
 	    std::map<uint64_t, std::pair<uint64_t,uint64_t> >::iterator it = interval_duration_log_.find(interval+1);
 	    if (it != interval_duration_log_.end() && it->second.second != ConstVariables::MINUS_ONE) return it->second.second;
 
-	    uint64_t adjusted_duration ;
-	    if (min_ts_duration_ == ConstVariables::MINUS_ONE){
-		TimeSchedulerStatsData stats_data = calculate_stats_data(timeslice);
-		adjusted_duration = (stats_data.median + (stats_data.median * get_adjusted_theta(interval)));
-	    }else{
-		adjusted_duration = (min_ts_duration_ + (min_ts_duration_ * get_adjusted_theta(interval)));
-	    }
+	    TimeSchedulerStatsData stats_data = calculate_stats_data(timeslice);
+	    uint64_t adjusted_duration = (stats_data.median + (stats_data.median * get_adjusted_theta(interval)));
+
+	    /// LOGING
 	    if (it == interval_duration_log_.end()){
 		interval_duration_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(interval+1, std::pair<uint64_t, uint64_t>(ConstVariables::MINUS_ONE, adjusted_duration)));
 	    }else{
 		it->second.second = adjusted_duration;
-
 	    }
+	    /// END OF LOGING
 	    return adjusted_duration;
 
 	}
@@ -364,11 +363,6 @@ private:
 	    //total_duration += (total_duration * theta_percentage_);
 
 	    ts_duration_.add(timeslice, total_duration);
-	    if (min_ts_duration_ == ConstVariables::MINUS_ONE){
-		min_ts_duration_ = total_duration;
-	    }else{
-		min_ts_duration_ = get_min_ts_duration();
-	    }
 	    completed_ts_ = true;
 
 	    //logging
@@ -382,14 +376,17 @@ private:
 
 	    TimeSchedulerStatsData statsData;
 	    std::vector<uint64_t> values;
-	    uint64_t sum =0;
+	    uint64_t sum = 0;
 	    SizedMap<uint64_t, uint64_t>::iterator start_duration_it = ts_duration_.get_iterator(timeslice);
+	    uint64_t cur_timeslice;
 	    // get values of up to an interval and calculate the sum
 	    while (values.size() < ConstVariables::SCHEDULER_INTERVAL_LENGTH){
+		cur_timeslice = start_duration_it->first;
 		values.push_back(start_duration_it->second);
 		sum += start_duration_it->second;
 		if (start_duration_it == ts_duration_.get_begin_iterator())break;
 		--start_duration_it;
+		assert (start_duration_it->first < cur_timeslice);
 	    }
 	    std::sort(values.begin(), values.end());
 
@@ -452,40 +449,21 @@ private:
 	    return 0.1;
 	}
 
-	uint64_t get_min_micro_ts_duration(uint32_t input_index){
+	uint64_t get_median_micro_ts_duration(uint32_t input_index){
 
 	    if (sender_info_[input_index].ts_sent_info_.size() == 0)return ConstVariables::MINUS_ONE;
 
+	    // TODO SHOULD BE ENHANZED!!! BRUTEFORCE CODE!
 	    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > >::iterator
 		    start_it = sender_info_[input_index].ts_sent_info_.get_begin_iterator() ,
 		    end_it = sender_info_[input_index].ts_sent_info_.get_end_iterator();
-	    uint64_t min = start_it->second.second;
+	    std::vector<uint64_t> durations;
 	    while (++start_it != end_it){
-		if (min > start_it->second.second){
-		    min = start_it->second.second;
-		}
+		durations.push_back(start_it->second.second);
 	    }
-	    return min;
-
+	    std::sort(durations.begin(), durations.end());
+	    return durations[durations.size()/2];
 	}
-
-	uint64_t get_min_ts_duration(){
-
-	    if (ts_duration_.size() == 0)return ConstVariables::MINUS_ONE;
-
-	    SizedMap< uint64_t, uint64_t >::iterator
-		    start_it = ts_duration_.get_begin_iterator() ,
-		    end_it = ts_duration_.get_end_iterator();
-	    uint64_t min = start_it->second;
-	    while (++start_it != end_it){
-		if (min > start_it->second){
-		    min = start_it->second;
-		}
-	    }
-	    return min;
-
-	}
-
 
 	/// This const variable limits the number of durations of timeslices to be kept
 	const int32_t MAX_DURATION_HISTORY = 100;
@@ -522,9 +500,6 @@ private:
 
 	/// Triggers if there are new completed timeslices
 	bool completed_ts_ = false;
-
-	uint64_t min_ts_duration_ = ConstVariables::MINUS_ONE;
-
 
 	/// LOGGING
 	// timeslice, [{proposed, actual}]
