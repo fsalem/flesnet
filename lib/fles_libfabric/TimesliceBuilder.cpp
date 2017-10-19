@@ -332,7 +332,8 @@ void TimesliceBuilder::operator()()
             conn_.resize(num_input_nodes_);
             bootstrap_wo_connections();
         }
-
+	int rc = MPI_Barrier(MPI_COMM_WORLD);
+    	assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         report_status();
