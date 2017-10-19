@@ -205,7 +205,8 @@ void InputChannelSender::operator()()
         } else {
             bootstrap_wo_connections();
         }
-
+        int rc = MPI_Barrier(MPI_COMM_WORLD);
+        assert(rc == MPI_SUCCESS);
         data_source_.proceed();
         time_begin_ = std::chrono::high_resolution_clock::now();
 
