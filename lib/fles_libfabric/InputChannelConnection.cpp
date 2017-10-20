@@ -25,8 +25,7 @@ InputChannelConnection::InputChannelConnection(
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       max_pending_write_requests_(max_pending_write_requests),
       sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
-      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE),
-      write_pointer_list_(ConstVariables::MAX_HISTORY_SIZE)
+      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -234,62 +233,26 @@ bool InputChannelConnection::write_request_available()
     return (pending_write_requests_ < max_pending_write_requests_);
 }
 
-void InputChannelConnection::inc_write_pointers(uint64_t timeslice,
-						uint64_t data_size,
+void InputChannelConnection::inc_write_pointers(uint64_t data_size,
                                                 uint64_t desc_size)
 {
-
-    write_pointer_list_.add(timeslice,
-	    std::pair<std::pair<uint64_t, uint64_t>,bool>(std::pair<uint64_t, uint64_t>(data_size,desc_size), false));
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
     //data_changed_ = true;
 }
 
-void InputChannelConnection::update_write_options(uint64_t timeslice)
-{
-    SizedMap<uint64_t, std::pair<std::pair<uint64_t ,uint64_t>, bool>>::iterator
-	first_it = write_pointer_list_.get_begin_iterator(),
-	ts_it = write_pointer_list_.get_iterator(timeslice);
-
-    assert (first_it != write_pointer_list_.get_end_iterator());
-    assert (ts_it != write_pointer_list_.get_end_iterator());
-
-    ts_it->second.second = true;
-
-}
-
 bool InputChannelConnection::try_sync_buffer_positions()
 {
     if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
-	if ((cn_wp_sync_ == send_status_message_.wp) && (cn_wp_sync_ == cn_ack_ || abort_)) {
-		send_status_message_.final = true;
-		send_status_message_.abort = abort_;
-		data_changed_ = true;
-	}
-    }
-
-    uint64_t last_acked_timeslice;
-    if (write_pointer_list_.size() > 0 &&
-	    write_pointer_list_.get_begin_iterator() != write_pointer_list_.get_end_iterator() &&
-	    write_pointer_list_.get_begin_iterator()->second.second){
-    	cn_wp_sync_.data += write_pointer_list_.get_begin_iterator()->second.first.first;
-    	cn_wp_sync_.desc += write_pointer_list_.get_begin_iterator()->second.first.second;
-    	data_acked_ = true;
-    	last_acked_timeslice = write_pointer_list_.get_begin_iterator()->first;
-
-    	write_pointer_list_.remove(write_pointer_list_.get_begin_iterator()->first);
+		if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
+			send_status_message_.final = true;
+			send_status_message_.abort = abort_;
+			data_changed_ = true;
+		}
     }
 
     if ((data_changed_ || data_acked_)) { //
-	send_status_message_.wp = cn_wp_sync_;
-	if (data_acked_) {
-
-	    send_status_message_.sent_timeslice = last_acked_timeslice;
-	    send_status_message_.sent_time = get_sent_time(send_status_message_.sent_timeslice);
-	    send_status_message_.proposed_time = get_scheduled_already_sent_time(send_status_message_.sent_timeslice);
-	    send_status_message_.sent_duration = get_sent_duration(send_status_message_.sent_timeslice);
-	}
+		send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
     } else {
@@ -491,6 +454,13 @@ void InputChannelConnection::post_send_status_message()
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
     }
 
+    if (data_acked_) {
+		send_status_message_.sent_timeslice = get_last_acked_timeslice();
+		send_status_message_.sent_time = get_sent_time(send_status_message_.sent_timeslice);
+		send_status_message_.proposed_time = get_scheduled_already_sent_time(send_status_message_.sent_timeslice);
+		send_status_message_.sent_duration = get_sent_duration(send_status_message_.sent_timeslice);
+    }
+
     data_changed_ = false;
     data_acked_ = false;
 
@@ -585,6 +555,7 @@ void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
 
 void InputChannelConnection::update_last_scheduled_info()
 {
+    //L_(info) << "[update] last_sent=" << last_sent_timeslice_ << ", last_scheduled=" << last_scheduled_timeslices_[1];
     if (last_scheduled_timeslices_[1] != ConstVariables::MINUS_ONE &&
 	    (last_sent_timeslice_ == last_scheduled_timeslices_[1] ||
 		    last_sent_timeslice_+remote_connection_count_ == last_scheduled_timeslices_[1])) {

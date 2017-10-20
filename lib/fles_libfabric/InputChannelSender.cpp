@@ -503,7 +503,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
-            conn_[cn]->inc_write_pointers(timeslice, total_length, 1);
+            conn_[cn]->inc_write_pointers(total_length, 1);
 
             if (data_end > sent_data_){
             	sent_desc_ = desc_offset + desc_length;
@@ -730,7 +730,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
         conn_[cn]->add_sent_duration(ts, duration);
-        conn_[cn]->update_write_options(ts);
         if (input_gap_ > duration / 2){
             input_gap_ = duration / 2;
         }
