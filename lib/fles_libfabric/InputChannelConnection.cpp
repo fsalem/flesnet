@@ -238,7 +238,7 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 {
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
-    //data_changed_ = true;
+    data_changed_ = true;
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
@@ -252,7 +252,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
     }
 
     if ((data_changed_ || data_acked_)) { //
-		send_status_message_.wp = cn_wp_;
+	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
     } else {

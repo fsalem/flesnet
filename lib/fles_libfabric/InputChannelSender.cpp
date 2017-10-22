@@ -234,12 +234,12 @@ void InputChannelSender::send_timeslice_compute_scheduler()
 
 	if (next_ts > max_timeslice_number_) continue;
 
-	if ((conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
+	if (/*(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() != ConstVariables::MINUS_ONE &&
 		next_ts >= conn_[i]->get_last_scheduled_timeslice() + interval_length) ||
 		(conn_[i]->get_last_sent_timeslice() != ConstVariables::MINUS_ONE &&
 		conn_[i]->get_last_scheduled_timeslice() == ConstVariables::MINUS_ONE &&
-		next_ts >= interval_length) ||
+		next_ts >= interval_length) ||*/
 		conn_[i]->get_last_acked_timeslice() != conn_[i]->get_last_sent_timeslice()){
 
 	    if (now >= scheduled_sent_time && temp_scheduler_blocked_times_log_.find(next_ts) == temp_scheduler_blocked_times_log_.end()){
@@ -266,11 +266,11 @@ void InputChannelSender::send_timeslice_compute_scheduler()
 		    conn_[i]->add_scheduled_already_sent_time(next_ts, scheduled_sent_time);
 		    sent_timeslices_++;
 
-//		    proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
-//			    std::pair<int64_t, int64_t>(
-//			std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
-//			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
-//		    );
+/*		    proposed_actual_times_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(next_ts,
+			    std::pair<int64_t, int64_t>(
+			std::chrono::duration_cast<std::chrono::microseconds>(scheduled_sent_time - time_begin_).count(),
+			std::chrono::duration_cast<std::chrono::microseconds>(now - time_begin_).count()))
+		    );*/
 		    if (temp_buffer_blocked_times_log_.find(next_ts) != temp_buffer_blocked_times_log_.end()){
 			buffer_blocked_times_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(next_ts,
 				std::pair<uint64_t, uint64_t>(
@@ -360,8 +360,8 @@ void InputChannelSender::operator()()
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-        //send_timeslice_compute_scheduler();
-        send_timeslice_input_scheduler();
+        send_timeslice_compute_scheduler();
+        //send_timeslice_input_scheduler();
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
