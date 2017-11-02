@@ -106,9 +106,6 @@ public:
     /// flag to check whether libfabric implementation will be used
     bool use_libfabric() const { return use_libfabric_; }
 
-    /// initial waiting time between sending different timeslices in microseconds
-    uint64_t init_wait_time() const { return init_wait_time_; }
-
     /// Retrieve the number of completion queue entries.
     uint32_t num_cqe() const { return num_cqe_; }
 
@@ -186,9 +183,6 @@ private:
 
     /// flag to check whether libfabric implementation will be used
     bool use_libfabric_ = false;
-
-    /// Initial waiting between sending sending different timeslices in microseconds
-    uint64_t init_wait_time_ = 0;
 
     uint32_t num_cqe_ = 1000000;
 

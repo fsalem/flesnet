@@ -227,9 +227,6 @@ void Parameters::parse_options(int argc, char* argv[])
     config_add("use-libfabric",
                po::value<bool>(&use_libfabric_)->default_value(false),
                "use libfabric transport implementation");
-    config_add("init-wait-time",
-               po::value<uint64_t>(&init_wait_time_),
-               "initial wait time in microseconds");
 
     po::options_description cmdline_options("Allowed options");
     cmdline_options.add(generic).add(config);

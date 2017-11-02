@@ -107,8 +107,6 @@ public:
 
     std::chrono::high_resolution_clock::time_point time_begin_;
 
-    void mark_new_ts_completed() {data_acked_ = true;}
-    //
 protected:
     //    void dump_send_wr(struct ibv_send_wr* wr);
 

@@ -7,6 +7,7 @@
 #include "DualRingBuffer.hpp"
 #include "InputChannelConnection.hpp"
 #include "RingBuffer.hpp"
+#include "InputIntervalInfo.hpp"
 #include <boost/format.hpp>
 #include <cassert>
 
@@ -33,8 +34,7 @@ public:
                        const std::vector<std::string> compute_services,
                        uint32_t timeslice_size, uint32_t overlap_size,
                        uint32_t max_timeslice_number,
-                       std::string input_node_name,
-                       uint64_t init_wait_time = 0);
+                       std::string input_node_name);
 
     InputChannelSender(const InputChannelSender&) = delete;
     void operator=(const InputChannelSender&) = delete;
@@ -49,10 +49,7 @@ public:
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection
-    void send_timeslice_compute_scheduler();
-
-    // A scheduling calls to send timeslices to each connection
-    void send_timeslice_input_scheduler();
+    void check_send_timeslices();
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);
@@ -88,6 +85,21 @@ private:
 
     /// setup connections between nodes
     void bootstrap_wo_connections();
+
+    /// Create a new InputIntervalInfo
+    InputIntervalInfo* create_interval_info(uint64_t interval_index);
+    
+    /// Calculate the interval of a specific timslice
+    uint64_t get_timeslice_interval(uint64_t timeslice);
+    
+    /// Calculate the start timeslice of a particular interval
+    uint64_t get_interval_start_ts(uint64_t interval_index);
+    
+    /// Get the start time of a specific interval
+    std::chrono::high_resolution_clock::time_point get_interval_start_time(uint64_t interval_index);
+    
+    /// Acknowledge the inputConnections about the completion of an interval
+    void ack_complete_interval_info(InputIntervalInfo* interval_info);
 
     uint64_t input_index_;
 
@@ -135,36 +147,14 @@ private:
 
     bool abort_ = false;
 
-    uint64_t init_wait_time_ = ConstVariables::ZERO;
-
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
-    struct InputSchedulerData{
-	uint32_t compute_index;
-	uint64_t sent_micro_timeslices;
-	uint64_t next_micro_timeslices;
-	std::chrono::system_clock::time_point next_scheduled_time;
+    SizedMap<uint64_t, InputIntervalInfo*> intervals_info_;
 
-	InputSchedulerData (uint32_t compute_index, uint64_t sent_micro_timeslices, uint64_t next_micro_timeslices, std::chrono::system_clock::time_point next_scheduled_time){
-	    this->compute_index = compute_index;
-	    this->sent_micro_timeslices = sent_micro_timeslices;
-	    this->next_micro_timeslices = next_micro_timeslices;
-	    this->next_scheduled_time = next_scheduled_time;
-	}
-	bool operator<(const InputSchedulerData& data) const {
-	    if (this->sent_micro_timeslices == data.sent_micro_timeslices) {
-		if (this->next_scheduled_time == data.next_scheduled_time)
-		    return this->compute_index < data.compute_index ? true : false;
-		return this->next_scheduled_time < data.next_scheduled_time ? true : false;
-	    }
-	    return this->sent_micro_timeslices < data.sent_micro_timeslices ? true : false;
-	}
+    uint64_t current_interval_ = ConstVariables::ZERO;
 
-    };
-    std::set<InputSchedulerData> schedulerData_;
 
-    uint64_t input_gap_ = 1000; // in microseconds;
-
+    /// LOGGING
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_log_;
 
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
@@ -175,6 +165,7 @@ private:
 
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > ack_blocked_times_log_;
     std::map<uint64_t, std::chrono::system_clock::time_point > temp_ack_blocked_times_log_;
+    /// END LOGGING
 
     void build_scheduled_time_file();
 

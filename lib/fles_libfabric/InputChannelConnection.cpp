@@ -25,7 +25,8 @@ InputChannelConnection::InputChannelConnection(
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       max_pending_write_requests_(max_pending_write_requests),
       sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
-      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE)
+      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE),
+      proposed_interval_list_(ConstVariables::MAX_HISTORY_SIZE)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -244,14 +245,14 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 bool InputChannelConnection::try_sync_buffer_positions()
 {
     if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
-		if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
-			send_status_message_.final = true;
-			send_status_message_.abort = abort_;
-			data_changed_ = true;
-		}
+	if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
+		send_status_message_.final = true;
+		send_status_message_.abort = abort_;
+		data_changed_ = true;
+	}
     }
-
-    if ((data_changed_ || data_acked_)) { //
+    // TODO do we need && contains_sent_duration(cn_wp_.desc - 1) ??
+    if ((data_changed_ || data_acked_) && contains_sent_duration(last_sent_timeslice_)) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
@@ -287,28 +288,21 @@ void InputChannelConnection::on_complete_recv()
     }
 
     if (false) {
-        L_(trace) << "[i" << remote_index_ << "] "
+        L_(info) << "[i" << remote_index_ << "] "
                   << "[" << index_ << "] "
-                  << "receive completion, new cn_ack_.data="
-                  << recv_status_message_.ack.data;
+                  << "receive completion, new cn_ack_.desc="
+                  << recv_status_message_.ack.desc
+                  <<"(interval index = "
+		  << recv_status_message_.interval_index
+		  << " for " << recv_status_message_.interval_duration;
     }
     if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc)
     {
     	cn_ack_ = recv_status_message_.ack;
     }
-    if (recv_status_message_.timeslice_to_send != ConstVariables::MINUS_ONE) {
-
-	int_fast16_t arr_index = last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE ? 0 :
-		(last_scheduled_timeslices_[0] != ConstVariables::MINUS_ONE &&
-			(last_scheduled_timeslices_[1] == ConstVariables::MINUS_ONE ||
-	    		    last_scheduled_timeslices_[1] < recv_status_message_.timeslice_to_send) ? 1:-1);
-
-	if (arr_index != -1) {
-	    wait_times_[arr_index] = recv_status_message_.duration;
-	    last_scheduled_timeslices_[arr_index] = recv_status_message_.timeslice_to_send; // this must be smaller than or equal last_sent_timeslice
-	    last_scheduled_times_[arr_index] = recv_status_message_.time_to_send;
-	    update_last_scheduled_info();
-	}
+    if (recv_status_message_.interval_index != ConstVariables::MINUS_ONE && !proposed_interval_list_.contains(recv_status_message_.interval_index)) {
+	proposed_interval_list_.add(recv_status_message_.interval_index
+		,std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> (recv_status_message_.proposed_start_time, recv_status_message_.interval_duration));
     }
     post_recv_status_message();
 }
@@ -447,18 +441,11 @@ void InputChannelConnection::post_recv_status_message()
 void InputChannelConnection::post_send_status_message()
 {
     if (false) {
-        L_(trace) << "[i" << remote_index_ << "] "
+        L_(info) << "[i" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "POST SEND status message (wp.data="
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")";
-    }
-
-    if (data_acked_) {
-		send_status_message_.sent_timeslice = get_last_acked_timeslice();
-		send_status_message_.sent_time = get_sent_time(send_status_message_.sent_timeslice);
-		send_status_message_.proposed_time = get_scheduled_already_sent_time(send_status_message_.sent_timeslice);
-		send_status_message_.sent_duration = get_sent_duration(send_status_message_.sent_timeslice);
     }
 
     data_changed_ = false;
@@ -526,18 +513,13 @@ void InputChannelConnection::set_remote_info()
     this->remote_info_.index = this->recv_status_message_.info.index;
 }
 
-std::chrono::high_resolution_clock::time_point InputChannelConnection::get_scheduled_sent_time(uint64_t timeslice)
-{
-	if (last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE && last_sent_timeslice_ == ConstVariables::MINUS_ONE) {
-		return std::chrono::high_resolution_clock::now()-std::chrono::seconds(10);
-	}
-
-	if (last_scheduled_timeslices_[0] == ConstVariables::MINUS_ONE) { // last_sent_timeslice_ != ConstVariables::MINUS_ONE --> at least one timeslice is sent
-   		return get_sent_time(last_sent_timeslice_) +  std::chrono::microseconds(wait_times_[0] *((timeslice/remote_connection_count_)-(last_sent_timeslice_/remote_connection_count_)));
-   	}
-
-	// guidelines are received from the compute scheduler!
-   	return last_scheduled_times_[0] + std::chrono::microseconds(wait_times_[0] *((timeslice/remote_connection_count_)-(last_scheduled_timeslices_[0]/remote_connection_count_)));
+std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> InputChannelConnection::get_proposed_interval_info(uint64_t interval_index) const {
+    if (!proposed_interval_list_.contains(interval_index)){
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> empty_pair;
+	empty_pair.second = ConstVariables::MINUS_ONE;
+	return empty_pair;
+    }
+    return proposed_interval_list_.get(interval_index);
 }
 
 uint64_t InputChannelConnection::get_last_acked_timeslice()
@@ -550,19 +532,35 @@ uint64_t InputChannelConnection::get_last_acked_timeslice()
 void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
 {
     last_sent_timeslice_ = sent_ts;
-    update_last_scheduled_info();
 }
 
-void InputChannelConnection::update_last_scheduled_info()
-{
-    //L_(info) << "[update] last_sent=" << last_sent_timeslice_ << ", last_scheduled=" << last_scheduled_timeslices_[1];
-    if (last_scheduled_timeslices_[1] != ConstVariables::MINUS_ONE &&
-	    (last_sent_timeslice_ == last_scheduled_timeslices_[1] ||
-		    last_sent_timeslice_+remote_connection_count_ == last_scheduled_timeslices_[1])) {
+/// Add the needed duration to transmit each timeslice and getting the ack back
+void InputChannelConnection::add_sent_duration(uint64_t timeslice, double duration) {
+    sent_duration_list_.add(timeslice, duration);
+}
 
-	last_scheduled_times_[0] = last_scheduled_times_[1];
-	last_scheduled_timeslices_[0] = last_scheduled_timeslices_[1];
-	wait_times_[0] = wait_times_[1];
+void InputChannelConnection::add_proposed_interval_info(uint64_t interval_index, std::chrono::high_resolution_clock::time_point time, uint64_t duration){
+    proposed_interval_list_.add(interval_index, std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(time, duration));
+}
+
+void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* interval_info){
+    if (false) {
+	L_(trace) << "[i" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "MARK INTERVAL "
+		  << interval_info->index
+		  << " completed in " << interval_info->actual_duration
+		  << " delayed for "
+		  << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->actual_start_time - interval_info->proposed_start_time).count()
+		  << " and lasts for " << (interval_info->actual_duration - interval_info->proposed_duration) << " more" ;
+    }
+    if (send_status_message_.acked_interval_index != interval_info->index){
+	send_status_message_.acked_interval_index = interval_info->index;
+	send_status_message_.proposed_start_time = interval_info->proposed_start_time;
+	send_status_message_.actual_start_time = interval_info->actual_start_time;
+	send_status_message_.interval_duration = interval_info->actual_duration;
+	send_status_message_.required_interval_index = interval_info->index + 2;
+	data_acked_ = true;
     }
 }
 }

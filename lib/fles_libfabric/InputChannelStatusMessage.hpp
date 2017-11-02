@@ -23,13 +23,20 @@ struct InputChannelStatusMessage {
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
     // Time of the MPI barrier
+    /// TODO seperate message for the following to minimize the message size!!
     std::chrono::high_resolution_clock::time_point MPI_time;
-    // last acked time difference from the barrier of predecessor of the target input node
-    std::chrono::high_resolution_clock::time_point sent_time;
-    std::chrono::high_resolution_clock::time_point proposed_time;
-    // The duration needed to send the contribution of the timeslice till receiving the acknowledgment
-    uint64_t sent_duration;
-    uint64_t sent_timeslice = ConstVariables::MINUS_ONE;
+
+    /// The acked interval
+    uint64_t acked_interval_index = ConstVariables::MINUS_ONE;
+    // The actual start time for the acked interval
+    std::chrono::high_resolution_clock::time_point actual_start_time;
+    // The proposed start time for the acked interval
+    std::chrono::high_resolution_clock::time_point proposed_start_time;
+    // The taken duration for the whole interval
+    uint64_t interval_duration;
+
+    /// The required interval info
+    uint64_t required_interval_index = ConstVariables::MINUS_ONE;
 };
 }
 

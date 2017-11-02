@@ -23,11 +23,13 @@ struct ComputeNodeStatusMessage {
     ComputeNodeInfo info;
     // address must be not null if connect = true
     unsigned char my_address[64];
-    // time to send a particular timeslice
-    std::chrono::high_resolution_clock::time_point time_to_send;
-    uint64_t timeslice_to_send = ConstVariables::MINUS_ONE;
-    // duration between sending a contribution to another
-    uint64_t duration;
+
+    /// The required interval
+    uint64_t interval_index = ConstVariables::MINUS_ONE;
+    // The proposed start time for the required interval
+    std::chrono::high_resolution_clock::time_point proposed_start_time;
+    // duration for the whole interval
+    uint64_t interval_duration;
 };
 }
 

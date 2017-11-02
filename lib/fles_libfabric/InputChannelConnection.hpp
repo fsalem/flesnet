@@ -7,6 +7,7 @@
 #include "ComputeNodeStatusMessage.hpp"
 #include "Connection.hpp"
 #include "InputChannelStatusMessage.hpp"
+#include "InputIntervalInfo.hpp"
 #include "pid.h"
 
 #include <sys/uio.h>
@@ -89,12 +90,6 @@ public:
 
     void set_remote_info();
 
-    /// TODO Get the needed duration between sending a timeslice and another
-    uint64_t get_wait_time() { return wait_times_[0]; }
-
-    /// TODO set the needed duration between sending a timeslice and another
-    void set_wait_time(uint64_t wait_time) { wait_times_[0] = wait_time; }
-
     /// Get the last sent timeslice
     const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
 
@@ -110,14 +105,11 @@ public:
     /// get the time when a specific timeslice is sent
     const std::chrono::high_resolution_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
 
-    /// Add the scheduled time of sent a timeslice
-    void add_scheduled_already_sent_time(uint64_t timeslice, std::chrono::high_resolution_clock::time_point time) { scheduled_time_list_.add(timeslice, time); }
-
     /// get the scheduled time when a specific timeslice is sent
-    const std::chrono::high_resolution_clock::time_point get_scheduled_already_sent_time(uint64_t timeslice) const { return scheduled_time_list_.get(timeslice); }
+    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_proposed_interval_info(uint64_t interval_index) const;
 
     /// Add the needed duration to transmit each timeslice and getting the ack back
-    void add_sent_duration(uint64_t timeslice, double duration) { sent_duration_list_.add(timeslice, duration); data_acked_ = true;}
+    void add_sent_duration(uint64_t timeslice, double duration);
 
     /// Check whether a timeslice is acked
     bool contains_sent_duration(uint64_t timeslice) const { return sent_duration_list_.contains(timeslice); }
@@ -128,14 +120,8 @@ public:
     /// Return the last acked timeslice
     uint64_t get_last_acked_timeslice();
 
-    /// Return the last scheduled timeslice from the compute node scheduler
-    uint64_t get_last_scheduled_timeslice() const { return last_scheduled_timeslices_[0]; }
-
-    /// Return the  time to send the last scheduled timeslice from the compute node scheduler
-    std::chrono::high_resolution_clock::time_point get_last_scheduled_time() const { return last_scheduled_times_[0]; }
-
-    /// Calculate when a timeslice should be sent according to the sent duration from the compute node scheduler
-    std::chrono::high_resolution_clock::time_point get_scheduled_sent_time(uint64_t timeslice);
+    /// Update the status message with the completed interval information
+    void ack_complete_interval_info(InputIntervalInfo* interval_info);
 
 
 private:
@@ -147,6 +133,9 @@ private:
 
     /// This update the last scheduled timeslice, time, and duration
     void update_last_scheduled_info();
+
+    /// Add the scheduled interval
+    void add_proposed_interval_info(uint64_t interval_index, std::chrono::high_resolution_clock::time_point time, uint64_t duration);
 
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
@@ -201,20 +190,11 @@ private:
     /// This list of sent timestamp of latest timeslices
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
 
-    /// This list of scheduled timestamp of sent timeslices
-    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> scheduled_time_list_;
+    /// This list of scheduled intervals <interval index, <proposed start time, interval duration>>
+    SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>> proposed_interval_list_;
 
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;
-
-    /// This holds up to two scheduled timeslices for the current interval and the following interval
-    uint64_t last_scheduled_timeslices_[2] = {ConstVariables::MINUS_ONE, ConstVariables::MINUS_ONE};
-
-    /// This holds up to two scheduled times for the current interval and the following interval
-    std::chrono::high_resolution_clock::time_point last_scheduled_times_[2];
-
-    /// This holds up to two scheduled durations for the current interval and the following interval
-    uint64_t wait_times_[2] = {0,0};
 
 };
 }

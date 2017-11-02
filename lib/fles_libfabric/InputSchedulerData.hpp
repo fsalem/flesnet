@@ -15,10 +15,10 @@ struct InputSchedulerData {
     //uint32_t index_;
     std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
     int64_t clock_offset;
-    /// <timeslice number, <sent_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
-    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > > ts_sent_info_;
+    /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
+    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > > interval_info_;
     // TODO add a list of durations to simplify the median calculations
-    uint64_t median_duration = ConstVariables::MINUS_ONE; // of the last MAX_HISTORY_SIZE timeslices
+    uint64_t median_duration = ConstVariables::ZERO; // of the last MAX_HISTORY_SIZE timeslices
 };
 }
 

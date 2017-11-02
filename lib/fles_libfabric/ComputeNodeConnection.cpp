@@ -251,42 +251,36 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
+    if (send_status_message_ .interval_index != recv_status_message_.required_interval_index &&
+	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
+	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
+	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+    {
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
+	send_status_message_.interval_index = recv_status_message_.required_interval_index;
+	send_status_message_.proposed_start_time = interval_info.first;
+	send_status_message_.interval_duration = interval_info.second;
 
-    if ((data_acked_ || data_changed_) && !send_status_message_.final) {
-        send_status_message_.ack = cn_ack_;
+	data_acked_ = true;
 
-        /// TODO here, it's assumed that # of input nodes = compute nodes
-        uint32_t interval_length = ConstVariables::SCHEDULER_INTERVAL_LENGTH * remote_connection_count_; // Compute nodes receive timeslices with gap equals to # of compute nodes
-        uint32_t send_position = std::floor(ConstVariables::SCHEDULER_INTERVAL_LENGTH / 2) * remote_connection_count_;
-
-
-        if (data_acked_)
-        {
-            uint64_t last_complete_ts = timeslice_scheduler_->get_last_complete_ts();
-
-            if (send_status_message_.timeslice_to_send == ConstVariables::MINUS_ONE){
-		send_status_message_.timeslice_to_send = remote_index_;
-		send_status_message_.duration = timeslice_scheduler_->get_ts_duration(send_status_message_.timeslice_to_send);
-		send_status_message_.time_to_send = timeslice_scheduler_->get_sent_time(index_,send_status_message_.timeslice_to_send);
-            }else{
-        	if (last_complete_ts >= send_status_message_.timeslice_to_send + send_position){
-		    send_status_message_.timeslice_to_send += interval_length;
-		    send_status_message_.duration = timeslice_scheduler_->get_adjusted_ts_duration(last_complete_ts);
-		    send_status_message_.time_to_send = timeslice_scheduler_->get_next_interval_sent_time(index_,send_status_message_.timeslice_to_send);
-        	}else{
-        	    data_acked_ = false;
-        	}
-            }
-        }
+/*
         if (data_acked_){
             send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::system_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
         }
-        if (data_acked_ || data_changed_){
-	    post_send_status_message();
-	    return true;
-        }
+*/
+
     }
-        return false;
+
+    if (data_changed_ && !send_status_message_.final) {
+        send_status_message_.ack = cn_ack_;
+    }
+
+
+    if (data_acked_ || data_changed_){
+	post_send_status_message();
+	return true;
+    }
+    return false;
 }
 
 void ComputeNodeConnection::on_complete_recv()
@@ -312,8 +306,8 @@ void ComputeNodeConnection::on_complete_recv()
     	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
     }
 
-    if (recv_status_message_.sent_timeslice != ConstVariables::MINUS_ONE) {
-    	timeslice_scheduler_->add_input_ts_info(index_, recv_status_message_.sent_timeslice, recv_status_message_.sent_time, recv_status_message_.proposed_time, recv_status_message_.sent_duration);
+    if (recv_status_message_.acked_interval_index != ConstVariables::MINUS_ONE) {
+    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.acked_interval_index, recv_status_message_.actual_start_time, recv_status_message_.proposed_start_time, recv_status_message_.interval_duration);
     }
     post_recv_status_message();
 }

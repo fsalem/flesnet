@@ -25,15 +25,11 @@ public:
 	TimesliceScheduler(const uint64_t compute_index,
 		const uint32_t input_node_count, const uint32_t interval_length):
 			compute_index_(compute_index), input_node_count_(input_node_count), INTERVAL_LENGTH(interval_length),
-			ts_duration_(MAX_DURATION_HISTORY), ts_duration_stats_(ConstVariables::SCHEDULER_INTERVAL_LENGTH),
-			acked_ts_count_(MAX_DURATION_HISTORY){
+			proposed_interval_start_time_info_(MAX_DURATION_HISTORY), actual_interval_start_time_info_(MAX_DURATION_HISTORY),
+			acked_interval_count_(MAX_DURATION_HISTORY){
 
 		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
 			sender_info_.push_back(InputSchedulerData());
-
-		alpha_percentage_.resize(input_node_count,0);
-		completed_ts_ = false;
-
 	}
 
 	TimesliceScheduler() = delete;
@@ -65,209 +61,60 @@ public:
 	}
 
 	/// This method adds the received information from an input node to the scheduler data
-	void add_input_ts_info(uint32_t input_index, uint64_t timeslice,
-			std::chrono::high_resolution_clock::time_point sent_time,
-			std::chrono::high_resolution_clock::time_point proposed_time,
-			double duration){
+	void add_input_interval_info(uint32_t input_index, uint64_t interval_index,
+			std::chrono::high_resolution_clock::time_point actual_start_time,
+			std::chrono::high_resolution_clock::time_point proposed_start_time,
+			double interval_duration){
 
-	    if (!sender_info_[input_index].ts_sent_info_.contains(timeslice)) {
-		    sender_info_[input_index].ts_sent_info_.add(timeslice, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(sent_time, duration));
-		    if (sender_info_[input_index].median_duration == ConstVariables::MINUS_ONE){
-			sender_info_[input_index].median_duration = duration;
+	    if (!sender_info_[input_index].interval_info_.contains(interval_index)) {
+		    sender_info_[input_index].interval_info_.add(interval_index, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(actual_start_time + std::chrono::microseconds(sender_info_[input_index].clock_offset), interval_duration));
+		    if (sender_info_[input_index].median_duration != ConstVariables::ZERO){
+			sender_info_[input_index].median_duration = interval_duration;
 		    }else{
-			if (sender_info_[input_index].median_duration != ConstVariables::MINUS_ONE)
-			    median_ts_duration_ -= sender_info_[input_index].median_duration;
-			sender_info_[input_index].median_duration = get_median_micro_ts_duration(input_index);
-			median_ts_duration_ += sender_info_[input_index].median_duration;
+			median_interval_duration_ -= sender_info_[input_index].median_duration;
+			sender_info_[input_index].median_duration = calculate_median_intervals_duration(input_index);
 		    }
-		    increament_acked_ts(timeslice);
+		    median_interval_duration_ += sender_info_[input_index].median_duration;
+		    increament_acked_interval(interval_index);
 
-		    /// Logging
-		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(timeslice);
+		    /*/// Logging
+		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(interval_index);
 
 		    if (it == proposed_actual_times_log_.end()){
 			proposed_actual_times_log_.insert(std::pair<uint64_t,
-				std::vector<std::pair<int64_t, int64_t> > >(timeslice, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
-			it = proposed_actual_times_log_.find(timeslice);
+				std::vector<std::pair<int64_t, int64_t> > >(interval_index, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
+			it = proposed_actual_times_log_.find(interval_index);
 		    }
 
-		    it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
-			std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
+		    it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
+			std::chrono::duration_cast<std::chrono::microseconds>(actual_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
 
 		    if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
-		    /// END OF Logging
+		    /// END OF Logging*/
 	    }
 
 	}
 
-	/// This method gets the sent time for a particular input node and timeslice
-	std::chrono::high_resolution_clock::time_point get_sent_time(
-		    uint32_t input_index, uint64_t timeslice){
-
-	    uint64_t last_complete_ts = get_last_complete_ts();
-	    uint64_t median_ts_duration = get_median_ts_duration(last_complete_ts);
-	    uint32_t last_input_node = (compute_index_ - 1) % input_node_count_;
-	    // get last sent time of the received contribution of the last complete timeslice
-	    std::chrono::high_resolution_clock::time_point last_received_contribution_time =
-			    sender_info_[last_input_node].ts_sent_info_.get(
-					    last_complete_ts).first
-					    + std::chrono::microseconds(
-							    sender_info_[last_input_node].clock_offset);
-	    uint64_t sum_duration_to_start = 0;
-	    for (uint32_t i = compute_index_; i != input_index;
-		    i = ((i+1) % input_node_count_)) {
-		sum_duration_to_start += sender_info_[i].median_duration;
-	    }
-	    sum_duration_to_start += (sum_duration_to_start * alpha_percentage_[input_index]);
-
-	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
-		    sum_duration_to_start - sender_info_[input_index].clock_offset);
-
-	    for (uint64_t ts = last_complete_ts+input_node_count_ ; ts < timeslice ; ts+=input_node_count_){
-		    sent_time += std::chrono::microseconds(median_ts_duration);
+	/// This method retrieves the interval information that will be sent to input nodes
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_info(uint64_t interval_index,uint32_t input_index){
+	    if (proposed_interval_start_time_info_.contains(interval_index)){
+		return proposed_interval_start_time_info_.get(interval_index);
 	    }
 
-	    //L_(info) << "[get][" <<input_index <<"][" << last_complete_ts << "] sum_dur=" << sum_needed_duration << " offset= " << sender_info_[input_index].clock_offset << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(last_received_contribution_time - compute_MPI_time_).count()
-		//     << " sent_time= " << std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count();
-
-	    /// Logging
-	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
-	    if (it == proposed_times_log_.end()){
-		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
-		it = proposed_times_log_.find(timeslice);
-	    }
-
-	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
-	    /// END OF Logging
-
-	    return sent_time;
+	    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = get_interval_sent_time(interval_index);
+	    proposed_interval_start_time_info_.add(interval_index, interval_info);
+	    interval_info.first -= std::chrono::microseconds(sender_info_[input_index].clock_offset);
+	    return interval_info;
 	}
 
-	/// This method gets the sent time for a particular input node and timeslice
-	std::chrono::high_resolution_clock::time_point get_next_interval_sent_time(
-		    uint32_t input_index, uint64_t timeslice){
+	uint64_t get_last_completed_interval(){
 
-	    uint64_t last_complete_ts = get_last_complete_ts();
-	    uint64_t interval_index = get_timeslice_interval(last_complete_ts);// fraction will be thrown away
-	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
-	    uint64_t current_interval_start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
-	    uint32_t count_received_ts_in_interval = ((last_complete_ts - current_interval_start_ts) / input_node_count_) + 1;
-
-	    uint32_t next_interval_start_ts = ((interval_index+1) * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
-	    if (timeslice != next_interval_start_ts)
-		L_(info) << "ERROR next time -> ts = " <<timeslice << ", next_interval = " << next_interval_start_ts << ", last = " << last_complete_ts << ", interval = " << interval_index << ", cur interval = " << current_interval_start_ts << ", count = " << count_received_ts_in_interval;
-	    assert (timeslice == next_interval_start_ts);
-	    uint32_t count_ts_to_next_interval = ((next_interval_start_ts - last_complete_ts) / input_node_count_) - 1;
-
-	    // get last sent time of the received contribution of the last complete timeslice
-	    uint32_t last_input_node = (compute_index_ - 1) % input_node_count_;
-	    std::chrono::high_resolution_clock::time_point last_received_contribution_time =
-			    sender_info_[last_input_node].ts_sent_info_.get(last_complete_ts).first
-					    + std::chrono::microseconds(
-							    sender_info_[last_input_node].clock_offset);
-
-	    // build the time gap between different input nodes
-	    uint64_t sum_duration_to_start = 0;
-	    for (uint32_t i = compute_index_; i != input_index;
-		    i = ((i+1) % input_node_count_)) {
-		sum_duration_to_start += sender_info_[i].median_duration;
-	    }
-	    sum_duration_to_start += (sum_duration_to_start * alpha_percentage_[input_index]);
-
-	    std::chrono::high_resolution_clock::time_point sent_time = last_received_contribution_time + std::chrono::microseconds(
-		    (count_ts_to_next_interval * median_ts_duration_) +
-		    sum_duration_to_start - sender_info_[input_index].clock_offset);
-
-	    /// Logging
-	    std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
-	    if (it == proposed_times_log_.end()){
-		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
-		it = proposed_times_log_.find(timeslice);
-	    }
-
-	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
-	    /// END OF Logging
-
-	    return sent_time;
-	}
-
-	/// This method gets the duration needed for receiving a complete timeslice after a specific timeslice
-	uint64_t get_ts_duration(uint64_t timeslice){
-
-	    if (ts_duration_.contains(timeslice)) return ts_duration_.get(timeslice);
-
-	    return ConstVariables::MINUS_ONE;
-	}
-
-	/// This method returns the adjusted duration for receiving a complete timeslice after a specific timeslice. Theta is a factor in the calculations
-	uint64_t get_adjusted_ts_duration(uint64_t timeslice){
-
-	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
-
-	    uint64_t interval = get_timeslice_interval(timeslice);
-	    std::map<uint64_t, std::pair<uint64_t,uint64_t> >::iterator it = interval_duration_log_.find(interval+1);
-	    if (it != interval_duration_log_.end() && it->second.second != ConstVariables::MINUS_ONE) return it->second.second;
-
-	    TimeSchedulerStatsData stats_data = calculate_stats_data(timeslice);
-	    uint64_t adjusted_duration = (stats_data.median + (stats_data.median * get_adjusted_theta(interval)));
-
-	    /// LOGING
-	    if (it == interval_duration_log_.end()){
-		interval_duration_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(interval+1, std::pair<uint64_t, uint64_t>(ConstVariables::MINUS_ONE, adjusted_duration)));
-	    }else{
-		it->second.second = adjusted_duration;
-	    }
-	    /// END OF LOGING
-	    return adjusted_duration;
-
-	}
-
-
-	/// This method gets the median duration for receiving an interval of timeslices before a specific timeslice
-	uint64_t get_median_ts_duration(uint64_t timeslice){
-
-	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
-
-	    return calculate_stats_data(timeslice).median;
-	}
-
-	/// This method gets the mean duration for receiving an interval of timeslices before a specific timeslice
-	uint64_t get_mean_ts_duration(uint64_t timeslice){
-
-	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
-
-	    return calculate_stats_data(timeslice).mean;
-	}
-
-	/// This method gets the variance of receiving an interval of timeslices before a specific timeslice
-	uint64_t get_variance_ts_duration(uint64_t timeslice){
-
-	    if (!ts_duration_.contains(timeslice)) return ConstVariables::MINUS_ONE;
-
-	    return calculate_stats_data(timeslice).variance;
-	}
-
-	///This method returns the latest completed timeslice
-	uint64_t get_last_complete_ts() {
-
-	    if (ts_duration_.size() == 0) {
-		    return ConstVariables::MINUS_ONE;
-	    }
-	    return ts_duration_.get_last_key();
-	}
-
-	bool check_new_ts_completed(){
-
-	    if (completed_ts_) {
-		    completed_ts_ = false;
-		    return true;
-	    }
-	    return false;
+	    return last_completed_interval_;
 	}
 
 	void build_scheduled_time_file(){
 
-	    std::ofstream log_file;
+	    /*std::ofstream log_file;
 	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_sent_time.out");
 
 	    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "Proposed(t)" << std::setw(25) << "Sent(t)" << std::setw(25) << "Diff" << std::setw(25) << "Duration" << "\n";
@@ -289,12 +136,12 @@ public:
 	    }
 
 
-	    log_file.close();
+	    log_file.close();*/
 	}
 
 	void build_duration_file(){
 
-	    std::ofstream log_file;
+	    /*std::ofstream log_file;
 	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_taken_duration.out");
 
 	    log_file << std::setw(25) << "Interval" << std::setw(25) << "Duration(proposed)" << std::setw(25) << "Duration(Taken)" << std::setw(25) << "Diff(p-t)" << "\n";
@@ -315,7 +162,7 @@ public:
 	    }
 
 
-	    log_file.close();
+	    log_file.close();*/
 	}
 
 private:
@@ -327,131 +174,76 @@ private:
 	    uint64_t variance = 0;
 	};
 
-	uint32_t get_timeslice_interval(uint64_t timeslice){
+	/*uint32_t get_timeslice_interval(uint64_t timeslice){
 	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
 	    return(timeslice / (INTERVAL_LENGTH * input_node_count_)); // fraction will be thrown away
-	}
-	/// This increases the counter for the received timeslices to trigger when to start calculate the sent time
-	void increament_acked_ts(uint64_t timeslice) {
+	}*/
+	/// This increases the counter for the received intervals to trigger when to start calculate the sent time
+	void increament_acked_interval(uint64_t interval_index) {
 
 	    uint32_t count = 1;
-	    if (acked_ts_count_.contains(timeslice)) {
-		count = acked_ts_count_.get(timeslice)+1;
-		acked_ts_count_.update(timeslice,count);
+	    if (acked_interval_count_.contains(interval_index)) {
+		count = acked_interval_count_.get(interval_index)+1;
+		acked_interval_count_.update(interval_index,count);
 	    } else {
-		acked_ts_count_.add(timeslice, count);
+		acked_interval_count_.add(interval_index, count);
 	    }
 	    if (count == input_node_count_) {
-		calculate_total_ts_duration(timeslice);
+		calculate_interval_info(interval_index);
 	    }
 	}
 
-	/// This calculates the needed duration to receive a complete timeslice from all input nodes
-	void calculate_total_ts_duration(uint64_t timeslice){
+	/// This calculates the needed duration to complete an interval from all input nodes
+	void calculate_interval_info(uint64_t interval_index){
 
-	    uint64_t total_duration = 0;
-	    for (uint32_t i = 0; i < input_node_count_; i++) {
-		    total_duration += sender_info_[i].ts_sent_info_.get(timeslice).second;
+	    std::chrono::high_resolution_clock::time_point max_start_time = sender_info_[0].interval_info_.get(interval_index).first,
+		    tmp;
+	    // get the latest start time! --- worst case to follow the slowest node
+	    for (uint32_t indx = 1; indx < input_node_count_ ; indx++){
+		tmp = sender_info_[indx].interval_info_.get(interval_index).first;
+		if (tmp > max_start_time){
+		    max_start_time = tmp;
+		}
 	    }
-	    //total_duration += (total_duration * theta_percentage_);
-
-	    ts_duration_.add(timeslice, total_duration);
-	    completed_ts_ = true;
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(max_start_time, (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED));
+	    last_completed_interval_ = interval_index;
 
 	    //logging
-	    durations_log_.insert(std::pair<uint64_t, uint64_t>(timeslice, total_duration));
+	    //durations_log_.insert(std::pair<uint64_t, uint64_t>(interval_index, median_interval_duration_/input_node_count_));
 
 	}
 
-	TimeSchedulerStatsData calculate_stats_data(uint64_t timeslice){
+	/// This method gets the sent time for a particular input node and timeslice
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
 
-	    if (ts_duration_stats_.contains(timeslice)) return ts_duration_stats_.get(timeslice);
+	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
+	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
+	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
+		    interval_info.first + std::chrono::microseconds(interval_info.second * (interval_index - last_completed_interval)),
+		    interval_info.second);
 
-	    TimeSchedulerStatsData statsData;
-	    std::vector<uint64_t> values;
-	    uint64_t sum = 0;
-	    SizedMap<uint64_t, uint64_t>::iterator start_duration_it = ts_duration_.get_iterator(timeslice);
-	    uint64_t cur_timeslice;
-	    // get values of up to an interval and calculate the sum
-	    while (values.size() < ConstVariables::SCHEDULER_INTERVAL_LENGTH){
-		cur_timeslice = start_duration_it->first;
-		values.push_back(start_duration_it->second);
-		sum += start_duration_it->second;
-		if (start_duration_it == ts_duration_.get_begin_iterator())break;
-		--start_duration_it;
-		assert (start_duration_it->first < cur_timeslice);
+
+	   /* std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
+	    if (it == proposed_times_log_.end()){
+		proposed_times_log_.insert(std::pair<uint64_t, std::vector<int64_t> >(timeslice, std::vector<int64_t>(input_node_count_)));
+		it = proposed_times_log_.find(timeslice);
 	    }
-	    std::sort(values.begin(), values.end());
 
-	    statsData.mean = (sum/values.size());
-	    statsData.median = values[values.size()/2];
-
-	    // calculate variance
-	    statsData.variance = 0;
-	    for (int i=0 ; i<values.size() ; i++){
-		statsData.variance += (values[i] - statsData.mean);
-	    }
-	    statsData.variance /=values.size();
-
-	    ts_duration_stats_.add(timeslice,statsData);
-
-	    return statsData;
+	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
+	    /// END OF Logging*/
 	}
 
-	uint64_t get_actual_interval_duration(uint32_t interval_index){
+	uint64_t calculate_median_intervals_duration(uint32_t input_index){
 
-	    std::map<uint64_t, std::pair<uint64_t,uint64_t> >::iterator interval_it = interval_duration_log_.find(interval_index);
-	    if (interval_it != interval_duration_log_.end() && interval_it->second.first != ConstVariables::MINUS_ONE) return interval_it->second.first;
-
-	    uint32_t start_ts = (interval_index * (INTERVAL_LENGTH * input_node_count_)) + compute_index_; // the first ts in this interval_index
-	    uint32_t last_ts = start_ts + (INTERVAL_LENGTH * input_node_count_); // the last ts in this interval_index
-	    if (!ts_duration_.contains(start_ts) || !ts_duration_.contains(last_ts)) return ConstVariables::MINUS_ONE;
-	    uint64_t sum =0;
-	    SizedMap<uint64_t, uint64_t>::iterator start_duration_it = ts_duration_.get_iterator(start_ts);
-	    SizedMap<uint64_t, uint64_t>::iterator last_duration_it = ts_duration_.get_iterator(last_ts);
-	    // get values of up to an interval and calculate the sum
-	    while (true){
-		sum += start_duration_it->second;
-		if (start_duration_it == last_duration_it)break;
-		++start_duration_it;
-	    }
-	    if (interval_it == interval_duration_log_.end()){
-		interval_duration_log_.insert(std::pair<uint64_t, std::pair<uint64_t, uint64_t>>(interval_index, std::pair<uint64_t, uint64_t>(sum,ConstVariables::MINUS_ONE)));
-	    }else{
-		interval_it->second.first = sum;
-	    }
-	    return sum;
-	}
-
-	// This method finds the theta by the last two completed intervals
-	double get_adjusted_theta(uint64_t current_interval_index){
-
-	    if (current_interval_index <= 1) return 0;
-
-	    uint64_t prev_interval_duration = get_actual_interval_duration(current_interval_index-1);
-
-	    // previous interval is incomplete
-	    if (prev_interval_duration != ConstVariables::MINUS_ONE){
-		return 0;
-	    }
-
-	    uint64_t pre_prev_interval_duration = get_actual_interval_duration(current_interval_index - 2);
-
-	    if (prev_interval_duration <= pre_prev_interval_duration) return -0.1;
-
-	    return 0.1;
-	}
-
-	uint64_t get_median_micro_ts_duration(uint32_t input_index){
-
-	    if (sender_info_[input_index].ts_sent_info_.size() == 0)return ConstVariables::MINUS_ONE;
+	    if (sender_info_[input_index].interval_info_.size() == 0)return ConstVariables::MINUS_ONE;
 
 	    // TODO SHOULD BE ENHANZED!!! BRUTEFORCE CODE!
 	    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > >::iterator
-		    start_it = sender_info_[input_index].ts_sent_info_.get_begin_iterator() ,
-		    end_it = sender_info_[input_index].ts_sent_info_.get_end_iterator();
+		    start_it = sender_info_[input_index].interval_info_.get_begin_iterator(),
+		    end_it = sender_info_[input_index].interval_info_.get_end_iterator();
 	    std::vector<uint64_t> durations;
-	    while (++start_it != end_it){
+
+	    for (;start_it != end_it; ++start_it){
 		durations.push_back(start_it->second.second);
 	    }
 	    std::sort(durations.begin(), durations.end());
@@ -476,25 +268,18 @@ private:
 	/// This is a list of input nodes with the history of their data
 	std::vector<InputSchedulerData> sender_info_;
 
-	/// A history of the estimated durations <timeslice, duration>
-	SizedMap<uint64_t, uint64_t> ts_duration_;
+	/// A history of the proposed start time for intervals <timeslice, <time, gap>>
+	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> proposed_interval_start_time_info_;
 
-	/// A history of the mean durations till specific timeslice <timeslice, duration>
-	SizedMap<uint64_t, TimeSchedulerStatsData> ts_duration_stats_;
+	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> actual_interval_start_time_info_;
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
-	SizedMap<uint64_t, uint32_t> acked_ts_count_;
+	SizedMap<uint64_t, uint32_t> acked_interval_count_;
 
-	/// Theta to increase/decrease the duration needed to receive a complete timeslice -- <= 1.0
-	double theta_percentage_ = 0;
+	/// Contains the last completed interval that the scheduler receives all data about from all input nodes
+	uint64_t last_completed_interval_ = ConstVariables::MINUS_ONE;
 
-	/// Alpha to increase/decrease the time to send timeslices -- <= 1.0
-	std::vector<double> alpha_percentage_;
-
-	/// Triggers if there are new completed timeslices
-	bool completed_ts_ = false;
-
-	uint64_t median_ts_duration_ = ConstVariables::ZERO;
+	uint64_t median_interval_duration_ = ConstVariables::ZERO;
 
 	/// LOGGING
 	// timeslice, [{proposed, actual}]

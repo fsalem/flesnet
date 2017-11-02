@@ -340,7 +340,6 @@ void TimesliceBuilder::operator()()
         time_begin_ = std::chrono::high_resolution_clock::now();
         timeslice_scheduler_->set_compute_MPI_time(time_begin_);
 
-        report_ts_completion();
         sync_buffer_positions();
         report_status();
         while (!all_done_ || connected_ != 0) {
@@ -537,21 +536,5 @@ void TimesliceBuilder::poll_ts_completion()
             connection->inc_ack_pointers(acked_);
     } else
         ack_.at(c.ts_pos) = c.ts_pos;
-}
-
-void TimesliceBuilder::report_ts_completion(){
-
-	std::chrono::system_clock::time_point now =
-		std::chrono::system_clock::now();
-
-	bool ts_completed = timeslice_scheduler_->check_new_ts_completed();
-	if (ts_completed) {
-		for (auto& c : conn_) {
-			c->mark_new_ts_completed();
-		}
-	}
-
-	scheduler_.add(std::bind(&TimesliceBuilder::report_ts_completion, this),
-				   now + std::chrono::milliseconds(0));
 }
 }

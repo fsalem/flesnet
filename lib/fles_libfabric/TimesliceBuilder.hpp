@@ -45,9 +45,6 @@ public:
 
     void request_abort();
 
-    /// This method triggers if there is a completed timeslice and informs the ComputeConnections accordingly
-    void report_ts_completion();
-
     virtual void operator()() override;
 
     /// Handle RDMA_CM_EVENT_CONNECT_REQUEST event.
