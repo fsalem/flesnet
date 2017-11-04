@@ -207,7 +207,7 @@ void InputChannelSender::ack_complete_interval_info(InputIntervalInfo* interval_
 	    std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->actual_start_time - time_begin_).count())));
 
     proposed_actual_durations_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
-	    interval_info->proposed_duration, interval_info->actual_duration)));
+	    interval_info->proposed_duration/1000.0, interval_info->actual_duration/1000.0)));
     // END LOGGING
 }
 
