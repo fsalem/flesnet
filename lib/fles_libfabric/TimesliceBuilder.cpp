@@ -334,7 +334,6 @@ void TimesliceBuilder::operator()()
             bootstrap_wo_connections();
         }
 
-        next_ts.resize(num_input_nodes_, 0);
         //int rc = MPI_Barrier(MPI_COMM_WORLD);
 		//assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
@@ -505,22 +504,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     default:
         throw LibfabricException("wc for unknown wr_id");
     }
-}
-
-void TimesliceBuilder::add_arrival_ts(double sent_time , uint64_t desc, int cn){
-        for (int ts=arrivals_ts.size() ; ts < desc ; ts++){
-                std::vector<double> tmp(num_input_nodes_,0.0);
-                arrivals_ts.push_back(tmp);
-                sent_ts.push_back(tmp);
-        }
-
-        double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
-
-        while (desc > next_ts[cn]){
-                arrivals_ts[next_ts[cn]][cn]=time;
-                sent_ts[next_ts[cn]][cn]=sent_time;
-                next_ts[cn]++;
-        }
 }
 
 void TimesliceBuilder::poll_ts_completion()

@@ -150,24 +150,36 @@ uint64_t InputChannelSender::get_interval_start_ts(uint64_t interval_index){
     return interval_index * ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size(); // fraction will be thrown away
 }
 
-std::chrono::high_resolution_clock::time_point InputChannelSender::get_interval_start_time(uint64_t interval_index){
+void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_info){
 
-    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point min_start_time;
+    uint64_t min_duration;
+
     bool found = false;
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> proposed_info = conn_[i]->get_proposed_interval_info(interval_index);
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> proposed_info = conn_[i]->get_proposed_interval_info(interval_info->index);
 	if (proposed_info.second == ConstVariables::MINUS_ONE)continue;
 	if (!found){
 	    found = true;
-	    start_time = proposed_info.first;
+	    min_start_time = proposed_info.first;
+	    min_duration = proposed_info.second;
 	}
-	//assert(start_time == proposed_info.first)
-
+	if (min_start_time > proposed_info.first){
+	    min_start_time = proposed_info.first;
+	}
+	if (min_duration > proposed_info.second){
+	    min_duration = proposed_info.second;
+	}
     }
     if (!found){
-	return std::chrono::high_resolution_clock::now();
+	min_start_time = std::chrono::high_resolution_clock::now();
+	if (interval_info->index > 0)
+	    min_duration = intervals_info_.get(interval_info->index-1)->actual_duration;
+	else
+	    min_duration = ConstVariables::ZERO;
     }
-    return start_time;
+    interval_info->proposed_start_time = min_start_time;
+    interval_info->proposed_duration = min_duration;
 }
 
 InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_index){
@@ -175,8 +187,7 @@ InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_in
     interval_info->index = interval_index;
     interval_info->start_ts = get_interval_start_ts(interval_index);
     interval_info->end_ts = get_interval_start_ts(interval_index+1) - 1;
-    interval_info->proposed_start_time = get_interval_start_time(interval_index);
-    interval_info->proposed_duration = ConstVariables::MINUS_ONE;
+    set_interval_proposed_info(interval_info);
     interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
 
     return interval_info;
@@ -234,7 +245,10 @@ void InputChannelSender::check_send_timeslices()
     if (interval_info->is_interval_completed()){
 	ack_complete_interval_info(interval_info);
 	++current_interval_;
-	next_check_time = get_interval_start_time(current_interval_);
+	InputIntervalInfo next_interval;
+	next_interval.index = current_interval_;
+	set_interval_proposed_info(&next_interval);
+	next_check_time = next_interval.proposed_start_time;
     }else{
 	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
     }

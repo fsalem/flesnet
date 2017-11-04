@@ -95,8 +95,8 @@ private:
     /// Calculate the start timeslice of a particular interval
     uint64_t get_interval_start_ts(uint64_t interval_index);
     
-    /// Get the start time of a specific interval
-    std::chrono::high_resolution_clock::time_point get_interval_start_time(uint64_t interval_index);
+    /// Set the proposed information of a specific interval
+    void set_interval_proposed_info(InputIntervalInfo* interval_info);
     
     /// Acknowledge the inputConnections about the completion of an interval
     void ack_complete_interval_info(InputIntervalInfo* interval_info);

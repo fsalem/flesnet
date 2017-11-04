@@ -66,7 +66,6 @@ private:
     void make_endpoint_named(struct fi_info* info, const std::string& hostname,
                              const std::string& service, struct fid_ep** ep);
 
-    void add_arrival_ts(double sent_ts, uint64_t desc, int cn);
     void build_time_file();
     void build_time_interval_file();
 
@@ -104,8 +103,6 @@ private:
 
     TimesliceScheduler* timeslice_scheduler_;
 
-    std::vector<std::vector<double>> arrivals_ts, sent_ts;
     std::vector<double> completed_ts;
-    std::vector<int> next_ts;
 };
 }

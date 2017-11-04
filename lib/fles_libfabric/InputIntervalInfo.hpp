@@ -28,6 +28,8 @@ struct InputIntervalInfo {
 	    num_ts_per_round = (end_ts - start_ts + 1) / ConstVariables::SCHEDULER_INTERVAL_LENGTH;
 	}
 
+	if (duration_per_ts == 0)return 0;
+
 	uint64_t expected_sent_ts = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - proposed_start_time).count() / duration_per_ts;
 
 	if (expected_sent_ts <= count_sent_ts){ /// sending faster than proposed
