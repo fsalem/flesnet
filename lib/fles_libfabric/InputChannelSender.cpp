@@ -390,7 +390,7 @@ void InputChannelSender::operator()()
 
 void InputChannelSender::build_scheduled_time_file(){
     std::ofstream log_file;
-    log_file.open(std::to_string(input_index_)+".blocked_times.out");
+    log_file.open(std::to_string(input_index_)+".proposed_actual_interval_info.out");
 
     log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "proposed time" <<
