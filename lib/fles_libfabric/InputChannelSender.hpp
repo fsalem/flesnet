@@ -155,8 +155,10 @@ private:
 
 
     /// LOGGING
-    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_times_log_;
+    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_start_times_log_;
+    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_durations_log_;
 
+    /*
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
     std::map<uint64_t, std::chrono::system_clock::time_point > temp_scheduler_blocked_times_log_;
 
@@ -165,6 +167,7 @@ private:
 
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > ack_blocked_times_log_;
     std::map<uint64_t, std::chrono::system_clock::time_point > temp_ack_blocked_times_log_;
+    */
     /// END LOGGING
 
     void build_scheduled_time_file();

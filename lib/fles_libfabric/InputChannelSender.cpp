@@ -200,6 +200,15 @@ void InputChannelSender::ack_complete_interval_info(InputIntervalInfo* interval_
     for (auto& c : conn_) {
 	c->ack_complete_interval_info(interval_info);
     }
+
+    // LOGGING
+    proposed_actual_start_times_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
+	    std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->proposed_start_time - time_begin_).count(),
+	    std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->actual_start_time - time_begin_).count())));
+
+    proposed_actual_durations_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
+	    interval_info->proposed_duration, interval_info->actual_duration)));
+    // END LOGGING
 }
 
 void InputChannelSender::check_send_timeslices()
@@ -383,46 +392,24 @@ void InputChannelSender::build_scheduled_time_file(){
     std::ofstream log_file;
     log_file.open(std::to_string(input_index_)+".blocked_times.out");
 
-    log_file << std::setw(25) << "Compute Index" <<
-	    std::setw(25) << "Timeslice" <<
-	    std::setw(25) << "Contribution" <<
-	    std::setw(25) << "scheduler(s)" <<
-	    std::setw(25) << "scheduler(e)" <<
-	    std::setw(25) << "scheduler(diff)" <<
-	    std::setw(25) << "buffer(s)" <<
-	    std::setw(25) << "buffer(e)" <<
-	    std::setw(25) << "buffer(diff)" << "\n";
+    log_file << std::setw(25) << "Interval" <<
+	    std::setw(25) << "proposed time" <<
+	    std::setw(25) << "Actual time" <<
+	    std::setw(25) << "Proposed duration" <<
+	    std::setw(25) << "Actual duration" << "\n";
 
-    /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
-    while (it != proposed_actual_times_.end()){
-	int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
-	log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
+    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it_time = proposed_actual_start_times_log_.begin(),
+	it_dur = proposed_actual_durations_log_.begin();
+    while (it_time != proposed_actual_start_times_log_.end() && it_dur != proposed_actual_durations_log_.end()){
+	log_file << std::setw(25) << it_time->first
+		<< std::setw(25) << it_time->second.first
+		<< std::setw(25) << it_time->second.second
+		<< std::setw(25) << it_dur->second.first
+		<< std::setw(25) << it_dur->second.second << "\n";
 
-	++it;
-    }*/
-    std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator it1, it2;
-    for (uint64_t ts=0, cn = 0 ; ts <= max_timeslice_number_ ; cn = target_cn_index(++ts) ){
-	it1 = scheduler_blocked_times_log_.find(ts);
-	it2 = buffer_blocked_times_log_.find(ts);
-	if (it1 != scheduler_blocked_times_log_.end() || it2 != buffer_blocked_times_log_.end()){
-	    double it1_s = (it1 != scheduler_blocked_times_log_.end() ? (it1->second.first*1.0)/1000.0 : 0),
-		    it1_e = (it1 != scheduler_blocked_times_log_.end() ? (it1->second.second*1.0)/1000.0 : 0),
-		    it2_s = (it2 != buffer_blocked_times_log_.end() ? (it2->second.first*1.0)/1000.0 : 0),
-		    it2_e = (it2 != buffer_blocked_times_log_.end() ? (it2->second.second*1.0)/1000.0 : 0);
-
-	    log_file << std::setw(25) << cn <<
-		    std::setw(25) << ts <<
-		    std::setw(25) << ts+input_index_ <<
-		    std::setw(25) << it1_s <<
-		    std::setw(25) << it1_e <<
-		    std::setw(25) << (it1_e - it1_s) <<
-		    std::setw(25) << it2_s <<
-		    std::setw(25) << it2_e <<
-		    std::setw(25) << (it2_e - it2_s) << "\n";
-	    log_file.flush();
-	}
+	it_time++;
+	it_dur++;
     }
-
     log_file.flush();
     log_file.close();
 }
