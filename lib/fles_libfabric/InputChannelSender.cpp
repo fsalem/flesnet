@@ -165,9 +165,8 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> proposed_info = conn_[i]->get_proposed_interval_info(interval_info->index);
 
 	// LOGGING
-	    times_log.push_back(proposed_info.second == ConstVariables::MINUS_ONE ?
-		    std::chrono::duration_cast<std::chrono::microseconds>(proposed_info.first - time_begin_).count() :
-		    ConstVariables::MINUS_ONE);
+	    times_log.push_back(proposed_info.second == ConstVariables::MINUS_ONE ? ConstVariables::MINUS_ONE
+		    : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_info.first - time_begin_).count());
 	// END LOGGING
 	if (proposed_info.second == ConstVariables::MINUS_ONE)continue;
 	if (!found){
