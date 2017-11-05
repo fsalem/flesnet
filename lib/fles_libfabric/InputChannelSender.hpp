@@ -101,6 +101,9 @@ private:
     /// Acknowledge the inputConnections about the completion of an interval
     void ack_complete_interval_info(InputIntervalInfo* interval_info);
 
+    /// create and add a new intervalInfo to intervals_info_
+    InputIntervalInfo* add_new_interval(uint64_t interval_index);
+
     uint64_t input_index_;
 
     /// Libfabric memory region descriptor for input data buffer.
@@ -157,6 +160,7 @@ private:
     /// LOGGING
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_start_times_log_;
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_durations_log_;
+    std::map<uint64_t, std::vector<int64_t>> proposed_all_start_times_log_;
 
     /*
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
