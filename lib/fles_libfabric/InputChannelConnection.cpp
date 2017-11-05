@@ -252,7 +252,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 	}
     }
     // TODO do we need && contains_sent_duration(cn_wp_.desc - 1) ??
-    if ((data_changed_ || data_acked_) && contains_sent_duration(last_sent_timeslice_)) { //
+    if ((data_changed_ || data_acked_) /*&& contains_sent_duration(last_sent_timeslice_)*/) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;

@@ -191,6 +191,15 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
     interval_info->proposed_start_time = min_start_time;
     interval_info->proposed_duration = min_duration;
 
+    if (false){
+	L_(trace) << "[i " << input_index_ << "] "
+	      << "interval"
+	      << interval_info->index
+	      << " should start after "
+	      << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->proposed_start_time - std::chrono::high_resolution_clock::now()).count()
+	      << " us & take " << interval_info->proposed_duration << " us";
+    }
+
     // LOGGING
     proposed_all_start_times_log_.insert(std::pair<uint64_t, std::vector<int64_t>>(interval_info->index, times_log));
     // END LOGGING
@@ -288,15 +297,15 @@ void InputChannelSender::check_send_timeslices()
     /// LOGGING
     interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
     sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
-    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-now).count(),
-    std::chrono::duration_cast<std::chrono::milliseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()});
+    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
+    std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()});
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
 	if (false){
 	    L_(info) << "[i " << input_index_ << "] "
 		      << "check a new round after "
-		      << std::chrono::duration_cast<std::chrono::microseconds>(
-				next_check_time - now).count() << " microseconds";
+		      << std::chrono::duration_cast<std::chrono::milliseconds>(
+				next_check_time - now).count() << " ms";
 	}
 	scheduler_.add(std::bind(&InputChannelSender::check_send_timeslices, this), next_check_time);
     }
