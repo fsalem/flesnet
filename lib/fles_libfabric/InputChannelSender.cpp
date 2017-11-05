@@ -273,6 +273,10 @@ void InputChannelSender::check_send_timeslices()
 	ack_complete_interval_info(interval_info);
 	++current_interval_;
 	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
+	/// LOGGING
+	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_,
+		std::chrono::duration_cast<std::chrono::milliseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()));
+	/// END LOGGING
     }else{
 	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
     }
@@ -428,7 +432,7 @@ void InputChannelSender::build_scheduled_time_file(){
     log_file.flush();
     log_file.close();
 
-
+//////////////////////////////////////////////////////////////////////
     std::ofstream times_log_file;
     times_log_file.open(std::to_string(input_index_)+".proposed_all_start_times.out");
 
@@ -450,6 +454,24 @@ void InputChannelSender::build_scheduled_time_file(){
     }
     times_log_file.flush();
     times_log_file.close();
+
+/////////////////////////////////////////////////////////////////
+    std::ofstream block_log_file;
+    block_log_file.open(std::to_string(input_index_)+".scheduler_blocked_times.out");
+
+    block_log_file << std::setw(25) << "Interval" <<
+	std::setw(25) << "blocked duration" << "\n";
+
+    std::map<uint64_t, int64_t >::iterator it_blocked_time = scheduler_blocked_times_log_.begin();
+    while (it_blocked_time != scheduler_blocked_times_log_.end()){
+	block_log_file << std::setw(25) << it_blocked_time->first
+	    << std::setw(25) << it_blocked_time->second<< "\n";
+
+	it_blocked_time++;
+    }
+    block_log_file.flush();
+    block_log_file.close();
+
 
 }
 
