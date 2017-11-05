@@ -21,6 +21,8 @@ struct InputIntervalInfo {
 
     uint64_t count_sent_ts = ConstVariables::ZERO;
 
+    uint64_t count_rounds = ConstVariables::ZERO;
+
     uint64_t get_duration_to_next_round(){
 	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
 	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);

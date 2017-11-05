@@ -156,12 +156,21 @@ private:
 
     uint64_t current_interval_ = ConstVariables::ZERO;
 
+    struct IntervalRoundDuration{
+	uint64_t interval_index;
+	uint32_t round_index;
+	uint32_t sent_ts;
+	uint32_t remaining_sent_ts;
+	uint64_t duration;
+	uint64_t duration_to_next_round;
+    };
 
     /// LOGGING
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_start_times_log_;
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_durations_log_;
     std::map<uint64_t, std::vector<int64_t>> proposed_all_start_times_log_;
     std::map<uint64_t, int64_t > scheduler_blocked_times_log_;
+    std::vector<IntervalRoundDuration> interval_rounds_info_log_;
     /*
     std::map<uint64_t, std::pair<uint64_t, uint64_t> > scheduler_blocked_times_log_;
     std::map<uint64_t, std::chrono::system_clock::time_point > temp_scheduler_blocked_times_log_;

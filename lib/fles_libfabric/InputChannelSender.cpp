@@ -238,6 +238,7 @@ InputIntervalInfo* InputChannelSender::add_new_interval(uint64_t interval_index)
 void InputChannelSender::check_send_timeslices()
 {
     InputIntervalInfo* interval_info = add_new_interval(current_interval_);
+    interval_info->count_rounds++;
 
     if (false){
 	L_(trace) << "[i " << input_index_ << "] "
@@ -250,6 +251,8 @@ void InputChannelSender::check_send_timeslices()
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
 	    next_check_time;
 
+    uint32_t sent_count = 0;
+
     uint32_t conn_index = input_index_ % conn_.size();
     while (true){
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
@@ -261,6 +264,7 @@ void InputChannelSender::check_send_timeslices()
 		conn_[conn_index]->add_sent_time(next_ts, now);
 		sent_timeslices_++;
 		interval_info->count_sent_ts++;
+		sent_count++;
 	    }
 	}
 
@@ -281,6 +285,12 @@ void InputChannelSender::check_send_timeslices()
 	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
     }
 
+    /// LOGGING
+    interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
+    sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
+    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-now).count(),
+    std::chrono::duration_cast<std::chrono::milliseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()});
+    /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
 	if (false){
 	    L_(info) << "[i " << input_index_ << "] "
@@ -472,6 +482,27 @@ void InputChannelSender::build_scheduled_time_file(){
     block_log_file.flush();
     block_log_file.close();
 
+/////////////////////////////////////////////////////////////////
+    std::ofstream round_log_file;
+    round_log_file.open(std::to_string(input_index_)+".interval_round_info.out");
+
+    round_log_file << std::setw(25) << "Interval" <<
+	    std::setw(25) << "Round" <<
+	    std::setw(25) << "sent count" <<
+	    std::setw(25) << "remaining" <<
+	    std::setw(25) << "duration" <<
+	    std::setw(25) << "time to next round" << "\n";
+
+    for (IntervalRoundDuration ird : interval_rounds_info_log_){
+	round_log_file << std::setw(25) << ird.interval_index <<
+		std::setw(25) << ird.round_index <<
+		std::setw(25) << ird.sent_ts <<
+		std::setw(25) << ird.remaining_sent_ts <<
+		std::setw(25) << ird.duration <<
+		std::setw(25) << ird.duration_to_next_round << "\n";
+    }
+    round_log_file.flush();
+    round_log_file.close();
 
 }
 
