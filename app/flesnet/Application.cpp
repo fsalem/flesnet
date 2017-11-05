@@ -81,7 +81,7 @@ Application::Application(Parameters const& par,
             std::unique_ptr<tl_libfabric::TimesliceBuilder> builder(
                 new tl_libfabric::TimesliceBuilder(
                     i, *tsb, par_.base_port() + i, input_nodes_size,
-                    par_.timeslice_size(), signal_status_, false,
+                    par_.timeslice_size(), signal_status_, par_.drop_process_ts(),
                     par_.compute_nodes()[i]));
             timeslice_builders_.push_back(std::move(builder));
 #else
@@ -91,7 +91,7 @@ Application::Application(Parameters const& par,
 #ifdef RDMA
             std::unique_ptr<TimesliceBuilder> builder(new TimesliceBuilder(
                 i, *tsb, par_.base_port() + i, input_nodes_size,
-                par_.timeslice_size(), signal_status_, false));
+                par_.timeslice_size(), signal_status_, par_.drop_process_ts()));
             timeslice_builders_.push_back(std::move(builder));
 #else
             L_(fatal) << "flesnet built without RDMA support";

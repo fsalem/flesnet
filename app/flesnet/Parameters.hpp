@@ -106,6 +106,9 @@ public:
     /// flag to check whether libfabric implementation will be used
     bool use_libfabric() const { return use_libfabric_; }
 
+    /// flag to check whether to drop timeslice processing
+    bool drop_process_ts() const { return drop_process_ts_; }
+
     /// Retrieve the number of completion queue entries.
     uint32_t num_cqe() const { return num_cqe_; }
 
@@ -183,6 +186,9 @@ private:
 
     /// flag to check whether libfabric implementation will be used
     bool use_libfabric_ = false;
+
+    /// flag to check whether to drop timeslice processing
+    bool drop_process_ts_ = false;
 
     uint32_t num_cqe_ = 1000000;
 

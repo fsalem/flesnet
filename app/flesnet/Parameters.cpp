@@ -227,6 +227,9 @@ void Parameters::parse_options(int argc, char* argv[])
     config_add("use-libfabric",
                po::value<bool>(&use_libfabric_)->default_value(false),
                "use libfabric transport implementation");
+    config_add("drop-process-ts",
+	       po::value<bool>(&drop_process_ts_)->default_value(false),
+	       "Drop timeslice processing");
 
     po::options_description cmdline_options("Allowed options");
     cmdline_options.add(generic).add(config);
