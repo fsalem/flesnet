@@ -210,10 +210,10 @@ private:
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
 			<< (median_interval_duration_/input_node_count_) << " us"
-			<< " but after speedup: " << (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+			<< " but after speedup: " << (median_interval_duration_/input_node_count_);
 	    }
 
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED));
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration_/input_node_count_)));
 	    last_completed_interval_ = interval_index;
 
 	    //logging
@@ -226,9 +226,17 @@ private:
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
+
+	    if (false){
+		L_(info) << "[" << compute_index_ << "] last complete interval: "
+			<< last_completed_interval << " with duration "
+			<< interval_info.second << " us and the requested interval: "
+			<< interval_index << " with duration "
+			<< (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+	    }
 	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
 		    interval_info.first + std::chrono::microseconds(interval_info.second * (interval_index - last_completed_interval)),
-		    interval_info.second);
+		    (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
 
 
 	   /* std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
