@@ -209,8 +209,7 @@ private:
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
-			<< (median_interval_duration_/input_node_count_) << " us"
-			<< " but after speedup: " << (median_interval_duration_/input_node_count_);
+			<< (median_interval_duration_/input_node_count_) << " us";
 	    }
 
 	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration_/input_node_count_)));
