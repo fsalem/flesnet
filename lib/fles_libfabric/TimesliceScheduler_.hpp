@@ -196,16 +196,24 @@ private:
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
-	    std::chrono::high_resolution_clock::time_point max_start_time = sender_info_[0].interval_info_.get(interval_index).first,
+	    std::chrono::high_resolution_clock::time_point min_start_time = sender_info_[0].interval_info_.get(interval_index).first,
 		    tmp;
-	    // get the latest start time! --- worst case to follow the slowest node
+	    // get the earliest start time!
 	    for (uint32_t indx = 1; indx < input_node_count_ ; indx++){
 		tmp = sender_info_[indx].interval_info_.get(interval_index).first;
-		if (tmp > max_start_time){
-		    max_start_time = tmp;
+		if (tmp < min_start_time){
+		    min_start_time = tmp;
 		}
 	    }
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(max_start_time, (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED));
+
+	    if (false){
+		L_(info) << "[" << compute_index_ << "] interval "
+			<< interval_index << " took "
+			<< (median_interval_duration_/input_node_count_) << " us"
+			<< " but after speedup: " << (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+	    }
+
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED));
 	    last_completed_interval_ = interval_index;
 
 	    //logging
