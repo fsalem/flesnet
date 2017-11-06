@@ -183,9 +183,9 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
     }
     if (!found){
 	min_start_time = std::chrono::high_resolution_clock::now();
-	if (interval_info->index > 0)
+	/*if (interval_info->index > 0)
 	    min_duration = intervals_info_.get(interval_info->index-1)->actual_duration;
-	else
+	else*/
 	    min_duration = ConstVariables::ZERO;
     }
     interval_info->proposed_start_time = min_start_time;
@@ -222,6 +222,14 @@ void InputChannelSender::ack_complete_interval_info(InputIntervalInfo* interval_
     		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
     for (auto& c : conn_) {
 	c->ack_complete_interval_info(interval_info);
+    }
+
+    if (false){
+	L_(trace) << "[i " << input_index_ << "] "
+		  << "Interval "
+		  << interval_info->index
+		  << " completed in " << interval_info->actual_duration
+		  << " us while the proposed duration is " << interval_info->proposed_duration << " us";
     }
 
     // LOGGING
