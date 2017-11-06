@@ -232,7 +232,7 @@ private:
 			<< last_completed_interval << " with duration "
 			<< interval_info.second << " us and the requested interval: "
 			<< interval_index << " with duration "
-			<< (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+			<< (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED;
 	    }
 	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
 		    interval_info.first + std::chrono::microseconds(interval_info.second * (interval_index - last_completed_interval)),
