@@ -26,7 +26,7 @@ public:
 		const uint32_t input_node_count, const uint32_t interval_length):
 			compute_index_(compute_index), input_node_count_(input_node_count), INTERVAL_LENGTH(interval_length),
 			proposed_interval_start_time_info_(MAX_DURATION_HISTORY), actual_interval_start_time_info_(MAX_DURATION_HISTORY),
-			acked_interval_count_(MAX_DURATION_HISTORY){
+			acked_interval_count_(MAX_DURATION_HISTORY), sum_median_interval_duration_(MAX_DURATION_HISTORY){
 
 		for (uint_fast16_t i=0 ; i<input_node_count_ ; i++)
 			sender_info_.push_back(InputSchedulerData());
@@ -68,13 +68,18 @@ public:
 
 	    if (!sender_info_[input_index].interval_info_.contains(interval_index)) {
 		    sender_info_[input_index].interval_info_.add(interval_index, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(actual_start_time + std::chrono::microseconds(sender_info_[input_index].clock_offset), interval_duration));
+
+		    if (!sum_median_interval_duration_.contains(interval_index)){
+			sum_median_interval_duration_.add(interval_index, ConstVariables::ZERO);
+		    }
+		    SizedMap<uint64_t, uint64_t>::iterator sum_it = sum_median_interval_duration_.get_iterator(interval_index);
+
 		    if (sender_info_[input_index].median_duration != ConstVariables::ZERO){
 			sender_info_[input_index].median_duration = interval_duration;
 		    }else{
-			median_interval_duration_ -= sender_info_[input_index].median_duration;
 			sender_info_[input_index].median_duration = calculate_median_intervals_duration(input_index);
 		    }
-		    median_interval_duration_ += sender_info_[input_index].median_duration;
+		    sum_it->second += sender_info_[input_index].median_duration;
 		    increament_acked_interval(interval_index);
 
 		    /*/// Logging
@@ -205,14 +210,14 @@ private:
 		    min_start_time = tmp;
 		}
 	    }
-
+	    uint64_t median_interval_duration = sum_median_interval_duration_.get(interval_index);
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
-			<< (median_interval_duration_/input_node_count_) << " us";
+			<< (median_interval_duration/input_node_count_) << " us";
 	    }
 
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration_/input_node_count_)));
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration/input_node_count_)));
 	    last_completed_interval_ = interval_index;
 
 	    //logging
@@ -225,17 +230,18 @@ private:
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
+	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval);
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
 			<< last_completed_interval << " with duration "
 			<< interval_info.second << " us and the requested interval: "
 			<< interval_index << " with duration "
-			<< (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED;
+			<< (median_interval_duration/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED;
 	    }
 	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
 		    interval_info.first + std::chrono::microseconds(interval_info.second * (interval_index - last_completed_interval)),
-		    (median_interval_duration_/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+		    (median_interval_duration/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
 
 
 	   /* std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
@@ -294,7 +300,7 @@ private:
 	/// Contains the last completed interval that the scheduler receives all data about from all input nodes
 	uint64_t last_completed_interval_ = ConstVariables::MINUS_ONE;
 
-	uint64_t median_interval_duration_ = ConstVariables::ZERO;
+	SizedMap<uint64_t, uint64_t> sum_median_interval_duration_;
 
 	/// LOGGING
 	// timeslice, [{proposed, actual}]
