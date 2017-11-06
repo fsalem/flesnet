@@ -146,28 +146,30 @@ public:
 
 	void build_duration_file(){
 
-	    /*std::ofstream log_file;
-	    log_file.open(std::to_string(compute_index_)+".compute.proposed_vs_taken_duration.out");
+	    std::ofstream log_file;
+	    log_file.open(std::to_string(compute_index_)+".compute.min_max_interval_info.out");
 
-	    log_file << std::setw(25) << "Interval" << std::setw(25) << "Duration(proposed)" << std::setw(25) << "Duration(Taken)" << std::setw(25) << "Diff(p-t)" << "\n";
+	    log_file << std::setw(25) << "Interval"
+		    << std::setw(25) << "Min start"
+		    << std::setw(25) << "Max start"
+		    << std::setw(25) << "Min duration"
+		    << std::setw(25) << "Max duration" << "\n";
 
-	    std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator it = interval_duration_log_.begin();
-	    double diff, taken_duration, proposed_duration;
-	    while (it != interval_duration_log_.end()){
-		taken_duration = it->second.first == ConstVariables::MINUS_ONE ? -1 : (it->second.first*1.0)/1000.0;
-		proposed_duration = it->second.second == ConstVariables::MINUS_ONE ? -1 : (it->second.second*INTERVAL_LENGTH*1.0)/1000.0;
-		diff = taken_duration != -1 && proposed_duration != -1 ? proposed_duration - taken_duration : -1;
-		    log_file << std::setw(25) << it->first << std::setw(25) <<
-			    proposed_duration << std::setw(25) <<
-			    taken_duration << std::setw(25) <<
-			    diff << "\n";
-
-		log_file.flush();
-		++it;
+	    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator times_it = min_max_interval_start_time_log_.begin(),
+		    dur_it = min_max_interval_duration_log_.begin();
+	    while (times_it != min_max_interval_start_time_log_.end() && dur_it != min_max_interval_duration_log_.end()){
+		log_file << std::setw(25) << times_it->first
+			<< std::setw(25) << times_it->second.first
+			<< std::setw(25) << times_it->second.second
+			<< std::setw(25) << dur_it->second.first
+			<< std::setw(25) << dur_it->second.second<< "\n";
+		++times_it;
+		++dur_it;
 	    }
 
 
-	    log_file.close();*/
+	    log_file.flush();
+	    log_file.close();
 	}
 
 private:
@@ -201,28 +203,43 @@ private:
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
-	    std::chrono::high_resolution_clock::time_point min_start_time = sender_info_[0].interval_info_.get(interval_index).first,
-		    tmp;
+	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, tmp;
+	    std::vector<uint64_t> interval_durations;
+
 	    // get the earliest start time!
-	    for (uint32_t indx = 1; indx < input_node_count_ ; indx++){
+	    for (uint32_t indx = 0; indx < input_node_count_ ; indx++){
+		if (interval_durations.empty()){
+		    min_start_time = sender_info_[indx].interval_info_.get(interval_index).first;
+		    max_start_time = min_start_time;
+		}
+		interval_durations.push_back(sender_info_[indx].interval_info_.get(interval_index).second);
 		tmp = sender_info_[indx].interval_info_.get(interval_index).first;
 		if (tmp < min_start_time){
 		    min_start_time = tmp;
 		}
+
+		if (tmp > max_start_time){
+		    max_start_time = tmp;
+		}
 	    }
-	    uint64_t median_interval_duration = sum_median_interval_duration_.get(interval_index);
+	    std::sort(interval_durations.begin(),interval_durations.end());
+	    uint64_t median_interval_duration = interval_durations[interval_durations.size()/2];
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
-			<< (median_interval_duration/input_node_count_) << " us";
+			<< (median_interval_duration) << " us";
 	    }
 
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, (median_interval_duration/input_node_count_)));
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, median_interval_duration));
 	    last_completed_interval_ = interval_index;
 
-	    //logging
-	    //durations_log_.insert(std::pair<uint64_t, uint64_t>(interval_index, median_interval_duration_/input_node_count_));
-
+	    /// LOGGING
+	    min_max_interval_start_time_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
+		    std::chrono::duration_cast<std::chrono::microseconds>(min_start_time - compute_MPI_time_).count(),
+		    std::chrono::duration_cast<std::chrono::microseconds>(max_start_time - compute_MPI_time_).count())));
+	    min_max_interval_duration_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
+		    interval_durations[0],interval_durations[interval_durations.size()-1])));
+	    /// END LOGGING
 	}
 
 	/// This method gets the sent time for a particular input node and timeslice
@@ -264,8 +281,10 @@ private:
 		    end_it = sender_info_[input_index].interval_info_.get_end_iterator();
 	    std::vector<uint64_t> durations;
 
-	    for (;start_it != end_it; ++start_it){
-		durations.push_back(start_it->second.second);
+	    // TODO to be configurable
+	    int max_count = 10;
+	    while (max_count-- > 0 && --end_it != start_it){
+		durations.push_back(end_it->second.second);
 	    }
 	    std::sort(durations.begin(), durations.end());
 	    return durations[durations.size()/2];
@@ -303,6 +322,9 @@ private:
 	SizedMap<uint64_t, uint64_t> sum_median_interval_duration_;
 
 	/// LOGGING
+	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_start_time_log_;
+	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_duration_log_;
+	/*
 	// timeslice, [{proposed, actual}]
 	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_log_;
 	///
@@ -311,7 +333,7 @@ private:
 	std::map<uint64_t, std::vector<int64_t> > proposed_times_log_;
 	/// interval index, <taken duration, proposed duration gap>
 	std::map<uint64_t, std::pair<uint64_t, uint64_t> > interval_duration_log_;
-
+	*/
 
 };
 
