@@ -235,10 +235,10 @@ private:
 
 	    /// LOGGING
 	    min_max_interval_start_time_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
-		    std::chrono::duration_cast<std::chrono::microseconds>(min_start_time - compute_MPI_time_).count(),
-		    std::chrono::duration_cast<std::chrono::microseconds>(max_start_time - compute_MPI_time_).count())));
+		    std::chrono::duration_cast<std::chrono::milliseconds>(min_start_time - compute_MPI_time_).count(),
+		    std::chrono::duration_cast<std::chrono::milliseconds>(max_start_time - compute_MPI_time_).count())));
 	    min_max_interval_duration_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
-		    interval_durations[0],interval_durations[interval_durations.size()-1])));
+		    interval_durations[0]/1000.0,interval_durations[interval_durations.size()-1]/1000.0)));
 	    /// END LOGGING
 	}
 
