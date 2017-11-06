@@ -74,7 +74,7 @@ public:
 		    }
 		    SizedMap<uint64_t, uint64_t>::iterator sum_it = sum_median_interval_duration_.get_iterator(interval_index);
 
-		    if (sender_info_[input_index].median_duration != ConstVariables::ZERO){
+		    if (sender_info_[input_index].median_duration == ConstVariables::ZERO){
 			sender_info_[input_index].median_duration = interval_duration;
 		    }else{
 			sender_info_[input_index].median_duration = calculate_median_intervals_duration(input_index);
