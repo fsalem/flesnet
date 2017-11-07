@@ -461,113 +461,123 @@ void InputChannelSender::operator()()
 }
 
 void InputChannelSender::build_scheduled_time_file(){
-    std::ofstream log_file;
-    log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info.out");
+    if (true){
+	std::ofstream log_file;
+	log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info.out");
 
-    log_file << std::setw(25) << "Interval" <<
-	    std::setw(25) << "proposed time" <<
-	    std::setw(25) << "Actual time" <<
-	    std::setw(25) << "Proposed duration" <<
-	    std::setw(25) << "Actual duration" << "\n";
+	log_file << std::setw(25) << "Interval" <<
+		std::setw(25) << "proposed time" <<
+		std::setw(25) << "Actual time" <<
+		std::setw(25) << "Proposed duration" <<
+		std::setw(25) << "Actual duration" << "\n";
 
-    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it_time = proposed_actual_start_times_log_.begin(),
-	it_dur = proposed_actual_durations_log_.begin();
-    while (it_time != proposed_actual_start_times_log_.end() && it_dur != proposed_actual_durations_log_.end()){
-	log_file << std::setw(25) << it_time->first
-		<< std::setw(25) << it_time->second.first
-		<< std::setw(25) << it_time->second.second
-		<< std::setw(25) << it_dur->second.first
-		<< std::setw(25) << it_dur->second.second << "\n";
+	std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it_time = proposed_actual_start_times_log_.begin(),
+	    it_dur = proposed_actual_durations_log_.begin();
+	while (it_time != proposed_actual_start_times_log_.end() && it_dur != proposed_actual_durations_log_.end()){
+	    log_file << std::setw(25) << it_time->first
+		    << std::setw(25) << it_time->second.first
+		    << std::setw(25) << it_time->second.second
+		    << std::setw(25) << it_dur->second.first
+		    << std::setw(25) << it_dur->second.second << "\n";
 
-	it_time++;
-	it_dur++;
+	    it_time++;
+	    it_dur++;
+	}
+	log_file.flush();
+	log_file.close();
     }
-    log_file.flush();
-    log_file.close();
 
 //////////////////////////////////////////////////////////////////////
-    std::ofstream times_log_file;
-    times_log_file.open(std::to_string(input_index_)+".input.proposed_all_start_times.out");
+    if (true){
+	std::ofstream times_log_file;
+	times_log_file.open(std::to_string(input_index_)+".input.proposed_all_start_times.out");
 
-    times_log_file << std::setw(25) << "Interval";
-    for (int i=0 ; i < conn_.size() ; i++){
-	times_log_file << std::setw(25) << "Compute#" << i;
-    }
-    times_log_file << "\n";
-
-    std::map<uint64_t, std::vector<int64_t>>::iterator it_interval_time = proposed_all_start_times_log_.begin();
-    while (it_interval_time != proposed_all_start_times_log_.end()){
-	times_log_file << std::setw(25) << it_interval_time->first;
-	for (int64_t val:it_interval_time->second){
-	    times_log_file << std::setw(25) << val;
+	times_log_file << std::setw(25) << "Interval";
+	for (int i=0 ; i < conn_.size() ; i++){
+	    times_log_file << std::setw(25) << "Compute#" << i;
 	}
 	times_log_file << "\n";
 
-    it_interval_time++;
+	std::map<uint64_t, std::vector<int64_t>>::iterator it_interval_time = proposed_all_start_times_log_.begin();
+	while (it_interval_time != proposed_all_start_times_log_.end()){
+	    times_log_file << std::setw(25) << it_interval_time->first;
+	    for (int64_t val:it_interval_time->second){
+		times_log_file << std::setw(25) << val;
+	    }
+	    times_log_file << "\n";
+
+	it_interval_time++;
+	}
+	times_log_file.flush();
+	times_log_file.close();
     }
-    times_log_file.flush();
-    times_log_file.close();
 
 /////////////////////////////////////////////////////////////////
-    std::ofstream block_log_file;
-    block_log_file.open(std::to_string(input_index_)+".input.scheduler_blocked_times.out");
+    if (true) {
+	std::ofstream block_log_file;
+	block_log_file.open(std::to_string(input_index_)+".input.scheduler_blocked_times.out");
 
-    block_log_file << std::setw(25) << "Interval" <<
-	std::setw(25) << "blocked duration" << "\n";
+	block_log_file << std::setw(25) << "Interval" <<
+	    std::setw(25) << "blocked duration" << "\n";
 
-    std::map<uint64_t, int64_t >::iterator it_blocked_time = scheduler_blocked_times_log_.begin();
-    while (it_blocked_time != scheduler_blocked_times_log_.end()){
-	block_log_file << std::setw(25) << it_blocked_time->first
-	    << std::setw(25) << it_blocked_time->second<< "\n";
+	std::map<uint64_t, int64_t >::iterator it_blocked_time = scheduler_blocked_times_log_.begin();
+	while (it_blocked_time != scheduler_blocked_times_log_.end()){
+	    block_log_file << std::setw(25) << it_blocked_time->first
+		<< std::setw(25) << it_blocked_time->second<< "\n";
 
-	it_blocked_time++;
+	    it_blocked_time++;
+	}
+	block_log_file.flush();
+	block_log_file.close();
     }
-    block_log_file.flush();
-    block_log_file.close();
 
 /////////////////////////////////////////////////////////////////
-    std::ofstream duration_log_file;
-    duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
+    if (true) {
+	std::ofstream duration_log_file;
+	duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
 
-    duration_log_file << std::setw(25) << "Timeslice" <<
-	    std::setw(25) << "Compute Index" <<
-	    std::setw(25) << "Duration" << "\n";
+	duration_log_file << std::setw(25) << "Timeslice" <<
+		std::setw(25) << "Compute Index" <<
+		std::setw(25) << "Duration" << "\n";
 
-    for (std::pair<uint64_t, uint64_t> dur: timeslice_duration_log_){
-	duration_log_file << std::setw(25) << dur.first <<
-		std::setw(25) << target_cn_index(dur.first) <<
-		std::setw(25) << dur.second << "\n";
+	for (std::pair<uint64_t, uint64_t> dur: timeslice_duration_log_){
+	    duration_log_file << std::setw(25) << dur.first <<
+		    std::setw(25) << target_cn_index(dur.first) <<
+		    std::setw(25) << dur.second << "\n";
+	}
+	duration_log_file.flush();
+	duration_log_file.close();
     }
-    duration_log_file.flush();
-    duration_log_file.close();
+
 /////////////////////////////////////////////////////////////////
-    std::ofstream round_log_file;
-    round_log_file.open(std::to_string(input_index_)+".input.interval_round_info.out");
+    if (false) {
+	std::ofstream round_log_file;
+	round_log_file.open(std::to_string(input_index_)+".input.interval_round_info.out");
 
-    round_log_file << std::setw(25) << "Interval" <<
-	    std::setw(25) << "Round" <<
-	    std::setw(25) << "sent count" <<
-	    std::setw(25) << "remaining" <<
-	    std::setw(25) << "duration" <<
-	    std::setw(25) << "time to next round" <<
-	    std::setw(25) << "IB problem" <<
-	    std::setw(25) << "CB problem" <<
-	    std::setw(25) << "ACK problem"<< "\n";
+	round_log_file << std::setw(25) << "Interval" <<
+		std::setw(25) << "Round" <<
+		std::setw(25) << "sent count" <<
+		std::setw(25) << "remaining" <<
+		std::setw(25) << "duration" <<
+		std::setw(25) << "time to next round" <<
+		std::setw(25) << "IB problem" <<
+		std::setw(25) << "CB problem" <<
+		std::setw(25) << "ACK problem"<< "\n";
 
-    for (IntervalRoundDuration ird : interval_rounds_info_log_){
-	round_log_file << std::setw(25) << ird.interval_index <<
-		std::setw(25) << ird.round_index <<
-		std::setw(25) << ird.sent_ts <<
-		std::setw(25) << ird.remaining_sent_ts <<
-		std::setw(25) << ird.duration <<
-		std::setw(25) << ird.duration_to_next_round <<
-		std::setw(25) << ird.input_buffer_problem_count <<
-		std::setw(25) << ird.compute_buffer_problem_count <<
-		std::setw(25) << ird.ack_not_received_problem << "\n";
+	for (IntervalRoundDuration ird : interval_rounds_info_log_){
+	    round_log_file << std::setw(25) << ird.interval_index <<
+		    std::setw(25) << ird.round_index <<
+		    std::setw(25) << ird.sent_ts <<
+		    std::setw(25) << ird.remaining_sent_ts <<
+		    std::setw(25) << ird.duration <<
+		    std::setw(25) << ird.duration_to_next_round <<
+		    std::setw(25) << ird.input_buffer_problem_count <<
+		    std::setw(25) << ird.compute_buffer_problem_count <<
+		    std::setw(25) << ird.ack_not_received_problem << "\n";
+	}
+	round_log_file.flush();
+	round_log_file.close();
     }
-    round_log_file.flush();
-    round_log_file.close();
-
 }
 
 bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
