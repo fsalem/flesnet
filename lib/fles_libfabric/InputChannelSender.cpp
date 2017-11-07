@@ -530,11 +530,13 @@ void InputChannelSender::build_scheduled_time_file(){
     duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
 
     duration_log_file << std::setw(25) << "Timeslice" <<
-	std::setw(25) << "Duration" << "\n";
+	    std::setw(25) << "Compute Index" <<
+	    std::setw(25) << "Duration" << "\n";
 
     for (std::pair<uint64_t, uint64_t> dur: timeslice_duration_log_){
 	duration_log_file << std::setw(25) << dur.first <<
-			    std::setw(25) << dur.second << "\n";
+		std::setw(25) target_cn_index(dur.first) <<
+		std::setw(25) << dur.second << "\n";
     }
     duration_log_file.flush();
     duration_log_file.close();
