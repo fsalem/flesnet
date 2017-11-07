@@ -268,13 +268,19 @@ void InputChannelSender::check_send_timeslices()
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
 	    next_check_time;
 
-    uint32_t sent_count = 0;
+    uint32_t sent_count = 0,
+	    input_buffer_problem_count = 0,
+	    compute_buffer_problem_count = 0,
+	    ack_not_received_problem = 0;
 
     uint32_t conn_index = input_index_ % conn_.size();
     while (true){
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
+	/// LOGGING
+	if (conn_[conn_index]->get_last_acked_timeslice() != conn_[conn_index]->get_last_sent_timeslice())ack_not_received_problem++;
+	/// END LOGGING
 	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts && conn_[conn_index]->get_last_acked_timeslice() == conn_[conn_index]->get_last_sent_timeslice()){
 	    if (try_send_timeslice(next_ts)){
 		conn_[conn_index]->set_last_sent_timeslice(next_ts);
@@ -283,6 +289,22 @@ void InputChannelSender::check_send_timeslices()
 		interval_info->count_sent_ts++;
 		sent_count++;
 	    }
+	    /// LOGGING
+	    else{
+		uint64_t desc_offset = next_ts * timeslice_size_ + start_index_desc_;
+		uint64_t desc_length = timeslice_size_ + overlap_size_;
+
+		if (write_index_desc_ < desc_offset + desc_length) {
+		    write_index_desc_ = data_source_.get_write_index().desc;
+		}
+		// check if microslice no. (desc_offset + desc_length - 1) is avail
+		if (write_index_desc_ < desc_offset + desc_length) {
+		    input_buffer_problem_count++;
+		}else{
+		    compute_buffer_problem_count++;
+		}
+	    }
+	    /// END LOGGING
 	}
 
 	conn_index = (conn_index+1) % conn_.size();
@@ -306,7 +328,8 @@ void InputChannelSender::check_send_timeslices()
     interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
     sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
     std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
-    std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()});
+    std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
+    input_buffer_problem_count, compute_buffer_problem_count, ack_not_received_problem});
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
 	if (false){
@@ -397,6 +420,9 @@ void InputChannelSender::operator()()
             poll_completion();
             data_source_.proceed();
         }
+
+        L_(info) << "[i" << input_index_ << "]"
+        	<< "All timeslices are sent.  wait for pending send completions!";
 
         // wait for pending send completions
         while (acked_desc_ < timeslice_size_ * sent_timeslices_ + start_index_desc_) {
@@ -508,7 +534,10 @@ void InputChannelSender::build_scheduled_time_file(){
 	    std::setw(25) << "sent count" <<
 	    std::setw(25) << "remaining" <<
 	    std::setw(25) << "duration" <<
-	    std::setw(25) << "time to next round" << "\n";
+	    std::setw(25) << "time to next round" <<
+	    std::setw(25) << "IB problem" <<
+	    std::setw(25) << "CB problem" <<
+	    std::setw(25) << "ACK problem"<< "\n";
 
     for (IntervalRoundDuration ird : interval_rounds_info_log_){
 	round_log_file << std::setw(25) << ird.interval_index <<
@@ -516,7 +545,10 @@ void InputChannelSender::build_scheduled_time_file(){
 		std::setw(25) << ird.sent_ts <<
 		std::setw(25) << ird.remaining_sent_ts <<
 		std::setw(25) << ird.duration <<
-		std::setw(25) << ird.duration_to_next_round << "\n";
+		std::setw(25) << ird.duration_to_next_round <<
+		std::setw(25) << ird.input_buffer_problem_count <<
+		std::setw(25) << ird.compute_buffer_problem_count <<
+		std::setw(25) << ird.ack_not_received_problem << "\n";
     }
     round_log_file.flush();
     round_log_file.close();
@@ -558,8 +590,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
         int cn = target_cn_index(timeslice);
 
-        if (!conn_[cn]->write_request_available())
+        if (!conn_[cn]->write_request_available()){
+            L_(info) << "[" << input_index_ << "]"
+        	    << "max # of writes to " << cn;
             return false;
+        }
 
         // number of bytes to skip in advance (to avoid buffer wrap)
         uint64_t skip = conn_[cn]->skip_required(total_length);

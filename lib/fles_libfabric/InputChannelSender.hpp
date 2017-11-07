@@ -163,6 +163,9 @@ private:
 	uint32_t remaining_sent_ts;
 	uint64_t duration;
 	uint64_t duration_to_next_round;
+	uint32_t input_buffer_problem_count;
+	uint32_t compute_buffer_problem_count;
+	uint32_t ack_not_received_problem;
     };
 
     /// LOGGING
