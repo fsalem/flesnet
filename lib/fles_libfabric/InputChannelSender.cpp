@@ -268,7 +268,7 @@ void InputChannelSender::check_send_timeslices()
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
 	    next_check_time;
 
-    uint32_t sent_count = 0,
+    int32_t sent_count = 0,
 	    input_buffer_problem_count = 0,
 	    compute_buffer_problem_count = 0,
 	    ack_not_received_problem = 0;
@@ -462,7 +462,7 @@ void InputChannelSender::operator()()
 
 void InputChannelSender::build_scheduled_time_file(){
     std::ofstream log_file;
-    log_file.open(std::to_string(input_index_)+".proposed_actual_interval_info.out");
+    log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info.out");
 
     log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "proposed time" <<
@@ -487,7 +487,7 @@ void InputChannelSender::build_scheduled_time_file(){
 
 //////////////////////////////////////////////////////////////////////
     std::ofstream times_log_file;
-    times_log_file.open(std::to_string(input_index_)+".proposed_all_start_times.out");
+    times_log_file.open(std::to_string(input_index_)+".input.proposed_all_start_times.out");
 
     times_log_file << std::setw(25) << "Interval";
     for (int i=0 ; i < conn_.size() ; i++){
@@ -510,7 +510,7 @@ void InputChannelSender::build_scheduled_time_file(){
 
 /////////////////////////////////////////////////////////////////
     std::ofstream block_log_file;
-    block_log_file.open(std::to_string(input_index_)+".scheduler_blocked_times.out");
+    block_log_file.open(std::to_string(input_index_)+".input.scheduler_blocked_times.out");
 
     block_log_file << std::setw(25) << "Interval" <<
 	std::setw(25) << "blocked duration" << "\n";
@@ -526,8 +526,21 @@ void InputChannelSender::build_scheduled_time_file(){
     block_log_file.close();
 
 /////////////////////////////////////////////////////////////////
+    std::ofstream duration_log_file;
+    duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
+
+    duration_log_file << std::setw(25) << "Timeslice" <<
+	std::setw(25) << "Duration" << "\n";
+
+    for (std::pair<uint64_t, uint64_t> dur: timeslice_duration_log_){
+	duration_log_file << std::setw(25) << dur.first <<
+			    std::setw(25) << dur.first << "\n";
+    }
+    duration_log_file.flush();
+    duration_log_file.close();
+/////////////////////////////////////////////////////////////////
     std::ofstream round_log_file;
-    round_log_file.open(std::to_string(input_index_)+".interval_round_info.out");
+    round_log_file.open(std::to_string(input_index_)+".input.interval_round_info.out");
 
     round_log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "Round" <<
@@ -832,6 +845,10 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
         conn_[cn]->add_sent_duration(ts, duration);
+
+        /// LOGGING
+        timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
+        /// END LOGGING
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
