@@ -333,7 +333,7 @@ void InputChannelSender::check_send_timeslices()
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
 	if (false){
-	    L_(info) << "[i " << input_index_ << "] "
+	    L_(trace) << "[i " << input_index_ << "] "
 		      << "check a new round after "
 		      << std::chrono::duration_cast<std::chrono::milliseconds>(
 				next_check_time - now).count() << " ms";
