@@ -66,6 +66,12 @@ private:
     void make_endpoint_named(struct fi_info* info, const std::string& hostname,
                              const std::string& service, struct fid_ep** ep);
 
+    /// Check if a complete timeslice should be received but status messages are received early.
+    void process_pending_complete_timeslices();
+
+    /// Check if a timeslice is received completely
+    bool check_complete_timeslices(uint64_t ts_pos);
+
     void build_time_file();
     void build_time_interval_file();
 
@@ -104,5 +110,7 @@ private:
     TimesliceScheduler* timeslice_scheduler_;
 
     std::vector<double> completed_ts;
+
+    std::set<uint64_t> pending_complete_ts_;
 };
 }

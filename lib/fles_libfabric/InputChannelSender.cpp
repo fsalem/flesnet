@@ -28,9 +28,9 @@ InputChannelSender::InputChannelSender(
       intervals_info_(ConstVariables::MAX_HISTORY_SIZE)
 {
 
-    start_index_desc_ = sent_desc_ = acked_desc_ = cached_acked_desc_ =
+    start_index_desc_ = sent_desc_ = acked_desc_ = cached_sent_desc_ = cached_acked_desc_ =
         data_source.get_read_index().desc;
-    start_index_data_ = sent_data_ = acked_data_ = cached_acked_data_ =
+    start_index_data_ = sent_data_ = acked_data_ = cached_sent_data_ = cached_acked_data_ =
         data_source.get_read_index().data;
 
     size_t min_ack_buffer_size =
@@ -79,14 +79,14 @@ void InputChannelSender::report_status()
         std::chrono::system_clock::now();
     SendBufferStatus status_desc{now,
                                  data_source_.desc_buffer().size(),
-                                 cached_acked_desc_,
-                                 acked_desc_,
+                                 cached_sent_desc_,
+                                 sent_desc_,
                                  sent_desc_,
                                  written_desc};
     SendBufferStatus status_data{now,
                                  data_source_.data_buffer().size(),
-                                 cached_acked_data_,
-                                 acked_data_,
+                                 cached_sent_data_,
+                                 sent_data_,
                                  sent_data_,
                                  written_data};
 
@@ -128,10 +128,15 @@ void InputChannelSender::report_status()
 
 void InputChannelSender::sync_data_source(bool schedule)
 {
-    if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
+    /*if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
         cached_acked_data_ = acked_data_;
         cached_acked_desc_ = acked_desc_;
         data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
+    }*/
+    if (sent_data_ > cached_sent_data_ || sent_desc_ > cached_sent_desc_) {
+	cached_sent_data_ = sent_data_;
+	cached_sent_desc_ = sent_desc_;
+	data_source_.set_read_index({cached_sent_desc_, cached_sent_data_});
     }
 
     if (schedule) {
@@ -279,9 +284,9 @@ void InputChannelSender::check_send_timeslices()
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
 	/// LOGGING
-	if (conn_[conn_index]->get_last_acked_timeslice() != conn_[conn_index]->get_last_sent_timeslice())ack_not_received_problem++;
+	//if (conn_[conn_index]->get_last_acked_timeslice() != conn_[conn_index]->get_last_sent_timeslice())ack_not_received_problem++;
 	/// END LOGGING
-	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts && conn_[conn_index]->get_last_acked_timeslice() == conn_[conn_index]->get_last_sent_timeslice()){
+	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts /*&& conn_[conn_index]->get_last_acked_timeslice() == conn_[conn_index]->get_last_sent_timeslice()*/){
 	    if (try_send_timeslice(next_ts)){
 		conn_[conn_index]->set_last_sent_timeslice(next_ts);
 		conn_[conn_index]->add_sent_time(next_ts, now);
@@ -873,7 +878,10 @@ void InputChannelSender::on_completion(uint64_t wr_id)
             } while (ack_.at(acked_ts) > ts);
 
             acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
-            acked_data_ =
+            if (acked_desc_ >= cached_acked_desc_ + min_acked_desc_){
+        	cached_acked_desc_ = acked_desc_;
+            }
+            /*acked_data_ =
                 data_source_.desc_buffer().at(acked_desc_ - 1).offset +
                 data_source_.desc_buffer().at(acked_desc_ - 1).size;
             if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
@@ -882,7 +890,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
                 cached_acked_desc_ = acked_desc_;
                 data_source_.set_read_index(
                     {cached_acked_desc_, cached_acked_data_});
-            }
+            }*/
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "

@@ -341,6 +341,7 @@ void TimesliceBuilder::operator()()
 
         sync_buffer_positions();
         report_status();
+        process_pending_complete_timeslices();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
@@ -478,24 +479,10 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             uint64_t new_completely_written = (*new_red_lantern)->cn_wp().desc;
             red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);
 
-            double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
 //            int last_completed_ts_size = completed_ts.size();
             for (uint64_t tpos = completely_written_;
                  tpos < new_completely_written; ++tpos) {
-                if (!drop_) {
-                    uint64_t ts_index = UINT64_MAX;
-                    if (conn_.size() > 0) {
-                        ts_index = timeslice_buffer_.get_desc(0, tpos).ts_num;
-                    }
-                    timeslice_buffer_.send_work_item(
-                        {{ts_index, tpos, timeslice_size_,
-                          static_cast<uint32_t>(conn_.size())},
-                         timeslice_buffer_.get_data_size_exp(),
-                         timeslice_buffer_.get_desc_size_exp()});
-                } else {
-                    timeslice_buffer_.send_completion({tpos});
-                }
-                completed_ts.push_back(time);
+        	pending_complete_ts_.insert(tpos);
             }
             completely_written_ = new_completely_written;
         }
@@ -520,4 +507,57 @@ void TimesliceBuilder::poll_ts_completion()
     } else
         ack_.at(c.ts_pos) = c.ts_pos;
 }
+
+bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
+{
+    bool all_received = true;
+    for (uint32_t indx = 0 ; indx < conn_.size() ; indx++){
+	const fles::TimesliceComponentDescriptor& acked_ts =
+		timeslice_buffer_.get_desc(indx, ts_pos);
+	/*L_(info) << "[process_pending_complete_timeslices] desc = " << ts_pos
+		    << ", acked_ts.size = " << acked_ts.size
+		    << ", acked_ts.offset = " << acked_ts.offset
+		    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
+		    << ", acked_ts.ts_num = " << acked_ts.ts_num;*/
+	if (acked_ts.num_microslices == ConstVariables::ZERO || acked_ts.size == ConstVariables::ZERO){
+	    all_received = false;
+	    break;
+	}
+    }
+    return all_received;
+}
+
+void TimesliceBuilder::process_pending_complete_timeslices()
+{
+    //L_(info) << "Start a new round of process_pending_complete_timeslices";
+    double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
+    uint64_t last_processed_ts = ConstVariables::MINUS_ONE;
+    for (uint64_t ts_pos : pending_complete_ts_){
+	// check whether all contributions are received!
+	//L_(info) << "ts_pos = " << ts_pos;
+	if (!check_complete_timeslices(ts_pos)) break;
+	if (!drop_) {
+	    const fles::TimesliceComponentDescriptor& acked_ts = timeslice_buffer_.get_desc(0, ts_pos);
+	    uint64_t ts_index = acked_ts.ts_num;
+	    timeslice_buffer_.send_work_item(
+		{{ts_index, ts_pos, timeslice_size_,
+		  static_cast<uint32_t>(conn_.size())},
+		 timeslice_buffer_.get_data_size_exp(),
+		 timeslice_buffer_.get_desc_size_exp()});
+	} else {
+	    timeslice_buffer_.send_completion({ts_pos});
+	}
+	last_processed_ts = ts_pos;
+	completed_ts.push_back(time);
+    }
+    if (last_processed_ts != ConstVariables::MINUS_ONE){
+	std::set<uint64_t>::iterator last_processed_it = pending_complete_ts_.find(last_processed_ts);
+	pending_complete_ts_.erase(pending_complete_ts_.begin(), ++last_processed_it);
+    }
+
+    //L_(info) << "End of process_pending_complete_timeslices";
+    scheduler_.add(std::bind(&TimesliceBuilder::process_pending_complete_timeslices, this),
+	    std::chrono::system_clock::now() + std::chrono::milliseconds(0));
+}
+
 }
