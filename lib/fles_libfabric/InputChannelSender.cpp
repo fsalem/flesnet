@@ -67,11 +67,14 @@ void InputChannelSender::report_status()
     // if data_source.written pointers are lagging behind due to lazy updates,
     // use sent value instead
     uint64_t written_desc = data_source_.get_write_index().desc;
-    if (written_desc < sent_desc_) {
+    // old implementation was (written_desc < sent_desc_) when data_source_.set_read_index was called after receiving the acknowledgment.
+    // The current implementation will call the data_source_.set_read_index after sending a contribution without waiting for the acknowledgment,
+    // so that old implementation would cause written > cached_acked + size!
+    if (written_desc > sent_desc_) {
         written_desc = sent_desc_;
     }
     uint64_t written_data = data_source_.get_write_index().data;
-    if (written_data < sent_data_) {
+    if (written_data > sent_data_) {
         written_data = sent_data_;
     }
 
@@ -79,14 +82,14 @@ void InputChannelSender::report_status()
         std::chrono::system_clock::now();
     SendBufferStatus status_desc{now,
                                  data_source_.desc_buffer().size(),
-                                 cached_sent_desc_,
-                                 sent_desc_,
+                                 cached_acked_desc_,
+                                 acked_desc_,
                                  sent_desc_,
                                  written_desc};
     SendBufferStatus status_data{now,
                                  data_source_.data_buffer().size(),
-                                 cached_sent_data_,
-                                 sent_data_,
+                                 cached_acked_data_,
+                                 acked_data_,
                                  sent_data_,
                                  written_data};
 
@@ -143,7 +146,7 @@ void InputChannelSender::sync_data_source(bool schedule)
         auto now = std::chrono::system_clock::now();
         scheduler_.add(
             std::bind(&InputChannelSender::sync_data_source, this, true),
-            now + std::chrono::milliseconds(100));
+            now + std::chrono::milliseconds(0));
     }
 }
 
@@ -275,18 +278,14 @@ void InputChannelSender::check_send_timeslices()
 
     int32_t sent_count = 0,
 	    input_buffer_problem_count = 0,
-	    compute_buffer_problem_count = 0,
-	    ack_not_received_problem = 0;
+	    compute_buffer_problem_count = 0;
 
     uint32_t conn_index = input_index_ % conn_.size();
     while (true){
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
-	/// LOGGING
-	//if (conn_[conn_index]->get_last_acked_timeslice() != conn_[conn_index]->get_last_sent_timeslice())ack_not_received_problem++;
-	/// END LOGGING
-	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts /*&& conn_[conn_index]->get_last_acked_timeslice() == conn_[conn_index]->get_last_sent_timeslice()*/){
+	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts){
 	    if (try_send_timeslice(next_ts)){
 		conn_[conn_index]->set_last_sent_timeslice(next_ts);
 		conn_[conn_index]->add_sent_time(next_ts, now);
@@ -334,7 +333,14 @@ void InputChannelSender::check_send_timeslices()
     sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
     std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
     std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
-    input_buffer_problem_count, compute_buffer_problem_count, ack_not_received_problem});
+    input_buffer_problem_count, compute_buffer_problem_count});
+
+    if (false){
+	L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->count_rounds <<
+		", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
+		", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
+		" us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";
+    }
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
 	if (false){
@@ -566,8 +572,7 @@ void InputChannelSender::build_scheduled_time_file(){
 		std::setw(25) << "duration" <<
 		std::setw(25) << "time to next round" <<
 		std::setw(25) << "IB problem" <<
-		std::setw(25) << "CB problem" <<
-		std::setw(25) << "ACK problem"<< "\n";
+		std::setw(25) << "CB problem" << "\n";
 
 	for (IntervalRoundDuration ird : interval_rounds_info_log_){
 	    round_log_file << std::setw(25) << ird.interval_index <<
@@ -577,8 +582,7 @@ void InputChannelSender::build_scheduled_time_file(){
 		    std::setw(25) << ird.duration <<
 		    std::setw(25) << ird.duration_to_next_round <<
 		    std::setw(25) << ird.input_buffer_problem_count <<
-		    std::setw(25) << ird.compute_buffer_problem_count <<
-		    std::setw(25) << ird.ack_not_received_problem << "\n";
+		    std::setw(25) << ird.compute_buffer_problem_count << "\n";
 	}
 	round_log_file.flush();
 	round_log_file.close();
@@ -881,16 +885,14 @@ void InputChannelSender::on_completion(uint64_t wr_id)
             if (acked_desc_ >= cached_acked_desc_ + min_acked_desc_){
         	cached_acked_desc_ = acked_desc_;
             }
-            /*acked_data_ =
+            acked_data_ =
                 data_source_.desc_buffer().at(acked_desc_ - 1).offset +
                 data_source_.desc_buffer().at(acked_desc_ - 1).size;
             if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
                 acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
                 cached_acked_data_ = acked_data_;
                 cached_acked_desc_ = acked_desc_;
-                data_source_.set_read_index(
-                    {cached_acked_desc_, cached_acked_data_});
-            }*/
+            }
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "

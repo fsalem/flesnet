@@ -168,7 +168,6 @@ private:
 	int64_t duration_to_next_round;
 	int32_t input_buffer_problem_count;
 	int32_t compute_buffer_problem_count;
-	int32_t ack_not_received_problem;
     };
 
     /// LOGGING
