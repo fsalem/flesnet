@@ -247,18 +247,19 @@ private:
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
-	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval);
+	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
+	    uint64_t enhanced_interval_duration = std::min(interval_info.second, median_interval_duration) * (ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR) / ConstVariables::ONE_HUNDRED;
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
 			<< last_completed_interval << " with duration "
 			<< interval_info.second << " us and the requested interval: "
 			<< interval_index << " with duration "
-			<< (median_interval_duration/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED;
+			<< enhanced_interval_duration;
 	    }
 	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
-		    interval_info.first + std::chrono::microseconds(interval_info.second * (interval_index - last_completed_interval)),
-		    (median_interval_duration/input_node_count_)*(ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR)/ConstVariables::ONE_HUNDRED);
+		    interval_info.first + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
+		    enhanced_interval_duration);
 
 
 	   /* std::map<uint64_t, std::vector<int64_t> >::iterator it = proposed_times_log_.find(timeslice);
