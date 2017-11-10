@@ -64,6 +64,7 @@ void InputChannelSender::report_status()
 {
     constexpr auto interval = std::chrono::seconds(1);
 
+    /*
     // if data_source.written pointers are lagging behind due to lazy updates,
     // use sent value instead
     uint64_t written_desc = data_source_.get_write_index().desc;
@@ -76,7 +77,7 @@ void InputChannelSender::report_status()
     uint64_t written_data = data_source_.get_write_index().data;
     if (written_data > sent_data_) {
         written_data = sent_data_;
-    }
+    }*/
 
     std::chrono::system_clock::time_point now =
         std::chrono::system_clock::now();
@@ -84,14 +85,14 @@ void InputChannelSender::report_status()
                                  data_source_.desc_buffer().size(),
                                  cached_acked_desc_,
                                  acked_desc_,
-                                 sent_desc_,
-                                 written_desc};
+                                 cached_sent_desc_,
+                                 written_desc_};
     SendBufferStatus status_data{now,
                                  data_source_.data_buffer().size(),
                                  cached_acked_data_,
                                  acked_data_,
-                                 sent_data_,
-                                 written_data};
+                                 cached_sent_data_,
+                                 written_data_};
 
     double delta_t =
         std::chrono::duration<double, std::chrono::seconds::period>(
@@ -135,12 +136,12 @@ void InputChannelSender::sync_data_source(bool schedule)
         cached_acked_data_ = acked_data_;
         cached_acked_desc_ = acked_desc_;
         data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
-    }*/
+    }
     if (sent_data_ > cached_sent_data_ || sent_desc_ > cached_sent_desc_) {
 	cached_sent_data_ = sent_data_;
 	cached_sent_desc_ = sent_desc_;
-	data_source_.set_read_index({cached_sent_desc_, cached_sent_data_});
-    }
+    }*/
+    data_source_.set_read_index({sent_desc_, sent_data_});
 
     if (schedule) {
         auto now = std::chrono::system_clock::now();
@@ -893,6 +894,19 @@ void InputChannelSender::on_completion(uint64_t wr_id)
                 cached_acked_data_ = acked_data_;
                 cached_acked_desc_ = acked_desc_;
             }
+	    // old implementation was (written_desc < sent_desc_) when data_source_.set_read_index was called after receiving the acknowledgment.
+	    // The current implementation will call the data_source_.set_read_index after sending a contribution without waiting for the acknowledgment,
+	    // so that old implementation would cause written > cached_acked + size!
+	    written_desc_ = data_source_.get_write_index().desc;
+	    if (written_desc_ > sent_desc_) {
+		written_desc_ = sent_desc_;
+		cached_sent_desc_ = sent_desc_;
+	    }
+	    written_data_ = data_source_.get_write_index().data;
+	    if (written_data_ > sent_data_) {
+		written_data_ = sent_data_;
+		cached_sent_data_ = sent_data_;
+	    }
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "

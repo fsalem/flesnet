@@ -146,6 +146,9 @@ private:
     uint64_t cached_sent_data_ = 0;
     uint64_t cached_sent_desc_ = 0;
 
+    uint64_t written_data_ = 0;
+    uint64_t written_desc_ = 0;
+
     uint64_t start_index_desc_;
     uint64_t start_index_data_;
 
