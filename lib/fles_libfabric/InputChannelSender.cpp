@@ -163,9 +163,9 @@ void InputChannelSender::send_timeslice()
       }else{
 	  timeslice += conn_.size();
       }
-      /*if (timeslice > max_timeslice_number_ || conn_[i]->get_acked_time_list().size() != conn_[i]->get_sent_time_size()){
+      if (timeslice > max_timeslice_number_/* || conn_[i]->get_acked_time_list().size() != conn_[i]->get_sent_time_size()*/){
 	  continue;
-      }*/
+      }
 
       if (try_send_timeslice(timeslice)) {
 	  conn_[i]->set_last_sent_timeslice(timeslice);
