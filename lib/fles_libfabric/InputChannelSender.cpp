@@ -220,8 +220,6 @@ InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_in
     interval_info->start_ts = get_interval_start_ts(interval_index);
     interval_info->end_ts = get_interval_start_ts(interval_index+1) - 1;
     set_interval_proposed_info(interval_info);
-    interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
-
     return interval_info;
 
 }
@@ -264,6 +262,9 @@ InputIntervalInfo* InputChannelSender::add_new_interval(uint64_t interval_index)
 void InputChannelSender::check_send_timeslices()
 {
     InputIntervalInfo* interval_info = add_new_interval(current_interval_);
+    if (interval_info->count_rounds == ConstVariables::ZERO){
+	interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
+    }
     interval_info->count_rounds++;
 
     if (false){
