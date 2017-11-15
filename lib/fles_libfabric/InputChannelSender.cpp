@@ -149,7 +149,7 @@ void InputChannelSender::sync_data_source(bool schedule)
         auto now = std::chrono::system_clock::now();
         scheduler_.add(
             std::bind(&InputChannelSender::sync_data_source, this, true),
-            now + std::chrono::milliseconds(100));
+            now + std::chrono::milliseconds(0));
     }
 }
 
@@ -163,9 +163,9 @@ void InputChannelSender::send_timeslice()
       }else{
 	  timeslice += conn_.size();
       }
-      if (timeslice > max_timeslice_number_ || conn_[i]->get_acked_time_list().size() != conn_[i]->get_sent_time_size()){
+      /*if (timeslice > max_timeslice_number_ || conn_[i]->get_acked_time_list().size() != conn_[i]->get_sent_time_size()){
 	  continue;
-      }
+      }*/
 
       if (try_send_timeslice(timeslice)) {
 	  conn_[i]->set_last_sent_timeslice(timeslice);
@@ -562,6 +562,9 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
+
+        conn_[cn]->add_acked_time(std::chrono::duration_cast<std::chrono::microseconds>(
+		  std::chrono::high_resolution_clock::now() - time_begin_).count());
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
