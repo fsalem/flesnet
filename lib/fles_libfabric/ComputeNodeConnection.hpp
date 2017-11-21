@@ -144,6 +144,8 @@ public:
 
     bool is_connection_finalized();
 
+    uint64_t early_sync = MINUS_ONE;
+
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
@@ -153,6 +155,7 @@ private:
     ComputeNodeBufferPosition cn_wp_ = ComputeNodeBufferPosition();
 
     uint64_t late_desc = 0; ///< The position in the description buffer which other compute connections have acked it.
+
 
     struct fid_mr* mr_data_ = nullptr;
     struct fid_mr* mr_desc_ = nullptr;

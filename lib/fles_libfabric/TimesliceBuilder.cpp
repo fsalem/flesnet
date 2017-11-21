@@ -346,6 +346,9 @@ void TimesliceBuilder::operator()()
             if (connected_ != 0) {
                 poll_cm_events();
             }
+            for (auto& connection : conn_)
+              if (connection->early_sync != MINUS_ONE)
+        	  connection->inc_ack_pointers(connection->early_sync);
             scheduler_.timer();
             if (*signal_status_ != 0) {
                 *signal_status_ = 0;
