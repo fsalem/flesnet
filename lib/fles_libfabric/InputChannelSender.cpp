@@ -381,12 +381,18 @@ void InputChannelSender::connect()
 
     //int rc = MPI_Barrier(MPI_COMM_WORLD);
     //assert(rc == MPI_SUCCESS);
-    for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
+    conn_.resize(compute_hostnames_.size());
+    uint32_t count = 0;
+    unsigned int i = input_index_%compute_hostnames_.size();
+    while (count < compute_hostnames_.size()) {
+    //for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
             create_input_node_connection(i);
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
                             cq_, av_, FI_ADDR_UNSPEC);
-        conn_.push_back(std::move(connection));
+        conn_.at(i) = (std::move(connection));
+	++count;
+	i = (i+1) % compute_hostnames_.size();
     }
 }
 
