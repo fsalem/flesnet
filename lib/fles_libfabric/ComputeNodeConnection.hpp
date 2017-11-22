@@ -68,6 +68,8 @@ public:
 
     void inc_ack_pointers(uint64_t ack_pos);
 
+    void update_ack_pointers(uint64_t ack_pos);
+
     void on_complete_recv();
 
     void on_complete_send();
@@ -143,8 +145,6 @@ public:
     void set_remote_info(InputNodeInfo remote_info);
 
     bool is_connection_finalized();
-
-    uint64_t early_sync = MINUS_ONE;
 
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();

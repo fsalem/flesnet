@@ -234,7 +234,7 @@ void ComputeNodeConnection::on_disconnected(struct fi_eq_cm_entry* event)
 void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 {
   //L_(info) << "[" << index_ << "] late_desc = " << late_desc << ", sent = " << cn_wp().desc << ", acked = " << cn_ack_.desc << ", ack_pos = " << ack_pos;
-    if (ack_pos <= cn_ack_.desc) return;
+    if (ack_pos == 0 || ack_pos <= cn_ack_.desc) return;
 
     if (late_desc < ack_pos) {
 	late_desc = ack_pos;
@@ -242,18 +242,19 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
     if (cn_wp().desc < ack_pos) {
 	ack_pos = cn_wp().desc;
     }
+    update_ack_pointers(ack_pos);
+}
+
+void ComputeNodeConnection::update_ack_pointers(uint64_t ack_pos)
+{
+    if (ack_pos == 0 || ack_pos <= cn_ack_.desc)return;
 
     const fles::TimesliceComponentDescriptor& acked_ts =
-            desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
-    if (acked_ts.offset + acked_ts.size == 0){
-	if (early_sync == MINUS_ONE || ack_pos > early_sync)
-	  early_sync = ack_pos;
-    }else{
-	cn_ack_.desc = ack_pos;
-	cn_ack_.data = acked_ts.offset + acked_ts.size;
-	early_sync = MINUS_ONE;
-	send_status_message_.ack = cn_ack_;
-	post_send_status_message();
+              desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
+    if (acked_ts.offset + acked_ts.size != 0){
+      cn_ack_.desc = ack_pos;
+      cn_ack_.data = acked_ts.offset + acked_ts.size;
+      send_status_message_.ack = cn_ack_;
     }
 }
 
@@ -276,9 +277,10 @@ void ComputeNodeConnection::on_complete_recv()
 
     post_recv_status_message();
 
-    if (late_desc > cn_ack_.desc && cn_wp_.desc > cn_ack_.desc){
-	inc_ack_pointers(late_desc > cn_wp_.desc ? cn_wp_.desc : late_desc);
+    if (cn_wp_.desc > cn_ack_.desc && cn_ack_.desc < late_desc){
+	update_ack_pointers(std::min(cn_wp_.desc, late_desc));
     }
+    post_send_status_message();
 }
 
 void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }
