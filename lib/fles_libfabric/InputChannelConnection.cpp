@@ -294,15 +294,15 @@ void InputChannelConnection::on_complete_recv()
     post_recv_status_message();
 
     if (get_partner_addr() || connection_oriented_) {
-            if (cn_wp_ == send_status_message_.wp && finalize_) {
-                if (cn_wp_ == cn_ack_ || abort_) {
-                    send_status_message_.final = true;
-                    send_status_message_.abort = abort_;
-                }
-                post_send_status_message();
-            } else {
-                our_turn_ = true;
-            }
+	if (cn_wp_ == send_status_message_.wp && finalize_) {
+	    if (cn_wp_ == cn_ack_ || abort_) {
+		send_status_message_.final = true;
+		send_status_message_.abort = abort_;
+	    }
+	    post_send_status_message();
+	} else {
+	    our_turn_ = true;
+	}
     }
 }
 

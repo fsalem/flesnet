@@ -192,8 +192,8 @@ void InputChannelSender::bootstrap_wo_connections()
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
 
-    //int rc = MPI_Barrier(MPI_COMM_WORLD);
-    //assert(rc == MPI_SUCCESS);
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
     // setup connections objects
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
@@ -235,8 +235,8 @@ void InputChannelSender::operator()()
 
         full_buffer.resize(compute_hostnames_.size(), 0.0);
         data_source_.proceed();
-        //int rc = MPI_Barrier(MPI_COMM_WORLD);
-        //assert(rc == MPI_SUCCESS);
+        int rc = MPI_Barrier(MPI_COMM_WORLD);
+        assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         sync_buffer_positions();
@@ -379,8 +379,8 @@ void InputChannelSender::connect()
         init_context(Provider::getInst()->get_info(), compute_hostnames_,
                      compute_services_);
 
-    //int rc = MPI_Barrier(MPI_COMM_WORLD);
-    //assert(rc == MPI_SUCCESS);
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     uint32_t count = 0;
     unsigned int i = input_index_%compute_hostnames_.size();
