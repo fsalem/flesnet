@@ -429,7 +429,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
-        if (connected_ == conn_.size() && in == red_lantern_) {
+        /*if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
                 std::begin(conn_), std::end(conn_),
                 [](const std::unique_ptr<ComputeNodeConnection>& v1,
@@ -458,7 +458,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             }
 
             completely_written_ = new_completely_written;
-        }
+        }*/
         break;
 
     default:

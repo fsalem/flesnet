@@ -147,7 +147,7 @@ void InputChannelSender::sync_data_source(bool schedule)
         auto now = std::chrono::system_clock::now();
         scheduler_.add(
             std::bind(&InputChannelSender::sync_data_source, this, true),
-            now + std::chrono::milliseconds(100));
+            now + std::chrono::milliseconds(0));
     }
 }
 
@@ -212,10 +212,17 @@ void InputChannelSender::operator()()
 
         uint64_t timeslice = 0;
         sync_buffer_positions();
-        sync_data_source(true);
-        report_status();
+        //sync_data_source(true);
+        //report_status();
         while (timeslice < max_timeslice_number_ && !abort_) {
             if (try_send_timeslice(timeslice)) {
+		//L_(info) << "ts " << timeslice;
+		uint64_t sent_desc = timeslice * timeslice_size_ + start_index_desc_;
+                uint64_t sent_data =
+                data_source_.desc_buffer().at(sent_desc - 1).offset +
+                data_source_.desc_buffer().at(sent_desc - 1).size;
+		//L_(info) << "sent " << timeslice << ", sent_desc = " << sent_desc << ", sent_data = " << sent_data;
+		data_source_.set_read_index({sent_desc, sent_data});
                 timeslice++;
             }
             poll_completion();
@@ -228,7 +235,7 @@ void InputChannelSender::operator()()
             poll_completion();
             scheduler_.timer();
         }
-        sync_data_source(false);
+        //sync_data_source(false);
 
         L_(debug) << "[i " << input_index_ << "] "
                   << "Finalize Connections";
@@ -311,7 +318,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             sent_data_ = data_end;
 
             return true;
-        }
+        }else{
+	     //L_(info) << "timeslice#" << timeslice << " is blocked because of CB";
+	}
+    }else{
+	 L_(info) << "timeslice#" << timeslice << " is blocked because of IB";
     }
 
     return false;
@@ -345,12 +356,19 @@ void InputChannelSender::connect()
 
     int rc = MPI_Barrier(MPI_COMM_WORLD);
     assert(rc == MPI_SUCCESS);
-    for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
+    conn_.resize(compute_hostnames_.size());
+    uint32_t count = 0;
+    unsigned int i = input_index_%compute_hostnames_.size();
+    while (count < compute_hostnames_.size()) {
+    //for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
             create_input_node_connection(i);
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
                             cq_, av_, FI_ADDR_UNSPEC);
-        conn_.push_back(std::move(connection));
+        //conn_.push_back(std::move(connection));
+	conn_.at(i) = (std::move(connection));
+	++count;
+	i = (i+1) % compute_hostnames_.size();
     }
 }
 
@@ -545,8 +563,9 @@ void InputChannelSender::on_completion(uint64_t wr_id)
                 acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
                 cached_acked_data_ = acked_data_;
                 cached_acked_desc_ = acked_desc_;
-                data_source_.set_read_index(
-                    {cached_acked_desc_, cached_acked_data_});
+		//L_(info) << "acked " << ts << ", acked_desc = " << acked_desc_ << ", acked_data = " << acked_data_;
+                //data_source_.set_read_index(
+                  //  {cached_acked_desc_, cached_acked_data_});
             }
         }
         if (false) {

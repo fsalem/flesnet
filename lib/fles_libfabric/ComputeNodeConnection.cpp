@@ -233,11 +233,14 @@ void ComputeNodeConnection::on_disconnected(struct fi_eq_cm_entry* event)
 
 void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 {
-    cn_ack_.desc = ack_pos;
+    if (ack_pos == 0 || ack_pos <= cn_ack_.desc)return;
+    
+    //cn_ack_.desc = ack_pos;
 
     const fles::TimesliceComponentDescriptor& acked_ts =
         desc_ptr_[(ack_pos - 1) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1)];
-
+    if (acked_ts.size == 0)return;
+    cn_ack_.desc = ack_pos;
     cn_ack_.data = acked_ts.offset + acked_ts.size;
 }
 
@@ -257,6 +260,7 @@ void ComputeNodeConnection::on_complete_recv()
     }
     cn_wp_ = recv_status_message_.wp;
     post_recv_status_message();
+    inc_ack_pointers(cn_wp_.desc);
     send_status_message_.ack = cn_ack_;
     post_send_status_message();
 }
