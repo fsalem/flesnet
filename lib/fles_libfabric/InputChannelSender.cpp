@@ -213,7 +213,7 @@ void InputChannelSender::operator()()
         uint64_t timeslice = 0;
         sync_buffer_positions();
         //sync_data_source(true);
-        //report_status();
+        report_status();
         while (timeslice < max_timeslice_number_ && !abort_) {
             if (try_send_timeslice(timeslice)) {
 		//L_(info) << "ts " << timeslice;

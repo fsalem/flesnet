@@ -156,8 +156,8 @@ private:
         }
         int64_t unused() const
         {
-            assert(written <= cached_acked + size);
-            return cached_acked + size - written;
+            assert(written <= sent + size);
+            return sent + size - written;
         }
 
         float percentage(int64_t value) const
