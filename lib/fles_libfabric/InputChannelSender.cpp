@@ -64,90 +64,90 @@ void InputChannelSender::report_status()
 {
     constexpr auto interval = std::chrono::seconds(1);
 
-    /*
-    // if data_source.written pointers are lagging behind due to lazy updates,
-    // use sent value instead
-    uint64_t written_desc = data_source_.get_write_index().desc;
-    // old implementation was (written_desc < sent_desc_) when data_source_.set_read_index was called after receiving the acknowledgment.
-    // The current implementation will call the data_source_.set_read_index after sending a contribution without waiting for the acknowledgment,
-    // so that old implementation would cause written > cached_acked + size!
-    if (written_desc > sent_desc_) {
-        written_desc = sent_desc_;
-    }
-    uint64_t written_data = data_source_.get_write_index().data;
-    if (written_data > sent_data_) {
-        written_data = sent_data_;
-    }*/
+        // if data_source.written pointers are lagging behind due to lazy updates,
+        // use sent value instead
+        uint64_t written_desc = data_source_.get_write_index().desc;
+        if (written_desc < sent_desc_) {
+            written_desc = sent_desc_;
+        }
+        uint64_t written_data = data_source_.get_write_index().data;
+        if (written_data < sent_data_) {
+            written_data = sent_data_;
+        }
 
-    std::chrono::system_clock::time_point now =
-        std::chrono::system_clock::now();
-    SendBufferStatus status_desc{now,
-                                 data_source_.desc_buffer().size(),
-                                 cached_acked_desc_,
-                                 acked_desc_,
-                                 cached_sent_desc_,
-                                 written_desc_};
-    SendBufferStatus status_data{now,
-                                 data_source_.data_buffer().size(),
-                                 cached_acked_data_,
-                                 acked_data_,
-                                 cached_sent_data_,
-                                 written_data_};
+        std::chrono::system_clock::time_point now =
+            std::chrono::system_clock::now();
+        SendBufferStatus status_desc{now,
+                                     data_source_.desc_buffer().size(),
+                                     cached_acked_desc_,
+                                     acked_desc_,
+                                     sent_desc_,
+                                     written_desc};
+        SendBufferStatus status_data{now,
+                                     data_source_.data_buffer().size(),
+                                     cached_acked_data_,
+                                     acked_data_,
+                                     sent_data_,
+                                     written_data};
 
-    double delta_t =
-        std::chrono::duration<double, std::chrono::seconds::period>(
-            status_desc.time - previous_send_buffer_status_desc_.time)
-            .count();
-    double rate_desc =
-        static_cast<double>(status_desc.acked -
-                            previous_send_buffer_status_desc_.acked) /
-        delta_t;
-    double rate_data =
-        static_cast<double>(status_data.acked -
-                            previous_send_buffer_status_data_.acked) /
-        delta_t;
+        double delta_t =
+            std::chrono::duration<double, std::chrono::seconds::period>(
+                status_desc.time - previous_send_buffer_status_desc_.time)
+                .count();
+        double rate_desc =
+            static_cast<double>(status_desc.acked -
+                                previous_send_buffer_status_desc_.acked) /
+            delta_t;
+        double rate_data =
+            static_cast<double>(status_data.acked -
+                                previous_send_buffer_status_data_.acked) /
+            delta_t;
 
-    L_(debug) << "[i" << input_index_ << "] desc " << status_desc.percentages()
-              << " (used..free) | "
-              << human_readable_count(status_desc.acked, true, "") << " ("
-              << human_readable_count(rate_desc, true, "Hz") << ")";
+        L_(debug) << "[i" << input_index_ << "] desc " << status_desc.percentages()
+                  << " (used..free) | "
+                  << human_readable_count(status_desc.acked, true, "") << " ("
+                  << human_readable_count(rate_desc, true, "Hz") << ")";
 
-    L_(debug) << "[i" << input_index_ << "] data " << status_data.percentages()
-              << " (used..free) | "
-              << human_readable_count(status_data.acked, true) << " ("
-              << human_readable_count(rate_data, true, "B/s") << ")";
+        L_(debug) << "[i" << input_index_ << "] data " << status_data.percentages()
+                  << " (used..free) | "
+                  << human_readable_count(status_data.acked, true) << " ("
+                  << human_readable_count(rate_data, true, "B/s") << ")";
 
-    L_(info) << "[i" << input_index_ << "]   |"
-             << bar_graph(status_data.vector(), "#x._", 20) << "|"
-             << bar_graph(status_desc.vector(), "#x._", 10) << "| "
-             << human_readable_count(rate_data, true, "B/s") << " ("
-             << human_readable_count(rate_desc, true, "Hz") << ")";
+        L_(info) << "[i" << input_index_ << "]   |"
+                 << bar_graph(status_data.vector(), "#x._", 20) << "|"
+                 << bar_graph(status_desc.vector(), "#x._", 10) << "| "
+                 << human_readable_count(rate_data, true, "B/s") << " ("
+                 << human_readable_count(rate_desc, true, "Hz") << ")";
 
-    previous_send_buffer_status_desc_ = status_desc;
-    previous_send_buffer_status_data_ = status_data;
+        previous_send_buffer_status_desc_ = status_desc;
+        previous_send_buffer_status_data_ = status_data;
 
-    scheduler_.add(std::bind(&InputChannelSender::report_status, this),
-                   now + interval);
+        scheduler_.add(std::bind(&InputChannelSender::report_status, this),
+    now + interval);
 }
 
-void InputChannelSender::sync_data_source(bool schedule)
+void InputChannelSender::sync_data_source(uint64_t timeslice)
 {
-    /*if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
-        cached_acked_data_ = acked_data_;
-        cached_acked_desc_ = acked_desc_;
-        data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
-    }
-    if (sent_data_ > cached_sent_data_ || sent_desc_ > cached_sent_desc_) {
-	cached_sent_data_ = sent_data_;
-	cached_sent_desc_ = sent_desc_;
-    }*/
-    data_source_.set_read_index({sent_desc_, sent_data_});
+    uint64_t sent_ts = (cached_sent_desc_ - start_index_desc_) / timeslice_size_;
+    if (timeslice != sent_ts) {
+	// transmission has been reordered, store completion information
+	sent_.at(timeslice) = timeslice;
+    } else {
+	// completion is for earliest pending timeslice, update indices
+	do {
+	    ++sent_ts;
+	} while (sent_.at(sent_ts) > timeslice);
 
-    if (schedule) {
-        auto now = std::chrono::system_clock::now();
-        scheduler_.add(
-            std::bind(&InputChannelSender::sync_data_source, this, true),
-            now + std::chrono::milliseconds(0));
+	uint64_t temp_sent_desc = sent_ts * timeslice_size_ + start_index_desc_;
+	uint64_t temp_sent_data =
+	data_source_.desc_buffer().at(temp_sent_desc - 1).offset +
+	data_source_.desc_buffer().at(temp_sent_desc - 1).size;
+	if (temp_sent_data >= cached_sent_data_ || temp_sent_desc >= cached_sent_desc_) {
+	    cached_sent_data_ = temp_sent_data;
+	    cached_sent_desc_ = temp_sent_desc;
+	    data_source_.set_read_index(
+		    {cached_sent_desc_, cached_sent_data_});
+	}
     }
 }
 
@@ -369,8 +369,8 @@ void InputChannelSender::bootstrap_wo_connections()
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
 
-    //int rc = MPI_Barrier(MPI_COMM_WORLD);
-    //assert(rc == MPI_SUCCESS);
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     // setup connections objects
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
@@ -412,8 +412,8 @@ void InputChannelSender::operator()()
         }
 
         data_source_.proceed();
-        //int rc = MPI_Barrier(MPI_COMM_WORLD);
-        //assert(rc == MPI_SUCCESS);
+        int rc = MPI_Barrier(MPI_COMM_WORLD);
+        assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
@@ -421,7 +421,6 @@ void InputChannelSender::operator()()
         }
 
         sync_buffer_positions();
-        sync_data_source(true);
         report_status();
         check_send_timeslices();
 
@@ -442,7 +441,6 @@ void InputChannelSender::operator()()
             poll_completion();
             scheduler_.timer();
         }
-        sync_data_source(false);
 
         L_(debug) << "[i " << input_index_ << "] "
                   << "Finalize Connections";
@@ -648,6 +646,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             	sent_data_ = data_end;
             }
 
+            sync_data_source(timeslice);
             return true;
         }
     }
@@ -681,8 +680,8 @@ void InputChannelSender::connect()
         init_context(Provider::getInst()->get_info(), compute_hostnames_,
                      compute_services_);
 
-    //int rc = MPI_Barrier(MPI_COMM_WORLD);
-    //assert(rc == MPI_SUCCESS);
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
@@ -884,30 +883,14 @@ void InputChannelSender::on_completion(uint64_t wr_id)
             } while (ack_.at(acked_ts) > ts);
 
             acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
-            if (acked_desc_ >= cached_acked_desc_ + min_acked_desc_){
-        	cached_acked_desc_ = acked_desc_;
+	    acked_data_ =
+		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
+		data_source_.desc_buffer().at(acked_desc_ - 1).size;
+	    if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
+		acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
+		cached_acked_data_ = acked_data_;
+		cached_acked_desc_ = acked_desc_;
             }
-            acked_data_ =
-                data_source_.desc_buffer().at(acked_desc_ - 1).offset +
-                data_source_.desc_buffer().at(acked_desc_ - 1).size;
-            if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
-                acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
-                cached_acked_data_ = acked_data_;
-                cached_acked_desc_ = acked_desc_;
-            }
-	    // old implementation was (written_desc < sent_desc_) when data_source_.set_read_index was called after receiving the acknowledgment.
-	    // The current implementation will call the data_source_.set_read_index after sending a contribution without waiting for the acknowledgment,
-	    // so that old implementation would cause written > cached_acked + size!
-	    written_desc_ = data_source_.get_write_index().desc;
-	    if (written_desc_ > sent_desc_) {
-		written_desc_ = sent_desc_;
-		cached_sent_desc_ = sent_desc_;
-	    }
-	    written_data_ = data_source_.get_write_index().data;
-	    if (written_data_ > sent_data_) {
-		written_data_ = sent_data_;
-		cached_sent_data_ = sent_data_;
-	    }
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "

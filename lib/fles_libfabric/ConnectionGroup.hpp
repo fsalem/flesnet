@@ -21,7 +21,7 @@
 
 #include <chrono>
 #include <fstream>
-//#include <mpi.h>
+#include <mpi.h>
 
 namespace tl_libfabric
 {

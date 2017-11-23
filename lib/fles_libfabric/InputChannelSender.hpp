@@ -44,7 +44,7 @@ public:
 
     void report_status();
 
-    void sync_data_source(bool schedule);
+    void sync_data_source(uint64_t timeslice);
 
     virtual void operator()() override;
 
@@ -115,6 +115,9 @@ private:
     /// Buffer to store acknowledged status of timeslices.
     RingBuffer<uint64_t, true> ack_;
 
+    /// Buffer to store sent status of timeslices.
+    RingBuffer<uint64_t, true> sent_;
+
     /// Number of acknowledged microslices. Written to FLIB.
     uint64_t acked_desc_ = 0;
 
@@ -145,10 +148,7 @@ private:
 
     uint64_t cached_sent_data_ = 0;
     uint64_t cached_sent_desc_ = 0;
-
-    uint64_t written_data_ = 0;
-    uint64_t written_desc_ = 0;
-
+    
     uint64_t start_index_desc_;
     uint64_t start_index_data_;
 
@@ -210,8 +210,8 @@ private:
         }
         int64_t unused() const
         {
-            assert(written <= cached_acked + size);
-            return cached_acked + size - written;
+            assert(written <= sent + size);
+            return sent + size - written;
         }
 
         float percentage(int64_t value) const
