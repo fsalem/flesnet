@@ -36,6 +36,7 @@ InputChannelSender::InputChannelSender(
     size_t min_ack_buffer_size =
         data_source_.desc_buffer().size() / timeslice_size_ + 1;
     ack_.alloc_with_size(min_ack_buffer_size);
+    sent_.alloc_with_size(min_ack_buffer_size);
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
