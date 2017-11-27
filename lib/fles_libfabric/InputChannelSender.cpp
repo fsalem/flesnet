@@ -80,14 +80,14 @@ void InputChannelSender::report_status()
             std::chrono::system_clock::now();
         SendBufferStatus status_desc{now,
                                      data_source_.desc_buffer().size(),
-                                     cached_acked_desc_,
-                                     acked_desc_,
+                                     cached_sent_desc_,
+                                     sent_desc_,
                                      sent_desc_,
                                      written_desc};
         SendBufferStatus status_data{now,
                                      data_source_.data_buffer().size(),
-                                     cached_acked_data_,
-                                     acked_data_,
+                                     cached_sent_data_,
+                                     sent_data_,
                                      sent_data_,
                                      written_data};
 
