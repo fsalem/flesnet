@@ -169,8 +169,8 @@ private:
 	uint32_t remaining_sent_ts;
 	uint64_t duration;
 	int64_t duration_to_next_round;
-	int32_t input_buffer_problem_duration;
-	int32_t compute_buffer_problem_duration;
+	int32_t input_buffer_problem_count;
+	int32_t compute_buffer_problem_count;
     };
 
     /// LOGGING
@@ -178,6 +178,8 @@ private:
     std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_durations_log_;
     std::map<uint64_t, std::vector<int64_t>> proposed_all_start_times_log_;
     std::map<uint64_t, int64_t > scheduler_blocked_times_log_;
+    std::map<uint64_t, uint64_t > scheduler_IB_blocked_times_log_;
+    std::map<uint64_t, uint64_t > scheduler_CB_blocked_times_log_;
     std::map<uint64_t, uint64_t > timeslice_duration_log_;
     std::vector<IntervalRoundDuration> interval_rounds_info_log_;
     /// END LOGGING
