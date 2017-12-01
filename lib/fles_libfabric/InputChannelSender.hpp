@@ -169,8 +169,8 @@ private:
 	uint32_t remaining_sent_ts;
 	uint64_t duration;
 	int64_t duration_to_next_round;
-	int32_t input_buffer_problem_count;
-	int32_t compute_buffer_problem_count;
+	int32_t input_buffer_problem_duration;
+	int32_t compute_buffer_problem_duration;
     };
 
     /// LOGGING
