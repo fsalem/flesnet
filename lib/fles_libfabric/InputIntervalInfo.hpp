@@ -23,6 +23,14 @@ struct InputIntervalInfo {
 
     uint64_t count_rounds = ConstVariables::ZERO;
 
+    bool cb_blocked = false;
+    std::chrono::high_resolution_clock::time_point cb_blocked_start_time;
+    uint64_t cb_blocked_duration = 0;
+
+    bool ib_blocked = false;
+    std::chrono::high_resolution_clock::time_point ib_blocked_start_time;
+    uint64_t ib_blocked_duration = 0;
+
     uint64_t get_duration_to_next_round(){
 	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
 	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
