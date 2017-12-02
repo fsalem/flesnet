@@ -563,7 +563,7 @@ void InputChannelSender::build_scheduled_time_file(){
 			    std::setw(25) << it_IB_blocked_time->second/1000.0 <<
 			    std::setw(25) << it_CB_blocked_time->second/1000.0 << "\n";
 
-	    it_blocked_time++;
+	    it_IB_blocked_time++;
 	}
 	block_log_file.flush();
 	block_log_file.close();
