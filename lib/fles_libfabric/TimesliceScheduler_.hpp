@@ -223,7 +223,13 @@ private:
 		}
 	    }
 	    std::sort(interval_durations.begin(),interval_durations.end());
-	    uint64_t median_interval_duration = interval_durations[interval_durations.size()/2];
+	    uint64_t median_interval_duration;
+	    if (interval_durations.size() >= 2 && interval_durations.size() % 2 == 0){
+		int mid_index = interval_durations.size()/2;
+		median_interval_duration = (interval_durations[mid_index-1] + interval_durations[mid_index])/2;
+	    }else{
+		median_interval_duration = interval_durations[interval_durations.size()/2];
+	    }
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
@@ -288,6 +294,10 @@ private:
 		durations.push_back(end_it->second.second);
 	    }
 	    std::sort(durations.begin(), durations.end());
+	    if (durations.size() > 1){
+		int mid_index = durations.size()/2;
+		return (durations[mid_index-1]+durations[mid_index])/2;
+	    }
 	    return durations[durations.size()/2];
 	}
 
