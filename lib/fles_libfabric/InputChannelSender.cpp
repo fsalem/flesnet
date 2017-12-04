@@ -339,7 +339,7 @@ void InputChannelSender::check_send_timeslices()
 	++current_interval_;
 	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
-	uint64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
+	int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
 	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
 	if (scheduler_blocked_time > 0)
 	    overall_scheduler_blocked_time_ += scheduler_blocked_time;
