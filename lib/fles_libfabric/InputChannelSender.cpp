@@ -339,10 +339,14 @@ void InputChannelSender::check_send_timeslices()
 	++current_interval_;
 	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
-	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_,
-		std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count()));
+	uint64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
+	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
+	if (scheduler_blocked_time > 0)
+	    overall_scheduler_blocked_time_ += scheduler_blocked_time;
 	scheduler_IB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->ib_blocked_duration));
+	overall_IB_blocked_time_ += interval_info->ib_blocked_duration;
 	scheduler_CB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->cb_blocked_duration));
+	overall_CB_blocked_time_ += interval_info->cb_blocked_duration;
 	/// END LOGGING
     }else{
 	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
@@ -473,6 +477,9 @@ void InputChannelSender::operator()()
             scheduler_.timer();
         }
         time_end_ = std::chrono::high_resolution_clock::now();
+        overall_running_time_ = std::chrono::duration_cast<std::chrono::microseconds>(
+                time_end_ - time_begin_)
+                .count();
 
         if (connection_oriented_) {
             disconnect();
@@ -567,6 +574,25 @@ void InputChannelSender::build_scheduled_time_file(){
 	}
 	block_log_file.flush();
 	block_log_file.close();
+    }
+
+/////////////////////////////////////////////////////////////////
+    if (true) {
+	std::ofstream overall_block_log_file;
+	overall_block_log_file.open(std::to_string(input_index_)+".input.overall_blocked_times.out");
+
+	overall_block_log_file << std::setw(25) << "overall running time" <<
+	    std::setw(25) << "scheduler blocked duration" <<
+	    std::setw(25) << "IB blocked duration" <<
+	    std::setw(25) << "CB blocked duration" << "\n";
+
+
+	overall_block_log_file << std::setw(25) << overall_running_time_ <<
+	    std::setw(25) << overall_scheduler_blocked_time_ <<
+	    std::setw(25) << overall_IB_blocked_time_ <<
+	    std::setw(25) << overall_CB_blocked_time_ << "\n";
+	overall_block_log_file.flush();
+	overall_block_log_file.close();
     }
 
 /////////////////////////////////////////////////////////////////
