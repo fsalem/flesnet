@@ -581,13 +581,17 @@ void InputChannelSender::build_scheduled_time_file(){
 	std::ofstream overall_block_log_file;
 	overall_block_log_file.open(std::to_string(input_index_)+".input.overall_blocked_times.out");
 
-	overall_block_log_file << "overall running time" <<
-		std::setw(25) << overall_running_time_ << "\n" <<
-		"scheduler blocked duration" << std::setw(25) <<
+	overall_block_log_file << "0" << std::setw(25) <<
+		"\"overall running time\"" << std::setw(25) <<
+		overall_running_time_ << "\n" <<
+		"1" << std::setw(25) <<
+		"\"scheduler blocked duration\"" << std::setw(25) <<
 		overall_scheduler_blocked_time_ << "\n" <<
-		"IB blocked duration" << std::setw(25) <<
+		"2" << std::setw(25) <<
+		"\"IB blocked duration\"" << std::setw(25) <<
 		overall_IB_blocked_time_ << "\n" <<
-		"CB blocked duration" << std::setw(25) <<
+		"3" << std::setw(25) <<
+		"\"CB blocked duration\"" << std::setw(25) <<
 		overall_CB_blocked_time_ << "\n" ;
 
 	overall_block_log_file.flush();
