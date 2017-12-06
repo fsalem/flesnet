@@ -32,11 +32,7 @@ struct InputIntervalInfo {
     uint64_t ib_blocked_duration = 0;
 
     uint64_t get_duration_to_next_round(){
-	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
-	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
-	    duration_per_round = proposed_duration/ConstVariables::SCHEDULER_INTERVAL_LENGTH;
-	    num_ts_per_round = (end_ts - start_ts + 1) / ConstVariables::SCHEDULER_INTERVAL_LENGTH;
-	}
+	init_statistical_variables();
 
 	if (duration_per_ts == 0)return 0;
 
@@ -52,6 +48,7 @@ struct InputIntervalInfo {
     }
 
     uint64_t get_current_round_index(){
+	init_statistical_variables();
     	return (uint64_t)(count_sent_ts / num_ts_per_round);
     }
 
@@ -64,6 +61,14 @@ struct InputIntervalInfo {
     }
 
 private:
+
+    void init_statistical_variables(){
+	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
+    	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
+    	    duration_per_round = proposed_duration/ConstVariables::SCHEDULER_INTERVAL_LENGTH;
+    	    num_ts_per_round = (end_ts - start_ts + 1) / ConstVariables::SCHEDULER_INTERVAL_LENGTH;
+    	}
+    }
     uint64_t duration_per_ts = ConstVariables::ZERO;
     uint64_t duration_per_round = ConstVariables::ZERO;
     uint64_t num_ts_per_round = ConstVariables::ZERO;
