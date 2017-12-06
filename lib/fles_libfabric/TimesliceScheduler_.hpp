@@ -80,6 +80,14 @@ public:
 			sender_info_[input_index].median_duration = calculate_median_intervals_duration(input_index);
 		    }
 		    sum_it->second += sender_info_[input_index].median_duration;
+
+		    if (sender_info_[input_index].min_duration == ConstVariables::ZERO || sender_info_[input_index].min_duration > interval_duration){
+			sender_info_[input_index].min_duration = interval_duration;
+		    }
+
+		    if (sender_info_[input_index].max_duration == ConstVariables::ZERO || sender_info_[input_index].max_duration < interval_duration){
+			sender_info_[input_index].max_duration = interval_duration;
+		    }
 		    increament_acked_interval(interval_index);
 
 		    /*/// Logging
