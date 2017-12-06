@@ -288,7 +288,7 @@ void InputChannelSender::check_send_timeslices()
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
-	if (next_ts <= max_timeslice_number_ && next_ts <= interval_info->end_ts){
+	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
 	    if (try_send_timeslice(next_ts)){
 		if (interval_info->cb_blocked){
 		    interval_info->cb_blocked = false;
