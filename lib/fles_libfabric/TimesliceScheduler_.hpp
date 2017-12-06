@@ -110,12 +110,13 @@ public:
 
 	/// This method retrieves the interval information that will be sent to input nodes
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_info(uint64_t interval_index,uint32_t input_index){
+	    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info;
 	    if (proposed_interval_start_time_info_.contains(interval_index)){
-		return proposed_interval_start_time_info_.get(interval_index);
+		interval_info = proposed_interval_start_time_info_.get(interval_index);
+	    }else{
+		interval_info = get_interval_sent_time(interval_index);
+		proposed_interval_start_time_info_.add(interval_index, interval_info);
 	    }
-
-	    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = get_interval_sent_time(interval_index);
-	    proposed_interval_start_time_info_.add(interval_index, interval_info);
 	    interval_info.first -= std::chrono::microseconds(sender_info_[input_index].clock_offset);
 	    return interval_info;
 	}
