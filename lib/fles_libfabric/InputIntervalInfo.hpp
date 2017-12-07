@@ -53,7 +53,7 @@ struct InputIntervalInfo {
     }
 
     bool is_ts_within_current_round(uint64_t ts){
-	return ts < (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts;
+	return ts < (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
     }
 
     bool is_interval_completed(){
