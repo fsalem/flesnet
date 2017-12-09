@@ -21,6 +21,8 @@ struct InputIntervalInfo {
 
     uint64_t count_sent_ts = ConstVariables::ZERO;
 
+    uint64_t count_acked_ts = ConstVariables::ZERO;
+
     uint64_t count_rounds = ConstVariables::ZERO;
 
     bool cb_blocked = false;
@@ -56,8 +58,12 @@ struct InputIntervalInfo {
 	return ts < (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
     }
 
-    bool is_interval_completed(){
+    bool is_interval_sent_completed(){
 	return count_sent_ts == (end_ts-start_ts+1) ? true: false;
+    }
+
+    bool is_interval_sent_ack_completed(){
+	return is_interval_sent_completed() && (count_acked_ts*1.0)/(count_sent_ts*1.0) >= 0.7 ? true: false;
     }
 
 private:

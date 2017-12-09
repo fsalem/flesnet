@@ -284,7 +284,7 @@ void InputChannelSender::check_send_timeslices()
 	    compute_buffer_problem_count = 0;
 
     uint32_t conn_index = input_index_ % conn_.size();
-    while (true){
+    while (!interval_info->is_interval_sent_completed()){
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
@@ -333,12 +333,21 @@ void InputChannelSender::check_send_timeslices()
 	if (conn_index == (input_index_ % conn_.size()))break;
     }
 
+    if (interval_info->is_interval_sent_completed() && !interval_info->is_interval_sent_ack_completed() && !is_ack_blocked_){
+	is_ack_blocked_ = true;
+	ack_blocked_times_log_ = std::chrono::high_resolution_clock::now();
+    }
+    
     //get_timeslice_interval(sent_timeslices_+1) - 1 ==  interval_info->index
-    if (interval_info->is_interval_completed()){
+    if (interval_info->is_interval_sent_ack_completed()){
 	ack_complete_interval_info(interval_info);
 	++current_interval_;
 	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
+	if (is_ack_blocked_){
+	    is_ack_blocked_ = false;
+	    ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count()));
+	}
 	int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
 	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
 	if (scheduler_blocked_time > 0)
@@ -559,16 +568,17 @@ void InputChannelSender::build_scheduled_time_file(){
 	    std::setw(25) << "CB blocked duration" << "\n";
 
 	std::map<uint64_t, uint64_t >::iterator it_IB_blocked_time = scheduler_IB_blocked_times_log_.begin(),
-		it_CB_blocked_time;
+		it_CB_blocked_time, ack_blocked_time;
 	std::map<uint64_t, int64_t >::iterator it_blocked_time;
 	while (it_IB_blocked_time != scheduler_IB_blocked_times_log_.end()){
 	    it_CB_blocked_time = scheduler_CB_blocked_times_log_.find(it_IB_blocked_time->first);
 	    it_blocked_time = scheduler_blocked_times_log_.find(it_IB_blocked_time->first);
-
+	    ack_blocked_time = ack_blocked_times_log_.find(it_IB_blocked_time->first);
 	    block_log_file << std::setw(25) << it_IB_blocked_time->first <<
 			    std::setw(25) << (it_blocked_time != scheduler_blocked_times_log_.end() ? it_blocked_time->second/1000.0 : 0) <<
 			    std::setw(25) << it_IB_blocked_time->second/1000.0 <<
-			    std::setw(25) << it_CB_blocked_time->second/1000.0 << "\n";
+			    std::setw(25) << it_CB_blocked_time->second/1000.0 <<
+			    std::setw(25) << ack_blocked_time->second/1000.0 << "\n";
 
 	    it_IB_blocked_time++;
 	}
@@ -912,6 +922,16 @@ void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
                          data_length, skip);
 }
 
+uint64_t InputChannelSender::get_interval_index(uint64_t timeslice)
+{
+    uint64_t interval_index = intervals_info_.get_last_key();
+    InputIntervalInfo* interval_info = intervals_info_.get(interval_index);
+    while (interval_index >= 0 && timeslice < interval_info->start_ts){
+	interval_info = intervals_info_.get(--interval_index);
+    }
+    return interval_index;
+}
+
 void InputChannelSender::on_completion(uint64_t wr_id)
 {
     switch (wr_id & 0xFF) {
@@ -923,6 +943,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
         conn_[cn]->add_sent_duration(ts, duration);
+        intervals_info_.get(get_interval_index(ts))->count_acked_ts++;
 
         /// LOGGING
         timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
