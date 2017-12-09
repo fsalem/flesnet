@@ -565,7 +565,8 @@ void InputChannelSender::build_scheduled_time_file(){
 	block_log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "blocked duration to start" <<
 	    std::setw(25) << "IB blocked duration" <<
-	    std::setw(25) << "CB blocked duration" << "\n";
+	    std::setw(25) << "CB blocked duration" <<
+	    std::setw(25) << "ACK blocked duration" << "\n";
 
 	std::map<uint64_t, uint64_t >::iterator it_IB_blocked_time = scheduler_IB_blocked_times_log_.begin(),
 		it_CB_blocked_time, ack_blocked_time;
