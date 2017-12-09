@@ -335,7 +335,7 @@ void InputChannelSender::check_send_timeslices()
 
     if (interval_info->is_interval_sent_completed() && !interval_info->is_interval_sent_ack_completed() && !is_ack_blocked_){
 	is_ack_blocked_ = true;
-	ack_blocked_times_log_ = std::chrono::high_resolution_clock::now();
+	ack_blocked_start_time_ = std::chrono::high_resolution_clock::now();
     }
     
     //get_timeslice_interval(sent_timeslices_+1) - 1 ==  interval_info->index
