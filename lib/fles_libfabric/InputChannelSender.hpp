@@ -187,6 +187,7 @@ private:
     uint64_t overall_IB_blocked_time_ = 0;
     uint64_t overall_CB_blocked_time_ = 0;
     uint64_t overall_scheduler_blocked_time_ = 0;
+    uint64_t overall_ACK_blocked_time_ = 0;
     bool is_ack_blocked_ = false;
     std::chrono::system_clock::time_point ack_blocked_start_time_;
     /// END LOGGING

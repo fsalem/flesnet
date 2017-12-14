@@ -346,7 +346,9 @@ void InputChannelSender::check_send_timeslices()
 	/// LOGGING
 	if (is_ack_blocked_){
 	    is_ack_blocked_ = false;
-	    ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count()));
+	    uint64_t ack_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count();
+	    ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, ack_blocked_time));
+	    overall_ACK_blocked_time_ += ack_blocked_time;
 	}
 	int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
 	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
@@ -551,7 +553,7 @@ void InputChannelSender::build_scheduled_time_file(){
 	    }
 	    times_log_file << "\n";
 
-	it_interval_time++;
+	    it_interval_time++;
 	}
 	times_log_file.flush();
 	times_log_file.close();
@@ -603,7 +605,9 @@ void InputChannelSender::build_scheduled_time_file(){
 		overall_IB_blocked_time_ << "\n" <<
 		"3" << std::setw(40) <<
 		"\"CB blocked duration\"" << std::setw(40) <<
-		overall_CB_blocked_time_ << "\n" ;
+		overall_CB_blocked_time_ << "\n" <<
+		"\"ACK blocked duration\"" << std::setw(40) <<
+		overall_ACK_blocked_time_<< "\n";
 
 	overall_block_log_file.flush();
 	overall_block_log_file.close();
