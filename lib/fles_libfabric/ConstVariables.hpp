@@ -15,7 +15,7 @@ struct ConstVariables {
     const static uint32_t SCHEDULER_INTERVAL_LENGTH = 50;
     const static uint32_t MAX_HISTORY_SIZE = 200;
 
-    const static uint32_t SPEEDUP_FACTOR = 10;
+    const static int32_t SPEEDUP_FACTOR = 0;
 
 };
 }
