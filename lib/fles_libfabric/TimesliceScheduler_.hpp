@@ -213,7 +213,7 @@ private:
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
-	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, tmp;
+	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
 	    std::vector<uint64_t> interval_durations;
 
 	    // get the earliest start time!
@@ -240,13 +240,15 @@ private:
 	    }else{
 		median_interval_duration = interval_durations[interval_durations.size()/2];
 	    }
+
+	    median_start_time = min_start_time + std::chrono::microseconds(std::chrono::duration_cast<std::chrono::microseconds>(max_start_time - min_start_time).count()/2);
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
 			<< (median_interval_duration) << " us";
 	    }
 
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(min_start_time, median_interval_duration));
+	    actual_interval_start_time_info_.add(interval_index, std::make_pair(median_start_time, median_interval_duration));
 	    last_completed_interval_ = interval_index;
 
 	    /// LOGGING
