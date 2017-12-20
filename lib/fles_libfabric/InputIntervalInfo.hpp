@@ -36,7 +36,9 @@ struct InputIntervalInfo {
     uint64_t get_duration_to_next_round(){
 	init_statistical_variables();
 
-	if (duration_per_ts == 0)return 0;
+	if (duration_per_ts == 0) return ConstVariables::ZERO;
+	// If the proposed finish time is reached, send as fast as possible.
+	if ((proposed_start_time + std::chrono::microseconds(proposed_duration)) > std::chrono::high_resolution_clock::now())return ConstVariables::ZERO;
 
 	uint64_t expected_sent_ts = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
 
