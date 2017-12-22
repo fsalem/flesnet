@@ -519,7 +519,8 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 		    << ", acked_ts.offset = " << acked_ts.offset
 		    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
 		    << ", acked_ts.ts_num = " << acked_ts.ts_num;*/
-	if (acked_ts.num_microslices == ConstVariables::ZERO || acked_ts.size == ConstVariables::ZERO){
+	if (acked_ts.num_microslices == ConstVariables::ZERO || acked_ts.size == ConstVariables::ZERO
+		|| (acked_ts.offset == ConstVariables::ZERO && ts_pos > 0 )){
 	    all_received = false;
 	    break;
 	}
