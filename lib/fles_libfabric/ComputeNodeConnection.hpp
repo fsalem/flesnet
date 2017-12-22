@@ -83,6 +83,8 @@ public:
 
     const ComputeNodeBufferPosition& cn_wp() const { return cn_wp_; }
 
+    const ComputeNodeBufferPosition& cn_ack() const { return cn_ack_; }
+
     const InputChannelStatusMessage& recv_status_message() const { return recv_status_message_; }
 
     virtual std::unique_ptr<std::vector<uint8_t>> get_private_data() override;
