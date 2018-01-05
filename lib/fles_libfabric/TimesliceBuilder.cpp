@@ -410,6 +410,7 @@ void TimesliceBuilder::build_time_file(){
 	std::map<uint64_t,double>::iterator it = first_last_arrival_diff_.begin();
 	while(it != first_last_arrival_diff_.end()){
 	    log_file << std::setw(25) << it->first << std::setw(25) << it->second << "\n";
+	    ++it;
 	}
 
 	log_file.flush();
