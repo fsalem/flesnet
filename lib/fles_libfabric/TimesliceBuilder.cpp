@@ -483,19 +483,25 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
                   << " all_done=" << all_done_;
         break;
 
-    case ID_RECEIVE_STATUS:
+    case ID_RECEIVE_STATUS: {
+	const InputChannelStatusMessage old_recv = conn_[in]->recv_status_message();
+
         conn_[in]->on_complete_recv();
 
-        {
-	    // LOGGING
-	    uint64_t remote_ts_num = conn_[in]->recv_status_message().wp.desc*conn_.size() + compute_index_;
+        const InputChannelStatusMessage new_recv = conn_[in]->recv_status_message();
+
+	// LOGGING
+        uint64_t remote_ts_num;
+        std::map<uint64_t, uint32_t>::iterator it;
+        for (uint64_t desc=old_recv.wp.desc+1 ; desc <= new_recv.wp.desc ; desc++){
+	    remote_ts_num = desc*conn_.size() + compute_index_;
 	    if (!first_arrival_time_.count(remote_ts_num)){
 		first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
 		arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num,1));
 	    }else{
-		uint32_t new_count = arrival_count_.find(remote_ts_num)->second + 1;
-		if (new_count != conn_.size()){
-		    arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num, new_count));
+		it = arrival_count_.find(remote_ts_num);
+		if ((it->second + 1) != conn_.size()){
+		    ++it->second;
 		}else{
 		    first_last_arrival_diff_.insert(std::pair<uint64_t, double>(remote_ts_num,
 			    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - first_arrival_time_.find(remote_ts_num)->second).count()));
@@ -503,8 +509,8 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 		    arrival_count_.erase(remote_ts_num);
 		}
 	    }
-	    // END OF LOGGING
         }
+	// END OF LOGGING
 
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(
@@ -524,6 +530,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             }
             completely_written_ = new_completely_written;
         }
+    }
         break;
 
     default:
