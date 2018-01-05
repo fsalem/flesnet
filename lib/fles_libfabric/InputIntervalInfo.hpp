@@ -38,7 +38,7 @@ struct InputIntervalInfo {
 
 	if (duration_per_ts == 0) return ConstVariables::ZERO;
 	// If the proposed finish time is reached, send as fast as possible.
-	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) > std::chrono::high_resolution_clock::now() )return ConstVariables::ZERO;
+	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) < std::chrono::high_resolution_clock::now())return ConstVariables::ZERO;
 
 	uint64_t expected_sent_ts = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
 
