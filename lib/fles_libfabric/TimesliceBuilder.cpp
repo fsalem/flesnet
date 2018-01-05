@@ -373,31 +373,48 @@ void TimesliceBuilder::operator()()
 }
 
 void TimesliceBuilder::build_time_file(){
-    std::ofstream log_file;
-    log_file.open(std::to_string(compute_index_)+".compute.scheduler_send_time.out");
 
-    log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "send(t)" << "\n";
+    if (true){
+	std::ofstream log_file;
+	log_file.open(std::to_string(compute_index_)+".compute.scheduler_send_time.out");
 
-    std::map<uint64_t,std::chrono::system_clock::time_point>::iterator it;
-    for (int i=0 ; i< conn_.size() ; i++){
-	it = conn_[i]->send_interval_times_log_.begin();
-	while (it != conn_[i]->send_interval_times_log_.end()){
-	    log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << std::chrono::duration_cast
-			<std::chrono::microseconds>(it->second - time_begin_).count()/1000.0 << "\n";
-	    it++;
+	log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "send(t)" << "\n";
+
+	std::map<uint64_t,std::chrono::system_clock::time_point>::iterator it;
+	for (int i=0 ; i< conn_.size() ; i++){
+	    it = conn_[i]->send_interval_times_log_.begin();
+	    while (it != conn_[i]->send_interval_times_log_.end()){
+		log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << std::chrono::duration_cast
+			    <std::chrono::microseconds>(it->second - time_begin_).count()/1000.0 << "\n";
+		it++;
+	    }
 	}
+
+	/*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
+	while (it != proposed_actual_times_.end()){
+	int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
+	log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
+
+	++it;
+	}*/
+
+	log_file.flush();
+	log_file.close();
     }
 
-    /*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
-    while (it != proposed_actual_times_.end()){
-    int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
-    log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
+    if (true){
+	std::ofstream log_file;
+	log_file.open(std::to_string(compute_index_)+".compute.arrival_diff.out");
 
-    ++it;
-    }*/
+	log_file << std::setw(25) << "Timeslice" << std::setw(25) << "Diff" << "\n";
+	std::map<uint64_t,double>::iterator it = first_last_arrival_diff_.begin();
+	while(it != first_last_arrival_diff_.end()){
+	    log_file << std::setw(25) << it->first << std::setw(25) << it->second << "\n";
+	}
 
-    log_file.flush();
-    log_file.close();
+	log_file.flush();
+	log_file.close();
+    }
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
@@ -467,6 +484,26 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS:
         conn_[in]->on_complete_recv();
+
+        {
+	    // LOGGING
+	    uint64_t remote_ts_num = conn_[in]->recv_status_message().wp.desc*conn_.size() + compute_index_;
+	    if (!first_arrival_time_.count(remote_ts_num)){
+		first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
+		arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num,1));
+	    }else{
+		uint32_t new_count = arrival_count_.find(remote_ts_num)->second + 1;
+		if (new_count != conn_.size()){
+		    arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num, new_count));
+		}else{
+		    first_last_arrival_diff_.insert(std::pair<uint64_t, double>(remote_ts_num,
+			    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - first_arrival_time_.find(remote_ts_num)->second).count()));
+		    first_arrival_time_.erase(remote_ts_num);
+		    arrival_count_.erase(remote_ts_num);
+		}
+	    }
+	    // END OF LOGGING
+        }
 
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(

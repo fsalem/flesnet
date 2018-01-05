@@ -15,6 +15,7 @@
 #include <csignal>
 #include <cstdint>
 #include <set>
+#include <map>
 #include <string>
 
 namespace tl_libfabric
@@ -112,5 +113,11 @@ private:
     std::vector<double> completed_ts;
 
     std::set<uint64_t> pending_complete_ts_;
+
+    // LOGGING
+    std::map<uint64_t, double> first_last_arrival_diff_;
+    std::map<uint64_t, std::chrono::high_resolution_clock::time_point> first_arrival_time_;
+    std::map<uint64_t, uint32_t> arrival_count_;
+    // END OF LOGGING
 };
 }
