@@ -484,16 +484,16 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         break;
 
     case ID_RECEIVE_STATUS: {
-	const InputChannelStatusMessage old_recv = conn_[in]->recv_status_message();
+	const uint64_t old_recv = conn_[in]->recv_status_message().wp.desc;
 
         conn_[in]->on_complete_recv();
 
-        const InputChannelStatusMessage new_recv = conn_[in]->recv_status_message();
+        const uint64_t new_recv = conn_[in]->recv_status_message().wp.desc;
 
 	// LOGGING
         uint64_t remote_ts_num;
         std::map<uint64_t, uint32_t>::iterator it;
-        for (uint64_t desc=old_recv.wp.desc+1 ; desc <= new_recv.wp.desc ; desc++){
+        for (uint64_t desc=old_recv+1 ; desc <= new_recv ; desc++){
 	    remote_ts_num = desc*conn_.size() + compute_index_;
 	    if (!first_arrival_time_.count(remote_ts_num)){
 		first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
