@@ -153,7 +153,10 @@ public:
 
     bool is_connection_finalized();
 
+    /// LOGGING
     std::map<uint64_t,std::chrono::system_clock::time_point> send_interval_times_log_;
+    uint64_t last_recv_ts_ = 0;
+    /// END LOGGING
 
 private:
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();

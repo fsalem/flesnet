@@ -264,9 +264,11 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	data_acked_ = true;
 
 /*
+ 	/// LOGGING
         if (data_acked_){
             send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::system_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
         }
+        /// END LOGGING
 */
 
     }
@@ -298,8 +300,12 @@ void ComputeNodeConnection::on_complete_recv()
                   << " (wp.desc=" << recv_status_message_.wp.desc << ")";
     }
     // to handle receiving sync messages out of sent order!
-    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc)
+    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){
     	cn_wp_ = recv_status_message_.wp;
+    	/// LOGGING
+    	last_recv_ts_= cn_wp_.desc;
+    	/// END LOGGING
+    }
 
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;

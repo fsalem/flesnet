@@ -484,7 +484,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         break;
 
     case ID_RECEIVE_STATUS: {
-	const uint64_t old_recv = conn_[in]->recv_status_message().wp.desc;
+	const uint64_t old_recv = conn_[in]->last_recv_ts_;
 
         conn_[in]->on_complete_recv();
 
