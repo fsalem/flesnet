@@ -17,6 +17,8 @@ struct ConstVariables {
 
     const static int32_t SPEEDUP_FACTOR = 0;
 
+    const static bool ENABLE_LOGGING = 0;
+
 };
 }
 #pragma pack()
