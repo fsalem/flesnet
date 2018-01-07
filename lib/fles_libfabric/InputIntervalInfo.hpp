@@ -69,7 +69,7 @@ struct InputIntervalInfo {
     }
 
     bool is_ack_percentage_reached(){
-	return (count_acked_ts*1.0)/(count_sent_ts*1.0) >= 0.7 ? true: false;
+	return (count_acked_ts*1.0)/((end_ts-start_ts+1)*1.0) >= 0.7 ? true: false;
     }
 
 private:
