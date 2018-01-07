@@ -92,18 +92,20 @@ public:
 		    increament_acked_interval(interval_index);
 
 		    /*/// Logging
-		    std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(interval_index);
+		    if (ConstVariables::ENABLE_LOGGING){
+			std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(interval_index);
 
-		    if (it == proposed_actual_times_log_.end()){
-			proposed_actual_times_log_.insert(std::pair<uint64_t,
-				std::vector<std::pair<int64_t, int64_t> > >(interval_index, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
-			it = proposed_actual_times_log_.find(interval_index);
+			if (it == proposed_actual_times_log_.end()){
+			    proposed_actual_times_log_.insert(std::pair<uint64_t,
+				    std::vector<std::pair<int64_t, int64_t> > >(interval_index, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
+			    it = proposed_actual_times_log_.find(interval_index);
+			}
+
+			it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
+			    std::chrono::duration_cast<std::chrono::microseconds>(actual_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
+
+			if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
 		    }
-
-		    it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
-			std::chrono::duration_cast<std::chrono::microseconds>(actual_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
-
-		    if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
 		    /// END OF Logging*/
 	    }
 
@@ -252,11 +254,13 @@ private:
 	    last_completed_interval_ = interval_index;
 
 	    /// LOGGING
-	    min_max_interval_start_time_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
-		    std::chrono::duration_cast<std::chrono::milliseconds>(min_start_time - compute_MPI_time_).count(),
-		    std::chrono::duration_cast<std::chrono::milliseconds>(max_start_time - compute_MPI_time_).count())));
-	    min_max_interval_duration_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
-		    interval_durations[0]/1000.0,interval_durations[interval_durations.size()-1]/1000.0)));
+	    if (ConstVariables::ENABLE_LOGGING){
+		min_max_interval_start_time_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
+			std::chrono::duration_cast<std::chrono::milliseconds>(min_start_time - compute_MPI_time_).count(),
+			std::chrono::duration_cast<std::chrono::milliseconds>(max_start_time - compute_MPI_time_).count())));
+		min_max_interval_duration_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
+			interval_durations[0]/1000.0,interval_durations[interval_durations.size()-1]/1000.0)));
+	    }
 	    /// END LOGGING
 	}
 

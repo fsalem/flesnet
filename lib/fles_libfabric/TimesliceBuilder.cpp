@@ -374,6 +374,7 @@ void TimesliceBuilder::operator()()
 
 void TimesliceBuilder::build_time_file(){
 
+    if (!ConstVariables::ENABLE_LOGGING) return;
     if (true){
 	std::ofstream log_file;
 	log_file.open(std::to_string(compute_index_)+".compute.scheduler_send_time.out");
@@ -488,29 +489,30 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
         conn_[in]->on_complete_recv();
 
-        const uint64_t new_recv = conn_[in]->recv_status_message().wp.desc;
+        const uint64_t new_recv = conn_[in]->last_recv_ts_;
 
 	// LOGGING
-        uint64_t remote_ts_num;
-        std::map<uint64_t, uint32_t>::iterator it;
-        for (uint64_t desc=old_recv+1 ; desc <= new_recv ; desc++){
-	    remote_ts_num = desc*conn_.size() + compute_index_;
-	    if (!first_arrival_time_.count(remote_ts_num)){
-		first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
-		arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num,1));
-	    }else{
-		it = arrival_count_.find(remote_ts_num);
-		if ((it->second + 1) != conn_.size()){
-		    ++it->second;
+        if (ConstVariables::ENABLE_LOGGING){
+	    uint64_t remote_ts_num;
+	    std::map<uint64_t, uint32_t>::iterator it;
+	    for (uint64_t desc=old_recv+1 ; desc <= new_recv ; desc++){
+		remote_ts_num = desc*conn_.size() + compute_index_;
+		if (!first_arrival_time_.count(remote_ts_num)){
+		    first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
+		    arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num,1));
 		}else{
-		    first_last_arrival_diff_.insert(std::pair<uint64_t, double>(remote_ts_num,
-			    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - first_arrival_time_.find(remote_ts_num)->second).count()));
-		    first_arrival_time_.erase(remote_ts_num);
-		    arrival_count_.erase(remote_ts_num);
+		    it = arrival_count_.find(remote_ts_num);
+		    if ((it->second + 1) != conn_.size()){
+			++it->second;
+		    }else{
+			first_last_arrival_diff_.insert(std::pair<uint64_t, double>(remote_ts_num,
+				std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - first_arrival_time_.find(remote_ts_num)->second).count()));
+			first_arrival_time_.erase(remote_ts_num);
+			arrival_count_.erase(remote_ts_num);
+		    }
 		}
 	    }
-        }
-	// END OF LOGGING
+        }// END OF LOGGING
 
         if (connected_ == conn_.size() && in == red_lantern_) {
             auto new_red_lantern = std::min_element(

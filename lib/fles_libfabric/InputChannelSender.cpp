@@ -175,8 +175,10 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> proposed_info = conn_[i]->get_proposed_interval_info(interval_info->index);
 
 	// LOGGING
+	if (ConstVariables::ENABLE_LOGGING) {
 	    times_log.push_back(proposed_info.second == ConstVariables::MINUS_ONE ? ConstVariables::MINUS_ONE
 		    : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_info.first - time_begin_).count());
+	}
 	// END LOGGING
 	if (proposed_info.second == ConstVariables::MINUS_ONE)continue;
 	if (!found){
@@ -211,7 +213,9 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
     }
 
     // LOGGING
-    proposed_all_start_times_log_.insert(std::pair<uint64_t, std::vector<int64_t>>(interval_info->index, times_log));
+    if (ConstVariables::ENABLE_LOGGING){
+	proposed_all_start_times_log_.insert(std::pair<uint64_t, std::vector<int64_t>>(interval_info->index, times_log));
+    }
     // END LOGGING
 }
 
@@ -241,12 +245,14 @@ void InputChannelSender::ack_complete_interval_info(InputIntervalInfo* interval_
     }
 
     // LOGGING
-    proposed_actual_start_times_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
-	    std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->proposed_start_time - time_begin_).count(),
-	    std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->actual_start_time - time_begin_).count())));
+    if (ConstVariables::ENABLE_LOGGING){
+	proposed_actual_start_times_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
+		std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->proposed_start_time - time_begin_).count(),
+		std::chrono::duration_cast<std::chrono::milliseconds>(interval_info->actual_start_time - time_begin_).count())));
 
-    proposed_actual_durations_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
+	proposed_actual_durations_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_info->index,std::pair<int64_t, int64_t>(
 	    interval_info->proposed_duration/1000.0, interval_info->actual_duration/1000.0)));
+    }
     // END LOGGING
 }
 
@@ -344,37 +350,41 @@ void InputChannelSender::check_send_timeslices()
 	++current_interval_;
 	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
-	if (is_ack_blocked_){
-	    is_ack_blocked_ = false;
-	    uint64_t ack_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count();
-	    ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, ack_blocked_time));
-	    overall_ACK_blocked_time_ += ack_blocked_time;
+	if (ConstVariables::ENABLE_LOGGING){
+	    if (is_ack_blocked_){
+		is_ack_blocked_ = false;
+		uint64_t ack_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count();
+		ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, ack_blocked_time));
+		overall_ACK_blocked_time_ += ack_blocked_time;
+	    }
+	    int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
+	    scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
+	    if (scheduler_blocked_time > 0)
+		overall_scheduler_blocked_time_ += scheduler_blocked_time;
+	    scheduler_IB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->ib_blocked_duration));
+	    overall_IB_blocked_time_ += interval_info->ib_blocked_duration;
+	    scheduler_CB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->cb_blocked_duration));
+	    overall_CB_blocked_time_ += interval_info->cb_blocked_duration;
 	}
-	int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
-	scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
-	if (scheduler_blocked_time > 0)
-	    overall_scheduler_blocked_time_ += scheduler_blocked_time;
-	scheduler_IB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->ib_blocked_duration));
-	overall_IB_blocked_time_ += interval_info->ib_blocked_duration;
-	scheduler_CB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->cb_blocked_duration));
-	overall_CB_blocked_time_ += interval_info->cb_blocked_duration;
 	/// END LOGGING
     }else{
 	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
     }
 
     /// LOGGING
-    interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
-    sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
-    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
-    std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
-    input_buffer_problem_count, compute_buffer_problem_count});
+    if (ConstVariables::ENABLE_LOGGING){
+	interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
+	sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
+	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
+	std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
+	input_buffer_problem_count, compute_buffer_problem_count});
 
-    if (false){
-	L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->count_rounds <<
-		", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
-		", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
-		" us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";
+	if (false){
+	    L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->count_rounds <<
+		    ", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
+		    ", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
+		    " us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";
+	}
     }
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
@@ -508,6 +518,7 @@ void InputChannelSender::operator()()
 }
 
 void InputChannelSender::build_scheduled_time_file(){
+    if (!ConstVariables::ENABLE_LOGGING) return;
     if (true){
 	std::ofstream log_file;
 	log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info.out");
@@ -614,7 +625,7 @@ void InputChannelSender::build_scheduled_time_file(){
     }
 
 /////////////////////////////////////////////////////////////////
-    if (true) {
+    if (false) {
 	std::ofstream duration_log_file;
 	duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
 
@@ -951,8 +962,9 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         intervals_info_.get(get_interval_index(ts))->count_acked_ts++;
 
         /// LOGGING
-        timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
-        /// END LOGGING
+        if (ConstVariables::ENABLE_LOGGING){
+            timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
+        }/// END LOGGING
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
