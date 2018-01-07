@@ -34,6 +34,7 @@ struct InputIntervalInfo {
     uint64_t ib_blocked_duration = 0;
 
     uint64_t get_expected_sent_ts(){
+	if (duration_per_ts == 0)return (end_ts-start_ts+1);
 	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
     }
 
