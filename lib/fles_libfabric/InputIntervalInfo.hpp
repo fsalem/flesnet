@@ -33,6 +33,10 @@ struct InputIntervalInfo {
     std::chrono::high_resolution_clock::time_point ib_blocked_start_time;
     uint64_t ib_blocked_duration = 0;
 
+    uint64_t get_expected_sent_ts(){
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
+    }
+
     uint64_t get_duration_to_next_round(){
 	init_statistical_variables();
 
@@ -40,7 +44,7 @@ struct InputIntervalInfo {
 	// If the proposed finish time is reached, send as fast as possible.
 	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) < std::chrono::high_resolution_clock::now())return ConstVariables::ZERO;
 
-	uint64_t expected_sent_ts = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
+	uint64_t expected_sent_ts = get_expected_sent_ts();
 
 	if (expected_sent_ts <= count_sent_ts){ /// sending faster than proposed
 	    return duration_per_round;
@@ -53,11 +57,12 @@ struct InputIntervalInfo {
 
     uint64_t get_current_round_index(){
 	init_statistical_variables();
-    	return (uint64_t)(count_sent_ts / num_ts_per_round);
+	uint64_t expected_sent_ts = get_expected_sent_ts();
+    	return (uint64_t)(expected_sent_ts / num_ts_per_round);
     }
 
     bool is_ts_within_current_round(uint64_t ts){
-	return ts < (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
+	return ts <= (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
     }
 
     bool is_interval_sent_completed(){
