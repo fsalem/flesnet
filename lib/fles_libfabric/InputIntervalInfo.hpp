@@ -47,13 +47,18 @@ struct InputIntervalInfo {
 
 	uint64_t expected_sent_ts = get_expected_sent_ts();
 
-	if (expected_sent_ts <= count_sent_ts){ /// sending faster than proposed
+	if (expected_sent_ts == count_sent_ts){ // on the schedule as expected
 	    return duration_per_round;
 	}
-	if (expected_sent_ts - count_sent_ts > num_ts_per_round){ // scheduler is at one round behind
+	if (expected_sent_ts < count_sent_ts){ /// sending faster than proposed
+	    return duration_per_round + ((count_sent_ts - expected_sent_ts) * duration_per_ts);
+	}
+	if (expected_sent_ts - count_sent_ts >= num_ts_per_round){ // scheduler is at one round behind
 	    return ConstVariables::ZERO;
 	}
-	return duration_per_round - ((expected_sent_ts - count_sent_ts) * duration_per_ts);
+	uint64_t duration = duration_per_round - ((expected_sent_ts - count_sent_ts) * duration_per_ts);
+	assert (duration >= 0);
+	return duration;
     }
 
     uint64_t get_current_round_index(){
