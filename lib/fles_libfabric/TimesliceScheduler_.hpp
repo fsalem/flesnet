@@ -264,13 +264,35 @@ private:
 	    /// END LOGGING
 	}
 
+	//return value = 1.0, then no enhancement. returned value < 1 speedup, returned value > 1 slow down
+	double get_duration_enhancement_factor(){
+	    //uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
+	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
+
+	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY){
+
+
+		std::vector<uint64_t> last_durations(ConstVariables::SPEEDUP_HISTORY);
+		for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
+		    last_durations.push_back(actual_interval_start_time_info_.get(last_completed_interval-i).second);
+		}
+		std::sort(last_durations.begin(),last_durations.end());
+
+		double variance_acceptable_factor = last_durations[ConstVariables::SPEEDUP_HISTORY/2]*ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE*1.0/100.0;
+		if (last_durations[ConstVariables::SPEEDUP_HISTORY/2]-variance_acceptable_factor >= last_durations[0] &&
+			last_durations[ConstVariables::SPEEDUP_HISTORY/2]+variance_acceptable_factor <= last_durations[ConstVariables::SPEEDUP_HISTORY-1])
+		    return ConstVariables::SPEEDUP_FACTOR;
+	    }
+	    return 1.0;
+	}
+
 	/// This method gets the sent time for a particular input node and timeslice
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
-	    uint64_t enhanced_interval_duration = median_interval_duration  * (ConstVariables::ONE_HUNDRED-ConstVariables::SPEEDUP_FACTOR) / ConstVariables::ONE_HUNDRED;
+	    uint64_t enhanced_interval_duration = median_interval_duration  * get_duration_enhancement_factor();
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
@@ -304,8 +326,7 @@ private:
 		    end_it = sender_info_[input_index].interval_info_.get_end_iterator();
 	    std::vector<uint64_t> durations;
 
-	    // TODO to be configurable
-	    int max_count = 10;
+	    int max_count = ConstVariables::MAX_MEDIAN_VALUES;
 	    while (max_count-- > 0 && --end_it != start_it){
 		durations.push_back(end_it->second.second);
 	    }
