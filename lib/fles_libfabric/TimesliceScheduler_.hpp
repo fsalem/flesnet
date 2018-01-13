@@ -158,30 +158,42 @@ public:
 
 	void build_duration_file(){
 
-	    std::ofstream log_file;
-	    log_file.open(std::to_string(compute_index_)+".compute.min_max_interval_info.out");
+	    if (!ConstVariables::ENABLE_LOGGING) return;
+	    if (true){
+		std::ofstream log_file;
+		log_file.open(std::to_string(compute_index_)+".compute.min_max_interval_info.out");
 
-	    log_file << std::setw(25) << "Interval"
-		    << std::setw(25) << "Min start"
-		    << std::setw(25) << "Max start"
-		    << std::setw(25) << "Min duration"
-		    << std::setw(25) << "Max duration" << "\n";
+		log_file << std::setw(25) << "Interval"
+			<< std::setw(25) << "Min start"
+			<< std::setw(25) << "Max start"
+			<< std::setw(25) << "Min duration"
+			<< std::setw(25) << "Max duration"
+			<< std::setw(25) << "Speedup Factor"<< "\n";
 
-	    std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator times_it = min_max_interval_start_time_log_.begin(),
-		    dur_it = min_max_interval_duration_log_.begin();
-	    while (times_it != min_max_interval_start_time_log_.end() && dur_it != min_max_interval_duration_log_.end()){
-		log_file << std::setw(25) << times_it->first
-			<< std::setw(25) << times_it->second.first
-			<< std::setw(25) << times_it->second.second
-			<< std::setw(25) << dur_it->second.first
-			<< std::setw(25) << dur_it->second.second<< "\n";
-		++times_it;
-		++dur_it;
+		std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator times_it = min_max_interval_start_time_log_.begin(),
+			dur_it = min_max_interval_duration_log_.begin();
+		std::map<uint64_t, double>::iterator speedup_factor;
+
+		while (times_it != min_max_interval_start_time_log_.end() && dur_it != min_max_interval_duration_log_.end()){
+		    double factor = 0.0;
+		    speedup_factor = speedup_duration_factor_log_.find(times_it->first);
+		    if (speedup_factor != speedup_duration_factor_log_.end())
+			factor = speedup_factor->second;
+
+		    log_file << std::setw(25) << times_it->first
+			    << std::setw(25) << times_it->second.first
+			    << std::setw(25) << times_it->second.second
+			    << std::setw(25) << dur_it->second.first
+			    << std::setw(25) << dur_it->second.second
+			    << std::setw(25) << factor << "\n";
+		    ++times_it;
+		    ++dur_it;
+		}
+
+
+		log_file.flush();
+		log_file.close();
 	    }
-
-
-	    log_file.flush();
-	    log_file.close();
 	}
 
 private:
@@ -292,7 +304,8 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
-	    uint64_t enhanced_interval_duration = median_interval_duration  * get_duration_enhancement_factor();
+	    double enhancement_factor = get_duration_enhancement_factor();
+	    uint64_t enhanced_interval_duration = median_interval_duration  * enhancement_factor;
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
@@ -301,6 +314,9 @@ private:
 			<< interval_index << " with duration "
 			<< enhanced_interval_duration;
 	    }
+
+	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor));
+
 	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
 		    interval_info.first + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
 		    enhanced_interval_duration);
@@ -372,6 +388,7 @@ private:
 	/// LOGGING
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_start_time_log_;
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_duration_log_;
+	std::map<uint64_t, double > speedup_duration_factor_log_;
 	/*
 	// timeslice, [{proposed, actual}]
 	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_log_;
