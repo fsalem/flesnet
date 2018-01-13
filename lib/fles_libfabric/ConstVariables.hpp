@@ -15,7 +15,7 @@ struct ConstVariables {
     const static uint32_t SCHEDULER_INTERVAL_LENGTH = 50;
     const static uint32_t MAX_HISTORY_SIZE = 200;
 
-    static constexpr double SPEEDUP_FACTOR = 0.9f;
+    static constexpr double SPEEDUP_FACTOR = 0.99f;
 
     const static bool ENABLE_LOGGING = 0;
 
@@ -23,7 +23,7 @@ struct ConstVariables {
 
     const static uint32_t SPEEDUP_HISTORY = 20;
 
-    const static uint32_t SPEEDUP_STABLE_VARIANCE_PERCENTAGE = 10;
+    const static uint32_t SPEEDUP_STABLE_VARIANCE_PERCENTAGE = 1;
 
 };
 }

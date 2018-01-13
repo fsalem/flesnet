@@ -280,8 +280,12 @@ private:
 	double get_duration_enhancement_factor(){
 	    //uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
+	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>
+		actual = actual_interval_start_time_info_.get(last_completed_interval),
+		proposed = proposed_interval_start_time_info_.get(last_completed_interval);
+	    double diff_percentage = (actual.second - proposed.second)*100.0/(proposed.second*1.0);
 
-	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY){
+	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY && (diff_percentage <= 0 || diff_percentage <= ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)){
 
 
 		std::vector<uint64_t> last_durations(ConstVariables::SPEEDUP_HISTORY);
