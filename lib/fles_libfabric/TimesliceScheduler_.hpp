@@ -285,7 +285,7 @@ private:
 		proposed = proposed_interval_start_time_info_.get(last_completed_interval);
 	    double diff_percentage = (actual.second - proposed.second)*100.0/(proposed.second*1.0);
 
-	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY && (diff_percentage <= 0 || diff_percentage <= ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)){
+	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY && diff_percentage <= ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE){
 
 
 		std::vector<uint64_t> last_durations(ConstVariables::SPEEDUP_HISTORY);
@@ -295,8 +295,8 @@ private:
 		std::sort(last_durations.begin(),last_durations.end());
 
 		double variance_acceptable_factor = last_durations[ConstVariables::SPEEDUP_HISTORY/2]*ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE*1.0/100.0;
-		if (last_durations[ConstVariables::SPEEDUP_HISTORY/2]-variance_acceptable_factor >= last_durations[0] &&
-			last_durations[ConstVariables::SPEEDUP_HISTORY/2]+variance_acceptable_factor <= last_durations[ConstVariables::SPEEDUP_HISTORY-1])
+		if (last_durations[ConstVariables::SPEEDUP_HISTORY/2]-variance_acceptable_factor >= last_durations[2] &&
+			last_durations[ConstVariables::SPEEDUP_HISTORY/2]+variance_acceptable_factor <= last_durations[ConstVariables::SPEEDUP_HISTORY-3])
 		    return ConstVariables::SPEEDUP_FACTOR;
 	    }
 	    return 1.0;
