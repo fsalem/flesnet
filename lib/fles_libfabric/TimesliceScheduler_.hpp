@@ -323,7 +323,7 @@ private:
 	    /// SPEEDUP Calculations
 	    uint64_t majority_duration = get_majority_median_duration();
 	    if (majority_duration != 0 && actual_grouped_durations_.count(majority_duration) == 0)
-		actual_grouped_durations_.insert(median_interval_duration);
+		actual_grouped_durations_.insert(majority_duration);
 
 	    /// END
 
