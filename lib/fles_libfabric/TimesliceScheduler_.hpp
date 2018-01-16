@@ -432,8 +432,28 @@ private:
 		}
 
 	    }*/
-	    double enhancement_factor = get_duration_enhancement_factor();
-	    uint64_t enhanced_interval_duration = median_interval_duration  * enhancement_factor;
+	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && enhanced_proposed_interval_+ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
+	    double enhancement_factor;
+	    uint64_t enhanced_interval_duration;
+
+	    if (speedup_enabled_){
+		if (enhanced_proposed_duration_ < median_interval_duration){
+		    enhanced_interval_duration = enhanced_proposed_duration_;
+		    enhancement_factor = ConstVariables::SPEEDUP_FACTOR;
+		}
+		else{
+		    enhanced_interval_duration = median_interval_duration;
+		    enhancement_factor = 1.0;
+		}
+	    }else{
+		enhancement_factor = get_duration_enhancement_factor();
+		enhanced_interval_duration = median_interval_duration  * enhancement_factor;
+		if (enhancement_factor != 1.0){
+		    speedup_enabled_ = 1;
+		    enhanced_proposed_duration_ = enhanced_interval_duration;
+		    enhanced_proposed_interval_ = interval_index;
+		}
+	    }
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
@@ -517,7 +537,13 @@ private:
 
 	SizedMap<uint64_t, uint64_t> sum_median_interval_duration_;
 
-	std::set<uint64_t> actual_grouped_durations_;
+	bool speedup_enabled_ = 0;
+	uint64_t enhanced_proposed_duration_;
+	uint64_t enhanced_proposed_interval_;
+
+
+	//std::set<uint64_t> actual_grouped_durations_;
+
 
 	/// LOGGING
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_start_time_log_;
