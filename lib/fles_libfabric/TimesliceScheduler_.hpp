@@ -16,6 +16,7 @@
 #include <log.hpp>
 #include <fstream>
 #include <iomanip>
+#include <math.h>
 
 namespace tl_libfabric {
 
