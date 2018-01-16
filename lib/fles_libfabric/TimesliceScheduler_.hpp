@@ -381,8 +381,10 @@ private:
 	double get_duration_enhancement_factor(){
 
 	    std::pair<double, double> stats_data = get_mean_variance();
+	    if (stats_data.first == 0)return 1.0;
 	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
-	    if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
+	    if ((stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
+	    //if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    return ConstVariables::SPEEDUP_FACTOR;
 
 	    /*//uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
