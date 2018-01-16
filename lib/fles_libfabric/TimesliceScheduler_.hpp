@@ -245,7 +245,7 @@ private:
 	    }
 	}
 
-	uint64_t get_majority_median_duration(){
+	/*uint64_t get_majority_median_duration(){
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 
 	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY){
@@ -277,7 +277,7 @@ private:
 		    return majority_duration;
 	    }
 	    return 0;
-	}
+	}*/
 
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
@@ -321,10 +321,10 @@ private:
 	    last_completed_interval_ = interval_index;
 
 	    /// SPEEDUP Calculations
-	    uint64_t majority_duration = get_majority_median_duration();
+	    /*uint64_t majority_duration = get_majority_median_duration();
 	    if (majority_duration != 0 && actual_grouped_durations_.count(majority_duration) == 0)
 		actual_grouped_durations_.insert(majority_duration);
-
+*/
 	    /// END
 
 	    /// LOGGING
@@ -338,9 +338,33 @@ private:
 	    /// END LOGGING
 	}
 
-	/*//return value = 1.0, then no enhancement. returned value < 1 speedup, returned value > 1 slow down
+	std::pair<double, double> get_mean_variance(){
+	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
+
+	    if (last_completed_interval < ConstVariables::SPEEDUP_HISTORY)return std::pair<double,double>(0,0);
+
+	    double mean = 0, variance = 0;
+	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
+		mean += actual_interval_start_time_info_.get(last_completed_interval-i).second;
+	    }
+	    mean /= ConstVariables::SPEEDUP_HISTORY;
+
+	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
+		variance += std::pow(actual_interval_start_time_info_.get(last_completed_interval-i).second-mean,2);
+	    }
+	    variance /= (ConstVariables::SPEEDUP_HISTORY-1);
+
+	    return std::pair<double, double>(mean, std::sqrt(variance));
+	}
+
+	//return value = 1.0, then no enhancement. returned value < 1 speedup, returned value > 1 slow down
 	double get_duration_enhancement_factor(){
-	    //uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
+
+	    std::pair<double, double> stats_data = get_mean_variance();
+	    if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
+	    return ConstVariables::SPEEDUP_FACTOR;
+
+	    /*//uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>
 		actual = actual_interval_start_time_info_.get(last_completed_interval),
@@ -361,8 +385,8 @@ private:
 			last_durations[ConstVariables::SPEEDUP_HISTORY/2]+variance_acceptable_factor <= last_durations[ConstVariables::SPEEDUP_HISTORY-3])
 		    return ConstVariables::SPEEDUP_FACTOR;
 	    }
-	    return 1.0;
-	}*/
+	    return 1.0;*/
+	}
 
 	/// This method gets the sent time for a particular input node and timeslice
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
@@ -371,7 +395,7 @@ private:
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
 
-	    uint64_t enhanced_interval_duration = median_interval_duration;
+	    /*uint64_t enhanced_interval_duration = median_interval_duration;
 	    uint64_t majority_median_duration = get_majority_median_duration();
 	    if (majority_median_duration != 0){
 		std::set<uint64_t>::iterator it = actual_grouped_durations_.lower_bound(majority_median_duration);
@@ -384,9 +408,9 @@ private:
 		    enhanced_interval_duration = median_interval_duration  * ConstVariables::SPEEDUP_FACTOR;
 		}
 
-	    }
-	    //double enhancement_factor = get_duration_enhancement_factor();
-	    //uint64_t enhanced_interval_duration = median_interval_duration  * enhancement_factor;
+	    }*/
+	    double enhancement_factor = get_duration_enhancement_factor();
+	    uint64_t enhanced_interval_duration = median_interval_duration  * enhancement_factor;
 
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] last complete interval: "
@@ -396,7 +420,9 @@ private:
 			<< enhanced_interval_duration;
 	    }
 
-	    //speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor));
+	    // LOGGING
+	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor));
+	    // END LOGGING
 
 	    proposed_median_enhanced_duration_log_.insert(std::pair<uint64_t,std::pair<uint64_t,uint64_t>>(interval_index,std::pair<uint64_t,uint64_t>(median_interval_duration, enhanced_interval_duration)));
 
