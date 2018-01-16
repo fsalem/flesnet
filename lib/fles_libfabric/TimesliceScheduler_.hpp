@@ -215,7 +215,26 @@ public:
 		log_file.flush();
 		log_file.close();
 	    }
+	    if (true){
+		std::ofstream log_file;
+		log_file.open(std::to_string(compute_index_)+".compute.mean_variance_interval.out");
 
+		log_file << std::setw(25) << "Interval"
+			<< std::setw(25) << "Mean"
+			<< std::setw(25) << "\"Std. Deviation\"" << "\n";
+
+		std::map<uint64_t, std::pair<double, double> >::iterator duration_it = mean_varience_interval_log_.begin();
+
+		while (duration_it != mean_varience_interval_log_.end()){
+
+		    log_file << std::setw(25) << duration_it->first
+			    << std::setw(25) << duration_it->second.first
+			    << std::setw(25) << duration_it->second.second << "\n";
+		    ++duration_it;
+		}
+		log_file.flush();
+		log_file.close();
+	    }
 	}
 
 private:
@@ -362,6 +381,7 @@ private:
 	double get_duration_enhancement_factor(){
 
 	    std::pair<double, double> stats_data = get_mean_variance();
+	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
 	    if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    return ConstVariables::SPEEDUP_FACTOR;
 
@@ -501,7 +521,9 @@ private:
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_start_time_log_;
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_duration_log_;
 	std::map<uint64_t, std::pair<uint64_t, uint64_t> > proposed_median_enhanced_duration_log_;
+	std::map<uint64_t, std::pair<double, double> > mean_varience_interval_log_;
 	std::map<uint64_t, double > speedup_duration_factor_log_;
+
 	/*
 	// timeslice, [{proposed, actual}]
 	std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > > proposed_actual_times_log_;
