@@ -17,6 +17,8 @@ struct ConstVariables {
 
     static constexpr double SPEEDUP_FACTOR = 0.99f;
 
+    static constexpr double SLOWDOWN_FACTOR = 0.95f;
+
     const static bool ENABLE_LOGGING = 0;
 
     const static uint32_t MAX_MEDIAN_VALUES = 10;

@@ -382,7 +382,9 @@ private:
 
 	    std::pair<double, double> stats_data = get_mean_variance();
 	    if (stats_data.first == 0)return 1.0;
+	    /// LOGGING
 	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
+	    /// END OF LOGGING
 	    if ((stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    //if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    return ConstVariables::SPEEDUP_FACTOR;
@@ -433,20 +435,20 @@ private:
 
 	    }*/
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && enhanced_proposed_interval_+ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
-	    double enhancement_factor;
+	    double enhancement_factor = get_duration_enhancement_factor();
 	    uint64_t enhanced_interval_duration;
 
 	    if (speedup_enabled_){
 		if (enhanced_proposed_duration_ < median_interval_duration){
 		    enhanced_interval_duration = enhanced_proposed_duration_;
-		    enhancement_factor = ConstVariables::SPEEDUP_FACTOR;
-		}
-		else{
+		    /// LOGGING
+		    enhancement_factor = ConstVariables::SPEEDUP_FACTOR*10; // flag that median is better than prev. enhancement
+		    /// END OF LOGGING
+		}else{
 		    enhanced_interval_duration = median_interval_duration;
 		    enhancement_factor = 1.0;
 		}
 	    }else{
-		enhancement_factor = get_duration_enhancement_factor();
 		enhanced_interval_duration = median_interval_duration  * enhancement_factor;
 		if (enhancement_factor != 1.0){
 		    speedup_enabled_ = 1;
@@ -461,6 +463,15 @@ private:
 			<< interval_info.second << " us and the requested interval: "
 			<< interval_index << " with duration "
 			<< enhanced_interval_duration;
+	    }
+
+	    // slow down
+	    if (proposed_interval_start_time_info_.size() > 0){
+		uint64_t last_proposed_duration = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key()).second;
+		if (enhanced_interval_duration > last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR){
+		    enhanced_interval_duration = last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR;
+		    enhancement_factor = -1.0*ConstVariables::SLOWDOWN_FACTOR;
+		}
 	    }
 
 	    // LOGGING
