@@ -434,6 +434,7 @@ private:
 		}
 
 	    }*/
+	    bool was_speedup_enabled = speedup_enabled_;
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && enhanced_proposed_interval_+ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
 	    double enhancement_factor = get_duration_enhancement_factor();
 	    uint64_t enhanced_interval_duration;
@@ -466,12 +467,9 @@ private:
 	    }
 
 	    // slow down
-	    if (proposed_interval_start_time_info_.size() > 0){
-		uint64_t last_proposed_duration = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key()).second;
-		if (enhanced_interval_duration > last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR){
-		    enhanced_interval_duration = last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR;
-		    enhancement_factor = -1.0*ConstVariables::SLOWDOWN_FACTOR;
-		}
+	    if (was_speedup_enabled && !speedup_enabled_ && enhanced_interval_duration > enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR){
+		enhanced_interval_duration = enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
+		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
 	    }
 
 	    // LOGGING
