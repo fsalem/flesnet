@@ -440,14 +440,16 @@ private:
 	    uint64_t enhanced_interval_duration;
 
 	    if (speedup_enabled_){
-		if (enhanced_proposed_duration_ < median_interval_duration){
+		if (enhanced_proposed_duration_ <= median_interval_duration){
 		    enhanced_interval_duration = enhanced_proposed_duration_;
 		    /// LOGGING
-		    enhancement_factor = ConstVariables::SPEEDUP_FACTOR*10; // flag that median is better than prev. enhancement
+		    enhancement_factor = 5; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
 		}else{
 		    enhanced_interval_duration = median_interval_duration;
-		    enhancement_factor = 1.0;
+		    /// LOGGING
+		    enhancement_factor = 10; // flag that median is better than prev. enhancement
+		    /// END OF LOGGING
 		}
 	    }else{
 		enhanced_interval_duration = median_interval_duration  * enhancement_factor;
@@ -471,7 +473,7 @@ private:
 		enhanced_interval_duration = enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
 		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
 	    }
-	    if (!was_speedup_enabled && !speedup_enabled_ && enhanced_proposed_interval_ != 0  && proposed_interval_start_time_info_.size() > 0){
+	    if (!was_speedup_enabled && !speedup_enabled_ && enhanced_proposed_interval_ != ConstVariables::MINUS_ONE  && proposed_interval_start_time_info_.size() > 0){
 		uint64_t last_proposed_duration = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key()).second;
 		if (enhanced_interval_duration > last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR){
 		    enhanced_interval_duration = last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR;
@@ -556,7 +558,7 @@ private:
 
 	bool speedup_enabled_ = 0;
 	uint64_t enhanced_proposed_duration_;
-	uint64_t enhanced_proposed_interval_;
+	uint64_t enhanced_proposed_interval_ = ConstVariables::MINUS_ONE;
 
 
 	//std::set<uint64_t> actual_grouped_durations_;
