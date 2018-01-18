@@ -434,14 +434,16 @@ private:
 		}
 
 	    }*/
-	    bool was_speedup_enabled = speedup_enabled_;
-	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && enhanced_proposed_interval_+ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
+	    bool was_speedup_enabled = speedup_enabled_,
+		    was_slowdown_enabled= slowdown_enabled_;
+	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
+	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
 	    double enhancement_factor = get_duration_enhancement_factor();
-	    uint64_t enhanced_interval_duration;
+	    uint64_t enhanced_interval_duration = ConstVariables::ZERO;
 
 	    if (speedup_enabled_){
-		if (enhanced_proposed_duration_ <= median_interval_duration){
-		    enhanced_interval_duration = enhanced_proposed_duration_;
+		if (speedup_proposed_duration_ <= median_interval_duration){
+		    enhanced_interval_duration = speedup_proposed_duration_;
 		    /// LOGGING
 		    enhancement_factor = 5; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
@@ -451,13 +453,43 @@ private:
 		    enhancement_factor = 10; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
 		}
-	    }else{
+	    }
+	    if (slowdown_enabled_){
+		if (slowdown_proposed_duration_ <= median_interval_duration){
+		    enhanced_interval_duration = slowdown_proposed_duration_;
+		    /// LOGGING
+		    enhancement_factor = -5; // flag that median is better than prev. enhancement
+		    /// END OF LOGGING
+		}else{
+		    enhanced_interval_duration = median_interval_duration;
+		    /// LOGGING
+		    enhancement_factor = -10; // flag that median is better than prev. enhancement
+		    /// END OF LOGGING
+		}
+
+		// second stage of slowing down for network relaxation
+		if (slowdown_proposed_interval_+ (ConstVariables::MAX_MEDIAN_VALUES/2) == interval_index){
+		    slowdown_proposed_duration_*= ConstVariables::SLOWDOWN_FACTOR;
+		}
+	    }
+
+	    if (!speedup_enabled_ && !slowdown_enabled_){
 		enhanced_interval_duration = median_interval_duration  * enhancement_factor;
 		if (enhancement_factor != 1.0){
 		    speedup_enabled_ = 1;
-		    enhanced_proposed_duration_ = enhanced_interval_duration;
-		    enhanced_proposed_interval_ = interval_index;
+		    speedup_proposed_duration_ = enhanced_interval_duration;
+		    speedup_proposed_interval_ = interval_index;
 		}
+	    }
+
+	    // slow down
+	    if (was_speedup_enabled && !speedup_enabled_ && !slowdown_enabled_ && enhanced_interval_duration > speedup_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR){
+		slowdown_enabled_ = 1;
+		slowdown_proposed_duration_ = speedup_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
+		slowdown_proposed_interval_ = interval_index;
+
+		enhanced_interval_duration = slowdown_proposed_duration_;
+		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
 	    }
 
 	    if (false){
@@ -467,20 +499,6 @@ private:
 			<< interval_index << " with duration "
 			<< enhanced_interval_duration;
 	    }
-
-	    // slow down
-	    if (was_speedup_enabled && !speedup_enabled_ && enhanced_interval_duration > enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR){
-		enhanced_interval_duration = enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
-		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
-	    }
-	    if (!was_speedup_enabled && !speedup_enabled_ && enhanced_proposed_interval_ != ConstVariables::MINUS_ONE  && proposed_interval_start_time_info_.size() > 0){
-		uint64_t last_proposed_duration = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key()).second;
-		if (enhanced_interval_duration > last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR){
-		    enhanced_interval_duration = last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR;
-		    enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
-		}
-	    }
-
 
 	    // LOGGING
 	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor));
@@ -557,8 +575,12 @@ private:
 	SizedMap<uint64_t, uint64_t> sum_median_interval_duration_;
 
 	bool speedup_enabled_ = 0;
-	uint64_t enhanced_proposed_duration_;
-	uint64_t enhanced_proposed_interval_ = ConstVariables::MINUS_ONE;
+	uint64_t speedup_proposed_duration_;
+	uint64_t speedup_proposed_interval_ = ConstVariables::MINUS_ONE;
+
+	bool slowdown_enabled_ = 0;
+	uint64_t slowdown_proposed_duration_;
+	uint64_t slowdown_proposed_interval_ = ConstVariables::MINUS_ONE;
 
 
 	//std::set<uint64_t> actual_grouped_durations_;
