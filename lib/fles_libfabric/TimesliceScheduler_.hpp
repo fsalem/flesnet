@@ -471,7 +471,7 @@ private:
 		enhanced_interval_duration = enhanced_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
 		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
 	    }
-	    if (!was_speedup_enabled && !speedup_enabled_  && proposed_interval_start_time_info_.size() > 0){
+	    if (!was_speedup_enabled && !speedup_enabled_ && enhanced_proposed_interval_ != 0  && proposed_interval_start_time_info_.size() > 0){
 		uint64_t last_proposed_duration = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key()).second;
 		if (enhanced_interval_duration > last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR){
 		    enhanced_interval_duration = last_proposed_duration*ConstVariables::SLOWDOWN_FACTOR;
