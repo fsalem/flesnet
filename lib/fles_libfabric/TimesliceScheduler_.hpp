@@ -17,7 +17,6 @@
 #include <fstream>
 #include <iomanip>
 #include <math.h>
-#include <cstdlib>
 
 namespace tl_libfabric {
 
@@ -366,9 +365,10 @@ private:
 	    if (last_completed_interval < ConstVariables::SPEEDUP_HISTORY+2)return std::pair<double,double>(0,0);
 
 	    double mean = 0, variance = 0;
-	    uint32_t diff[ConstVariables::SPEEDUP_HISTORY];
+	    int32_t diff[ConstVariables::SPEEDUP_HISTORY];
 	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
-		diff[i] = std::abs(actual_interval_start_time_info_.get(last_completed_interval-i).second - proposed_interval_start_time_info_.get(last_completed_interval-i).second);
+		diff[i] = actual_interval_start_time_info_.get(last_completed_interval-i).second - proposed_interval_start_time_info_.get(last_completed_interval-i).second;
+		if (diff[i] < 0)diff[i]*=-1;
 		mean += diff[i];
 	    }
 	    mean /= ConstVariables::SPEEDUP_HISTORY;
