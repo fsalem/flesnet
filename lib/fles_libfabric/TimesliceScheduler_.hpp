@@ -361,16 +361,19 @@ private:
 	std::pair<double, double> get_mean_variance(){
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 
-	    if (last_completed_interval < ConstVariables::SPEEDUP_HISTORY)return std::pair<double,double>(0,0);
+	    // +2 because there is no proposed duration for the first two intervals
+	    if (last_completed_interval < ConstVariables::SPEEDUP_HISTORY+2)return std::pair<double,double>(0,0);
 
 	    double mean = 0, variance = 0;
+	    uint32_t diff[ConstVariables::SPEEDUP_HISTORY];
 	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
-		mean += actual_interval_start_time_info_.get(last_completed_interval-i).second;
+		diff[i] = std::abs(actual_interval_start_time_info_.get(last_completed_interval-i).second - proposed_interval_start_time_info_.get(last_completed_interval-i).second);
+		mean += diff[i];
 	    }
 	    mean /= ConstVariables::SPEEDUP_HISTORY;
 
 	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
-		variance += std::pow(actual_interval_start_time_info_.get(last_completed_interval-i).second-mean,2);
+		variance += std::pow(diff[i]-mean,2);
 	    }
 	    variance /= (ConstVariables::SPEEDUP_HISTORY-1);
 
@@ -378,39 +381,18 @@ private:
 	}
 
 	//return value = 1.0, then no enhancement. returned value < 1 speedup, returned value > 1 slow down
-	double get_duration_enhancement_factor(){
+	double get_duration_enhancement_factor(uint64_t median_interval_duration){
 
 	    std::pair<double, double> stats_data = get_mean_variance();
 	    if (stats_data.first == 0)return 1.0;
 	    /// LOGGING
 	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
 	    /// END OF LOGGING
-	    if ((stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
+	    if ((stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE ||
+		    (stats_data.first/median_interval_duration*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    //if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    return ConstVariables::SPEEDUP_FACTOR;
 
-	    /*//uint64_t last_proposed_interval = proposed_interval_start_time_info_.get_last_key();
-	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
-	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>
-		actual = actual_interval_start_time_info_.get(last_completed_interval),
-		proposed = proposed_interval_start_time_info_.get(last_completed_interval);
-	    double diff_percentage = (actual.second - proposed.second)*100.0/(proposed.second*1.0);
-
-	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY && diff_percentage <= ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE){
-
-
-		std::vector<uint64_t> last_durations(ConstVariables::SPEEDUP_HISTORY);
-		for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
-		    last_durations.push_back(actual_interval_start_time_info_.get(last_completed_interval-i).second);
-		}
-		std::sort(last_durations.begin(),last_durations.end());
-
-		double variance_acceptable_factor = last_durations[ConstVariables::SPEEDUP_HISTORY/2]*ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE*1.0/100.0;
-		if (last_durations[ConstVariables::SPEEDUP_HISTORY/2]-variance_acceptable_factor >= last_durations[2] &&
-			last_durations[ConstVariables::SPEEDUP_HISTORY/2]+variance_acceptable_factor <= last_durations[ConstVariables::SPEEDUP_HISTORY-3])
-		    return ConstVariables::SPEEDUP_FACTOR;
-	    }
-	    return 1.0;*/
 	}
 
 	/// This method gets the sent time for a particular input node and timeslice
@@ -420,25 +402,10 @@ private:
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
 
-	    /*uint64_t enhanced_interval_duration = median_interval_duration;
-	    uint64_t majority_median_duration = get_majority_median_duration();
-	    if (majority_median_duration != 0){
-		std::set<uint64_t>::iterator it = actual_grouped_durations_.lower_bound(majority_median_duration);
-		if (it != actual_grouped_durations_.begin()){
-		    --it;
-		    if (*it < median_interval_duration){
-			enhanced_interval_duration = *it;
-		    }
-		}else{
-		    enhanced_interval_duration = median_interval_duration  * ConstVariables::SPEEDUP_FACTOR;
-		}
-
-	    }*/
-	    bool was_speedup_enabled = speedup_enabled_,
-		    was_slowdown_enabled= slowdown_enabled_;
+	    bool was_speedup_enabled = speedup_enabled_;
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
 	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
-	    double enhancement_factor = get_duration_enhancement_factor();
+	    double enhancement_factor = get_duration_enhancement_factor(median_interval_duration);
 	    uint64_t enhanced_interval_duration = ConstVariables::ZERO;
 
 	    if (speedup_enabled_){
