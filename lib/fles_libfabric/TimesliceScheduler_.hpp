@@ -389,7 +389,7 @@ private:
 	    /// LOGGING
 	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
 	    /// END OF LOGGING
-	    if ((stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE ||
+	    if (/*(stats_data.second/median_interval_duration*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE ||*/
 		    (stats_data.first/median_interval_duration*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    //if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
 	    return ConstVariables::SPEEDUP_FACTOR;
