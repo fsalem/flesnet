@@ -449,14 +449,16 @@ private:
 	    if (!speedup_enabled_ &&
 		    !slowdown_enabled_ &&
 		    stats_data.first != 0 &&
+		    speedup_proposed_interval_ != ConstVariables::MINUS_ONE && // limit the jump
 		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
+
 		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
+		enhanced_interval_duration = speedup_proposed_duration_ * enhancement_factor;
 
-		// limit the jump
-		if (speedup_proposed_interval_ != ConstVariables::MINUS_ONE)
-		    enhanced_interval_duration = speedup_proposed_duration_ * enhancement_factor;
-		else enhanced_interval_duration *= enhancement_factor;
-
+		if (enhanced_interval_duration > median_interval_duration){
+		    enhancement_factor = -100;
+		    enhanced_interval_duration = median_interval_duration;
+		}
 		slowdown_enabled_ = 1;
 		slowdown_proposed_duration_ = enhanced_interval_duration;
 		slowdown_proposed_interval_ = interval_index;
