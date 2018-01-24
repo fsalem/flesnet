@@ -15,17 +15,21 @@ struct ConstVariables {
     const static uint32_t SCHEDULER_INTERVAL_LENGTH = 50;
     const static uint32_t MAX_HISTORY_SIZE = 200;
 
-    static constexpr double SPEEDUP_FACTOR = 0.99f;
+    static constexpr double SPEEDUP_FACTOR = 0.9975f;
 
-    static constexpr double SLOWDOWN_FACTOR = 1.1f;
+    static constexpr double SLOWDOWN_FACTOR = 1.05f;
 
     const static bool ENABLE_LOGGING = 0;
 
     const static uint32_t MAX_MEDIAN_VALUES = 10;
 
-    const static uint32_t SPEEDUP_HISTORY = 20;
+    const static uint32_t SPEEDUP_SLOWDOWN_HISTORY = 10;
 
-    const static uint32_t SPEEDUP_STABLE_VARIANCE_PERCENTAGE = 1;
+    static constexpr double SPEEDUP_GAP_PERCENTAGE = 0.25;
+
+    static constexpr double SLOWDOWN_GAP_PERCENTAGE = 1.0;
+
+    static std::string LOG_DIRECTORY;
 
 };
 }

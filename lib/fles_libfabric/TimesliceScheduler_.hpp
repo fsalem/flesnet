@@ -362,38 +362,23 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 
 	    // +2 because there is no proposed duration for the first two intervals
-	    if (last_completed_interval < ConstVariables::SPEEDUP_HISTORY+2)return std::pair<double,double>(0,0);
+	    if (last_completed_interval < ConstVariables::SPEEDUP_SLOWDOWN_HISTORY+2)return std::pair<double,double>(0,0);
 
 	    double mean = 0, variance = 0;
-	    int32_t diff[ConstVariables::SPEEDUP_HISTORY];
-	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
+	    int32_t diff[ConstVariables::SPEEDUP_SLOWDOWN_HISTORY];
+	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_SLOWDOWN_HISTORY ; i++){
 		diff[i] = actual_interval_start_time_info_.get(last_completed_interval-i).second - proposed_interval_start_time_info_.get(last_completed_interval-i).second;
 		if (diff[i] < 0)diff[i]*=-1;
 		mean += diff[i];
 	    }
-	    mean /= ConstVariables::SPEEDUP_HISTORY;
+	    mean /= ConstVariables::SPEEDUP_SLOWDOWN_HISTORY;
 
-	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
+	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_SLOWDOWN_HISTORY ; i++){
 		variance += std::pow(diff[i]-mean,2);
 	    }
-	    variance /= (ConstVariables::SPEEDUP_HISTORY-1);
+	    variance /= (ConstVariables::SPEEDUP_SLOWDOWN_HISTORY-1);
 
 	    return std::pair<double, double>(mean, std::sqrt(variance));
-	}
-
-	//return value = 1.0, then no enhancement. returned value < 1 speedup, returned value > 1 slow down
-	double get_duration_enhancement_factor(uint64_t median_interval_duration){
-
-	    std::pair<double, double> stats_data = get_mean_variance();
-	    if (stats_data.first == 0)return 1.0;
-	    /// LOGGING
-	    mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
-	    /// END OF LOGGING
-	    if (/*(stats_data.second/median_interval_duration*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE ||*/
-		    (stats_data.first/median_interval_duration*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
-	    //if (stats_data.first == 0 || (stats_data.second/stats_data.first*100) > ConstVariables::SPEEDUP_STABLE_VARIANCE_PERCENTAGE)return 1.0;
-	    return ConstVariables::SPEEDUP_FACTOR;
-
 	}
 
 	/// This method gets the sent time for a particular input node and timeslice
@@ -403,11 +388,17 @@ private:
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
 
-	    bool was_speedup_enabled = speedup_enabled_;
+	    std::pair<double, double> stats_data = get_mean_variance();
+	    /// LOGGING
+	    if (stats_data.first != 0){
+		mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
+	    }
+	    /// END OF LOGGING
+
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
 	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
-	    double enhancement_factor = get_duration_enhancement_factor(median_interval_duration);
-	    uint64_t enhanced_interval_duration = ConstVariables::ZERO;
+	    double enhancement_factor = 1;
+	    uint64_t enhanced_interval_duration = median_interval_duration;
 
 	    if (speedup_enabled_){
 		if (speedup_proposed_duration_ <= median_interval_duration){
@@ -415,12 +406,12 @@ private:
 		    /// LOGGING
 		    enhancement_factor = 5; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
+		/// LOGGING
 		}else{
-		    enhanced_interval_duration = median_interval_duration;
-		    /// LOGGING
+		    //enhanced_interval_duration = median_interval_duration;
 		    enhancement_factor = 10; // flag that median is better than prev. enhancement
-		    /// END OF LOGGING
 		}
+		/// END OF LOGGING
 	    }
 	    if (slowdown_enabled_){
 		if (slowdown_proposed_duration_ <= median_interval_duration){
@@ -428,12 +419,12 @@ private:
 		    /// LOGGING
 		    enhancement_factor = -5; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
+		/// LOGGING
 		}else{
-		    enhanced_interval_duration = median_interval_duration;
-		    /// LOGGING
+		    //enhanced_interval_duration = median_interval_duration;
 		    enhancement_factor = -10; // flag that median is better than prev. enhancement
-		    /// END OF LOGGING
 		}
+		/// END OF LOGGING
 
 		// second stage of slowing down for network relaxation
 		if (slowdown_proposed_interval_+ (ConstVariables::MAX_MEDIAN_VALUES/2) == interval_index){
@@ -441,23 +432,29 @@ private:
 		}
 	    }
 
-	    if (!speedup_enabled_ && !slowdown_enabled_){
-		enhanced_interval_duration = median_interval_duration  * enhancement_factor;
-		if (enhancement_factor != 1.0){
-		    speedup_enabled_ = 1;
-		    speedup_proposed_duration_ = enhanced_interval_duration;
-		    speedup_proposed_interval_ = interval_index;
-		}
+	    //speedup
+	    if (!speedup_enabled_ &&
+		    !slowdown_enabled_ &&
+		    stats_data.first != 0 &&
+		    (stats_data.first/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
+		enhancement_factor = ConstVariables::SPEEDUP_FACTOR;
+		enhanced_interval_duration *= enhancement_factor;
+		speedup_enabled_ = 1;
+		speedup_proposed_duration_ = enhanced_interval_duration;
+		speedup_proposed_interval_ = interval_index;
+
 	    }
 
 	    // slow down
-	    if (was_speedup_enabled && !speedup_enabled_ && !slowdown_enabled_ && enhanced_interval_duration > speedup_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR){
-		slowdown_enabled_ = 1;
-		slowdown_proposed_duration_ = speedup_proposed_duration_*ConstVariables::SLOWDOWN_FACTOR;
-		slowdown_proposed_interval_ = interval_index;
-
-		enhanced_interval_duration = slowdown_proposed_duration_;
+	    if (!speedup_enabled_ &&
+		    !slowdown_enabled_ &&
+		    stats_data.first != 0 &&
+		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
+		enhanced_interval_duration *= enhancement_factor;
+		slowdown_enabled_ = 1;
+		slowdown_proposed_duration_ = enhanced_interval_duration;
+		slowdown_proposed_interval_ = interval_index;
 	    }
 
 	    if (false){
