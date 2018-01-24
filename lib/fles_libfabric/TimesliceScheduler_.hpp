@@ -397,39 +397,44 @@ private:
 
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
 	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
-	    double enhancement_factor = 1;
+	    // LOGGING
+	    double enhancement_factor_log = 0;
+	    // END LOGGING
 	    uint64_t enhanced_interval_duration = median_interval_duration;
 
 	    if (speedup_enabled_){
 		if (speedup_proposed_duration_ <= median_interval_duration){
 		    enhanced_interval_duration = speedup_proposed_duration_;
 		    /// LOGGING
-		    enhancement_factor = 5; // flag that median is better than prev. enhancement
+		    enhancement_factor_log = 1; // flag that median is better than prev. enhancement
 		    /// END OF LOGGING
 		/// LOGGING
 		}else{
+		    speedup_enabled_ = false;
 		    //enhanced_interval_duration = median_interval_duration;
-		    enhancement_factor = 10; // flag that median is better than prev. enhancement
+		    //enhancement_factor = 10; // flag that median is better than prev. enhancement
 		}
 		/// END OF LOGGING
 	    }
 	    if (slowdown_enabled_){
-		if (slowdown_proposed_duration_ <= median_interval_duration){
-		    enhanced_interval_duration = slowdown_proposed_duration_;
-		    /// LOGGING
-		    enhancement_factor = -5; // flag that median is better than prev. enhancement
-		    /// END OF LOGGING
-		/// LOGGING
-		}else{
-		    //enhanced_interval_duration = median_interval_duration;
-		    enhancement_factor = -10; // flag that median is better than prev. enhancement
-		}
-		/// END OF LOGGING
 
 		// second stage of slowing down for network relaxation
 		if (slowdown_proposed_interval_+ (ConstVariables::MAX_MEDIAN_VALUES/2) == interval_index){
 		    slowdown_proposed_duration_*= ConstVariables::SLOWDOWN_FACTOR;
 		}
+
+		if (slowdown_proposed_duration_ <= median_interval_duration){
+		    enhanced_interval_duration = slowdown_proposed_duration_;
+		    /// LOGGING
+		    enhancement_factor_log = -1; // flag that median is better than prev. enhancement
+		    /// END OF LOGGING
+		/// LOGGING
+		}else{
+		    slowdown_enabled_ = false;
+		    //enhanced_interval_duration = median_interval_duration;
+		    //enhancement_factor = -10; // flag that median is better than prev. enhancement
+		}
+		/// END OF LOGGING
 	    }
 
 	    //speedup
@@ -437,9 +442,9 @@ private:
 		    !slowdown_enabled_ &&
 		    stats_data.first != 0 &&
 		    (stats_data.first/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
-		enhancement_factor = ConstVariables::SPEEDUP_FACTOR;
-		enhanced_interval_duration *= enhancement_factor;
-		speedup_enabled_ = 1;
+		enhancement_factor_log = 1;
+		enhanced_interval_duration *= ConstVariables::SPEEDUP_FACTOR;
+		speedup_enabled_ = true;
 		speedup_proposed_duration_ = enhanced_interval_duration;
 		speedup_proposed_interval_ = interval_index;
 
@@ -452,16 +457,17 @@ private:
 		    speedup_proposed_interval_ != ConstVariables::MINUS_ONE && // limit the jump
 		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 
-		enhancement_factor = ConstVariables::SLOWDOWN_FACTOR;
-		enhanced_interval_duration = speedup_proposed_duration_ * enhancement_factor;
+		enhancement_factor_log = -1;
+		enhanced_interval_duration = speedup_proposed_duration_ * ConstVariables::SLOWDOWN_FACTOR;
 
 		if (enhanced_interval_duration > median_interval_duration){
-		    enhancement_factor = -100;
+		    enhancement_factor_log = -2;
 		    enhanced_interval_duration = median_interval_duration;
+		}else{
+		    slowdown_enabled_ = true;
+		    slowdown_proposed_duration_ = enhanced_interval_duration;
+		    slowdown_proposed_interval_ = interval_index;
 		}
-		slowdown_enabled_ = 1;
-		slowdown_proposed_duration_ = enhanced_interval_duration;
-		slowdown_proposed_interval_ = interval_index;
 	    }
 
 	    if (false){
@@ -473,7 +479,7 @@ private:
 	    }
 
 	    // LOGGING
-	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor));
+	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor_log));
 	    // END LOGGING
 
 	    proposed_median_enhanced_duration_log_.insert(std::pair<uint64_t,std::pair<uint64_t,uint64_t>>(interval_index,std::pair<uint64_t,uint64_t>(median_interval_duration, enhanced_interval_duration)));
@@ -546,11 +552,11 @@ private:
 
 	SizedMap<uint64_t, uint64_t> sum_median_interval_duration_;
 
-	bool speedup_enabled_ = 0;
+	bool speedup_enabled_ = false;
 	uint64_t speedup_proposed_duration_;
 	uint64_t speedup_proposed_interval_ = ConstVariables::MINUS_ONE;
 
-	bool slowdown_enabled_ = 0;
+	bool slowdown_enabled_ = false;
 	uint64_t slowdown_proposed_duration_;
 	uint64_t slowdown_proposed_interval_ = ConstVariables::MINUS_ONE;
 
