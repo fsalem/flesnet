@@ -419,7 +419,8 @@ private:
 	    if (slowdown_enabled_){
 
 		// second stage of slowing down for network relaxation
-		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) == interval_index){
+		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) >= interval_index &&
+		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 		    slowdown_proposed_duration_*= ConstVariables::SLOWDOWN_FACTOR;
 		}
 
