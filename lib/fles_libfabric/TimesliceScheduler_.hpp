@@ -395,8 +395,8 @@ private:
 	    }
 	    /// END OF LOGGING
 
-	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
-	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::MAX_MEDIAN_VALUES-1 <= interval_index) ? false : true;
+	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::SPEEDUP_INTERVAL_PERIOD-1 <= interval_index) ? false : true;
+	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::SLOWDOWN_INTERVAL_PERIOD-1 <= interval_index) ? false : true;
 	    // LOGGING
 	    double enhancement_factor_log = 0;
 	    // END LOGGING
@@ -419,7 +419,7 @@ private:
 	    if (slowdown_enabled_){
 
 		// second stage of slowing down for network relaxation
-		if (slowdown_proposed_interval_+ (ConstVariables::MAX_MEDIAN_VALUES/2) == interval_index){
+		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) == interval_index){
 		    slowdown_proposed_duration_*= ConstVariables::SLOWDOWN_FACTOR;
 		}
 
