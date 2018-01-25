@@ -169,23 +169,32 @@ public:
 			<< std::setw(25) << "Max start"
 			<< std::setw(25) << "Min duration"
 			<< std::setw(25) << "Max duration"
+			<< std::setw(25) << "Proposed duration"
 			<< std::setw(25) << "Speedup Factor"<< "\n";
 
 		std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator times_it = min_max_interval_start_time_log_.begin(),
 			dur_it = min_max_interval_duration_log_.begin();
 		std::map<uint64_t, double>::iterator speedup_factor;
+		std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator duration_it;
 
 		while (times_it != min_max_interval_start_time_log_.end() && dur_it != min_max_interval_duration_log_.end()){
 		    double factor = 0.0;
+		    uint64_t proposed_duration = 0;
+
 		    speedup_factor = speedup_duration_factor_log_.find(times_it->first);
 		    if (speedup_factor != speedup_duration_factor_log_.end())
 			factor = speedup_factor->second;
+
+		    duration_it = proposed_median_enhanced_duration_log_.find(times_it->first);
+		    if (duration_it != proposed_median_enhanced_duration_log_.end())
+			proposed_duration = duration_it->second.first;
 
 		    log_file << std::setw(25) << times_it->first
 			    << std::setw(25) << times_it->second.first
 			    << std::setw(25) << times_it->second.second
 			    << std::setw(25) << dur_it->second.first
 			    << std::setw(25) << dur_it->second.second
+			    << std::setw(25) << proposed_duration
 			    << std::setw(25) << factor << "\n";
 		    ++times_it;
 		    ++dur_it;
