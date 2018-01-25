@@ -24,8 +24,8 @@ struct ConstVariables {
     static constexpr double SPEEDUP_GAP_PERCENTAGE = 0.25;
     const static uint32_t SPEEDUP_INTERVAL_PERIOD = 10;
 
-    static constexpr double SLOWDOWN_FACTOR = 1.05f;
-    static constexpr double SLOWDOWN_GAP_PERCENTAGE = 1.0;
+    static constexpr double SLOWDOWN_FACTOR = 1.0125f;
+    static constexpr double SLOWDOWN_GAP_PERCENTAGE = 2.5;
     const static uint32_t SLOWDOWN_INTERVAL_PERIOD = 10;
 
     static std::string LOG_DIRECTORY;
