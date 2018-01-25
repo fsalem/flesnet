@@ -187,7 +187,7 @@ public:
 
 		    duration_it = proposed_median_enhanced_duration_log_.find(times_it->first);
 		    if (duration_it != proposed_median_enhanced_duration_log_.end())
-			proposed_duration = duration_it->second.first;
+			proposed_duration = duration_it->second.first/1000.0;
 
 		    log_file << std::setw(25) << times_it->first
 			    << std::setw(25) << times_it->second.first
