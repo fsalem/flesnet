@@ -51,7 +51,7 @@ struct InputIntervalInfo {
 	    return duration_per_round;
 	}
 	if (expected_sent_ts < count_sent_ts){ /// sending faster than proposed
-	    return duration_per_round + ((count_sent_ts - expected_sent_ts - 1) * duration_per_ts);
+	    return duration_per_round + ((count_sent_ts - expected_sent_ts) * duration_per_ts);
 	}
 	if (expected_sent_ts - count_sent_ts >= num_ts_per_round){ // scheduler is at one round behind
 	    return ConstVariables::ZERO;
