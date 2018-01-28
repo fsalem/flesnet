@@ -390,12 +390,32 @@ private:
 	    return std::pair<double, double>(mean, std::sqrt(variance));
 	}
 
+	uint64_t get_median_interval_duration(){
+	    if (actual_interval_start_time_info_.size() == 0)return 0;
+
+	    SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>>::iterator it = actual_interval_start_time_info_.get_end_iterator();
+	    uint64_t sum_durations = 0;
+
+	    uint32_t required_size = ConstVariables::MAX_MEDIAN_VALUES, count = 0;
+	    if (actual_interval_start_time_info_.size() < required_size){
+		required_size = actual_interval_start_time_info_.size();
+	    }
+
+	    do{
+		--it;
+		++count;
+		sum_durations += it->second.second;
+	    }while (it != actual_interval_start_time_info_.get_begin_iterator() && count < required_size);
+
+	    return sum_durations/required_size;
+
+	}
 	/// This method gets the sent time for a particular input node and timeslice
 	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
-	    uint64_t median_interval_duration = sum_median_interval_duration_.get(last_completed_interval)/input_node_count_;
+	    uint64_t median_interval_duration = get_median_interval_duration();
 
 	    std::pair<double, double> stats_data = get_mean_variance();
 	    /// LOGGING
