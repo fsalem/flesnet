@@ -15,6 +15,7 @@
 #include <rdma/fi_errno.h>
 #include <rdma/fi_rma.h>
 
+#include <math.h>
 #include <cstdint>
 #include <string>
 #include <chrono>

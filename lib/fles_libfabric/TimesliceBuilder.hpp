@@ -33,8 +33,9 @@ public:
     TimesliceBuilder(uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
                      unsigned short service, uint32_t num_input_nodes,
                      uint32_t timeslice_size,
-                     volatile sig_atomic_t* signal_status, bool drop,
-                     std::string local_node_name);
+                     volatile sig_atomic_t* signal_status,
+		     bool drop, std::string local_node_name,
+		     uint32_t num_compute_nodes);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;
@@ -90,6 +91,7 @@ private:
 
     unsigned short service_;
     uint32_t num_input_nodes_;
+    uint32_t num_compute_nodes_;
 
     std::set<uint_fast16_t> connected_senders_;
 

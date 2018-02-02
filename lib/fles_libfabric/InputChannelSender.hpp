@@ -160,6 +160,7 @@ private:
 
     SizedMap<uint64_t, InputIntervalInfo*> intervals_info_;
 
+    const uint16_t INTERVAL_LENGTH_;
     uint64_t current_interval_ = ConstVariables::ZERO;
 
     struct IntervalRoundDuration{

@@ -18,6 +18,7 @@
 //#include <vector>
 #include <rdma/fi_domain.h>
 #include <set>
+#include <math.h>
 
 #include <chrono>
 #include <fstream>

@@ -25,6 +25,8 @@ struct InputIntervalInfo {
 
     uint64_t count_rounds = ConstVariables::ZERO;
 
+    const uint16_t INTERVAL_LENGTH_;
+
     bool cb_blocked = false;
     std::chrono::high_resolution_clock::time_point cb_blocked_start_time;
     uint64_t cb_blocked_duration = 0;
@@ -36,6 +38,10 @@ struct InputIntervalInfo {
     uint64_t get_expected_sent_ts(){
 	if (duration_per_ts == 0)return (end_ts-start_ts+1);
 	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
+    }
+
+    InputIntervalInfo(const uint16_t interval_length):INTERVAL_LENGTH_(interval_length){
+
     }
 
     uint64_t get_duration_to_next_round(){
@@ -88,8 +94,8 @@ private:
     void init_statistical_variables(){
 	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
     	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
-    	    duration_per_round = proposed_duration/ConstVariables::SCHEDULER_INTERVAL_LENGTH;
-    	    num_ts_per_round = (end_ts - start_ts + 1) / ConstVariables::SCHEDULER_INTERVAL_LENGTH;
+    	    duration_per_round = proposed_duration/INTERVAL_LENGTH_;
+    	    num_ts_per_round = (end_ts - start_ts + 1) /INTERVAL_LENGTH_;
     	}
     }
     uint64_t duration_per_ts = ConstVariables::ZERO;

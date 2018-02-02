@@ -23,14 +23,15 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
                                    uint32_t num_input_nodes,
                                    uint32_t timeslice_size,
                                    volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name)
+                                   bool drop, std::string local_node_name,
+				   uint32_t num_compute_nodes)
     : ConnectionGroup(local_node_name), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
-      signal_status_(signal_status), local_node_name_(local_node_name),
+      signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
       drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,
-	      ConstVariables::SCHEDULER_INTERVAL_LENGTH))
+	      (uint16_t)ceil(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/num_compute_nodes)))
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());

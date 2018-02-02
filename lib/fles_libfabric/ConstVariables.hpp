@@ -12,19 +12,19 @@ struct ConstVariables {
     const static uint64_t ZERO = 0;
     const static uint32_t ONE_HUNDRED = 100;
 
-    const static uint32_t SCHEDULER_INTERVAL_LENGTH = 50;
     const static uint32_t MAX_HISTORY_SIZE = 200;
+    const static uint16_t MAX_TIMESLICE_PER_INTERVAL = 1000;
 
     const static bool ENABLE_LOGGING = 0;
     const static uint32_t MAX_MEDIAN_VALUES = 10;
 
     const static uint32_t SPEEDUP_SLOWDOWN_HISTORY = 10;
 
-    static constexpr double SPEEDUP_FACTOR = 0.9975f;
+    static constexpr double SPEEDUP_ROUND_FACTOR = 1.0f;
     static constexpr double SPEEDUP_GAP_PERCENTAGE = 0.25;
     const static uint32_t SPEEDUP_INTERVAL_PERIOD = 10;
 
-    static constexpr double SLOWDOWN_FACTOR = 1.0125f;
+    static constexpr double SLOWDOWN_ROUND_FACTOR = 1.0f;
     static constexpr double SLOWDOWN_GAP_PERCENTAGE = 2.5;
     const static uint32_t SLOWDOWN_INTERVAL_PERIOD = 10;
 

@@ -25,7 +25,8 @@ InputChannelSender::InputChannelSender(
       overlap_size_(overlap_size), max_timeslice_number_(max_timeslice_number),
       min_acked_desc_(data_source.desc_buffer().size() / 4),
       min_acked_data_(data_source.data_buffer().size() / 4),
-      intervals_info_(ConstVariables::MAX_HISTORY_SIZE)
+      intervals_info_(ConstVariables::MAX_HISTORY_SIZE),
+      INTERVAL_LENGTH_(ceil(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_hostnames.size()))
 {
 
     start_index_desc_ = sent_desc_ = acked_desc_ = cached_sent_desc_ = cached_acked_desc_ =
@@ -153,11 +154,11 @@ void InputChannelSender::sync_data_source(uint64_t timeslice)
 }
 
 uint64_t InputChannelSender::get_timeslice_interval(uint64_t timeslice){
-    return (timeslice / (ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size())); // fraction will be thrown away
+    return (timeslice / (INTERVAL_LENGTH_ * conn_.size())); // fraction will be thrown away
 }
 
 uint64_t InputChannelSender::get_interval_start_ts(uint64_t interval_index){
-    return interval_index * ConstVariables::SCHEDULER_INTERVAL_LENGTH * conn_.size(); // fraction will be thrown away
+    return interval_index * INTERVAL_LENGTH_ * conn_.size(); // fraction will be thrown away
 }
 
 void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_info){
@@ -220,7 +221,7 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
 }
 
 InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_index){
-    InputIntervalInfo* interval_info = new InputIntervalInfo();
+    InputIntervalInfo* interval_info = new InputIntervalInfo(INTERVAL_LENGTH_);
     interval_info->index = interval_index;
     interval_info->start_ts = get_interval_start_ts(interval_index);
     interval_info->end_ts = get_interval_start_ts(interval_index+1) - 1;
