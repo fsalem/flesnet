@@ -196,9 +196,9 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
     }
     if (!found){
 	min_start_time = std::chrono::high_resolution_clock::now();
-	/*if (interval_info->index > 0)
+	if (interval_info->index > 0)
 	    min_duration = intervals_info_.get(interval_info->index-1)->actual_duration;
-	else*/
+	else
 	    min_duration = ConstVariables::ZERO;
     }
     interval_info->proposed_start_time = min_start_time;
