@@ -62,66 +62,34 @@ public:
 	}
 
 	/// This method adds the received information from an input node to the scheduler data
-	void add_input_interval_info(uint32_t input_index, uint64_t interval_index,
-			std::chrono::high_resolution_clock::time_point actual_start_time,
-			std::chrono::high_resolution_clock::time_point proposed_start_time,
-			double interval_duration){
+	void add_input_interval_info(uint32_t input_index, IntervalMetaData interval_metadata){
 
-	    if (!sender_info_[input_index].interval_info_.contains(interval_index)) {
-		    sender_info_[input_index].interval_info_.add(interval_index, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(actual_start_time + std::chrono::microseconds(sender_info_[input_index].clock_offset), interval_duration));
+	    if (!sender_info_[input_index].interval_info_.contains(interval_metadata.interval_index)) {
 
-		    if (!sum_median_interval_duration_.contains(interval_index)){
-			sum_median_interval_duration_.add(interval_index, ConstVariables::ZERO);
-		    }
-		    SizedMap<uint64_t, uint64_t>::iterator sum_it = sum_median_interval_duration_.get_iterator(interval_index);
+		uint64_t round_duration = interval_metadata.interval_duration/interval_metadata.round_count;
 
-		    if (sender_info_[input_index].median_duration == ConstVariables::ZERO){
-			sender_info_[input_index].median_duration = interval_duration;
-		    }else{
-			sender_info_[input_index].median_duration = calculate_median_intervals_duration(input_index);
-		    }
+		sender_info_[input_index].interval_info_.add(interval_metadata.interval_index, interval_metadata);
+		sender_info_[input_index].round_durations.add(round_duration);
 
-		    if (sender_info_[input_index].min_duration == ConstVariables::ZERO || sender_info_[input_index].min_duration > interval_duration){
-			sender_info_[input_index].min_duration = interval_duration;
-		    }
-
-		    if (sender_info_[input_index].max_duration == ConstVariables::ZERO || sender_info_[input_index].max_duration < interval_duration){
-			sender_info_[input_index].max_duration = interval_duration;
-		    }
-
-		    sum_it->second += sender_info_[input_index].median_duration;
-		    increament_acked_interval(interval_index);
-
-		    /*/// Logging
-		    if (ConstVariables::ENABLE_LOGGING){
-			std::map<uint64_t, std::vector<std::pair<int64_t, int64_t> > >::iterator it = proposed_actual_times_log_.find(interval_index);
-
-			if (it == proposed_actual_times_log_.end()){
-			    proposed_actual_times_log_.insert(std::pair<uint64_t,
-				    std::vector<std::pair<int64_t, int64_t> > >(interval_index, std::vector<std::pair<int64_t, int64_t> >(input_node_count_)));
-			    it = proposed_actual_times_log_.find(interval_index);
-			}
-
-			it->second[input_index] = std::make_pair<int64_t, int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(proposed_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset,
-			    std::chrono::duration_cast<std::chrono::microseconds>(actual_start_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset);
-
-			if (it->second[input_index].first < 0 )it->second[input_index].first = 0;
-		    }
-		    /// END OF Logging*/
+		if (!sum_median_interval_duration_.contains(interval_metadata.interval_index)){
+		    sum_median_interval_duration_.add(interval_metadata.interval_index, ConstVariables::ZERO);
+		}
+		SizedMap<uint64_t, uint64_t>::iterator sum_it = sum_median_interval_duration_.get_iterator(interval_metadata.interval_index);
+		sum_it->second += sender_info_[input_index].round_durations.get_median_key();
+		increament_acked_interval(interval_metadata.interval_index);
 	    }
 
 	}
 
 	/// This method retrieves the interval information that will be sent to input nodes
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_info(uint64_t interval_index,uint32_t input_index){
-	    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info;
-	    if (proposed_interval_start_time_info_.contains(interval_index)){
-		interval_info = proposed_interval_start_time_info_.get(interval_index);
-	    }else{
-		interval_info = get_interval_sent_time(interval_index);
-		proposed_interval_start_time_info_.add(interval_index, interval_info);
+	const IntervalMetaData get_interval_info(uint64_t interval_index,uint32_t input_index){
+
+	    if (!proposed_interval_start_time_info_.contains(interval_index)){
+		proposed_interval_start_time_info_.add(interval_index, get_interval_sent_time(interval_index));
 	    }
-	    interval_info.first -= std::chrono::microseconds(sender_info_[input_index].clock_offset);
+
+	    IntervalMetaData interval_info = proposed_interval_start_time_info_.get(interval_index);
+	    interval_info.start_time -= std::chrono::microseconds(sender_info_[input_index].clock_offset);
 	    return interval_info;
 	}
 
@@ -224,41 +192,9 @@ public:
 		log_file.flush();
 		log_file.close();
 	    }
-	    if (true){
-		std::ofstream log_file;
-		log_file.open(std::to_string(compute_index_)+".compute.mean_variance_interval.out");
-
-		log_file << std::setw(25) << "Interval"
-			<< std::setw(25) << "Mean"
-			<< std::setw(25) << "\"Std. Deviation\"" << "\n";
-
-		std::map<uint64_t, std::pair<double, double> >::iterator duration_it = mean_varience_interval_log_.begin();
-
-		while (duration_it != mean_varience_interval_log_.end()){
-
-		    log_file << std::setw(25) << duration_it->first
-			    << std::setw(25) << duration_it->second.first
-			    << std::setw(25) << duration_it->second.second << "\n";
-		    ++duration_it;
-		}
-		log_file.flush();
-		log_file.close();
-	    }
 	}
 
 private:
-
-	/// This struct contains the needed data for update theta and alpha. It contains the variance, median, and mean of set of durations
-	struct TimeSchedulerStatsData {
-	    uint64_t mean = 0;
-	    uint64_t median = 0;
-	    uint64_t variance = 0;
-	};
-
-	/*uint32_t get_timeslice_interval(uint64_t timeslice){
-	    // TODO INTERVAL_LENGTH * num_input_nodes should be INTERVAL_LENGTH * num_COMPUTE_nodes
-	    return(timeslice / (INTERVAL_LENGTH * input_node_count_)); // fraction will be thrown away
-	}*/
 	/// This increases the counter for the received intervals to trigger when to start calculate the sent time
 	void increament_acked_interval(uint64_t interval_index) {
 
@@ -274,54 +210,25 @@ private:
 	    }
 	}
 
-	/*uint64_t get_majority_median_duration(){
-	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
-
-	    if (last_completed_interval >= ConstVariables::SPEEDUP_HISTORY){
-
-		std::map<uint64_t,uint16_t> duration_count;
-		std::vector<uint64_t> last_durations(ConstVariables::SPEEDUP_HISTORY);
-		uint64_t majority_duration = actual_interval_start_time_info_.get(last_completed_interval).second;
-		uint16_t majority_count = 1;
-
-		uint64_t dur;
-		std::map<uint64_t,uint16_t>::iterator it;
-
-		for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_HISTORY ; i++){
-		    dur = actual_interval_start_time_info_.get(last_completed_interval-i).second;
-		    it = duration_count.find(dur);
-		    if (it == duration_count.end()){
-			duration_count.insert(std::pair<uint64_t,uint16_t>(dur,1));
-		    }else{
-			++it->second;
-			if (it->second > majority_count){
-			    majority_duration = it->first;
-			    majority_count = it->second;
-			}
-		    }
-		}
-
-		// TODO 0.6 to be configurable
-		if (majority_count >= 0.6 * ConstVariables::SPEEDUP_HISTORY)
-		    return majority_duration;
-	    }
-	    return 0;
-	}*/
-
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
 	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
-	    std::vector<uint64_t> interval_durations;
+	    std::vector<uint64_t> round_durations;
+	    /// If an input scheduler doesn't receive the updated info from the compute scheduler, the last received data would be used
+	    std::vector<uint32_t> round_counts;
+	    std::vector<uint32_t> start_timeslices;
 
 	    // get the earliest start time!
 	    for (uint32_t indx = 0; indx < input_node_count_ ; indx++){
-		if (interval_durations.empty()){
-		    min_start_time = sender_info_[indx].interval_info_.get(interval_index).first;
+		if (round_durations.empty()){
+		    min_start_time = sender_info_[indx].interval_info_.get(interval_index).start_time;
 		    max_start_time = min_start_time;
 		}
-		interval_durations.push_back(sender_info_[indx].interval_info_.get(interval_index).second);
-		tmp = sender_info_[indx].interval_info_.get(interval_index).first;
+		round_durations.push_back(sender_info_[indx].interval_info_.get(interval_index).interval_duration/sender_info_[indx].interval_info_.get(interval_index).round_count);
+		round_counts.push_back(sender_info_[indx].interval_info_.get(interval_index).round_count);
+		start_timeslices.push_back(sender_info_[indx].interval_info_.get(interval_index).start_timeslice);
+		tmp = sender_info_[indx].interval_info_.get(interval_index).start_time;
 		if (tmp < min_start_time){
 		    min_start_time = tmp;
 		}
@@ -330,31 +237,36 @@ private:
 		    max_start_time = tmp;
 		}
 	    }
-	    std::sort(interval_durations.begin(),interval_durations.end());
-	    uint64_t median_interval_duration;
-	    if (interval_durations.size() >= 2 && interval_durations.size() % 2 == 0){
-		int mid_index = interval_durations.size()/2;
-		median_interval_duration = (interval_durations[mid_index-1] + interval_durations[mid_index])/2;
+	    std::sort(round_durations.begin(), round_durations.end());
+	    std::sort(round_counts.begin(), round_counts.end());
+	    std::sort(start_timeslices.begin(), start_timeslices.end());
+
+	    uint64_t median_round_duration;
+	    if (round_durations.size() >= 2 && round_durations.size() % 2 == 0){
+		int mid_index = round_durations.size()/2;
+		median_round_duration = (round_durations[mid_index-1] + round_durations[mid_index])/2;
 	    }else{
-		median_interval_duration = interval_durations[interval_durations.size()/2];
+		median_round_duration = round_durations[round_durations.size()/2];
 	    }
 
 	    median_start_time = min_start_time + std::chrono::microseconds(std::chrono::duration_cast<std::chrono::microseconds>(max_start_time - min_start_time).count()/2);
 	    if (false){
 		L_(info) << "[" << compute_index_ << "] interval "
 			<< interval_index << " took "
-			<< (median_interval_duration) << " us";
+			<< (median_round_duration) << " us";
 	    }
 
-	    actual_interval_start_time_info_.add(interval_index, std::make_pair(median_start_time, median_interval_duration));
+	    IntervalMetaData interval_metadata;
+	    interval_metadata.interval_index = interval_index;
+	    interval_metadata.round_count = round_counts[round_counts.size()/2];
+	    interval_metadata.start_timeslice = start_timeslices[start_timeslices.size()/2];
+	    interval_metadata.start_time = median_start_time;
+	    interval_metadata.interval_duration = median_round_duration*interval_metadata.round_count;
+
+	    actual_interval_start_time_info_.add(interval_index, interval_metadata);
+
 	    last_completed_interval_ = interval_index;
 
-	    /// SPEEDUP Calculations
-	    /*uint64_t majority_duration = get_majority_median_duration();
-	    if (majority_duration != 0 && actual_grouped_durations_.count(majority_duration) == 0)
-		actual_grouped_durations_.insert(majority_duration);
-*/
-	    /// END
 
 	    /// LOGGING
 	    if (ConstVariables::ENABLE_LOGGING){
@@ -362,38 +274,31 @@ private:
 			std::chrono::duration_cast<std::chrono::milliseconds>(min_start_time - compute_MPI_time_).count(),
 			std::chrono::duration_cast<std::chrono::milliseconds>(max_start_time - compute_MPI_time_).count())));
 		min_max_interval_duration_log_.insert(std::pair<uint64_t, std::pair<int64_t, int64_t> >(interval_index, std::pair<int64_t, int64_t>(
-			interval_durations[0]/1000.0,interval_durations[interval_durations.size()-1]/1000.0)));
+			round_durations[0]*interval_metadata.round_count/1000.0,round_durations[round_durations.size()-1]*interval_metadata.round_count/1000.0)));
 	    }
 	    /// END LOGGING
 	}
 
-	std::pair<double, double> get_mean_variance(){
+	double get_mean_duration_difference(){
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 
 	    // +2 because there is no proposed duration for the first two intervals
-	    if (last_completed_interval < ConstVariables::SPEEDUP_SLOWDOWN_HISTORY+2)return std::pair<double,double>(0,0);
+	    if (last_completed_interval < ConstVariables::SPEEDUP_SLOWDOWN_HISTORY+2)return 0;
 
-	    double mean = 0, variance = 0;
-	    int32_t diff[ConstVariables::SPEEDUP_SLOWDOWN_HISTORY];
+	    double mean = 0;
 	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_SLOWDOWN_HISTORY ; i++){
-		diff[i] = actual_interval_start_time_info_.get(last_completed_interval-i).second - proposed_interval_start_time_info_.get(last_completed_interval-i).second;
-		if (diff[i] < 0)diff[i]*=-1;
-		mean += diff[i];
+
+		mean += std::abs((int64_t)actual_interval_start_time_info_.get(last_completed_interval-i).interval_duration - (int64_t)proposed_interval_start_time_info_.get(last_completed_interval-i).interval_duration);
 	    }
 	    mean /= ConstVariables::SPEEDUP_SLOWDOWN_HISTORY;
 
-	    for (uint32_t i=0 ; i< ConstVariables::SPEEDUP_SLOWDOWN_HISTORY ; i++){
-		variance += std::pow(diff[i]-mean,2);
-	    }
-	    variance /= (ConstVariables::SPEEDUP_SLOWDOWN_HISTORY-1);
-
-	    return std::pair<double, double>(mean, std::sqrt(variance));
+	    return mean;
 	}
 
-	uint64_t get_median_interval_duration(){
-	    if (actual_interval_start_time_info_.size() == 0)return 0;
+	uint64_t get_median_round_duration(){
+	    if (actual_interval_start_time_info_.size() == 0) return 0;
 
-	    SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>>::iterator it = actual_interval_start_time_info_.get_end_iterator();
+	    SizedMap<uint64_t, IntervalMetaData>::iterator it = actual_interval_start_time_info_.get_end_iterator();
 	    uint64_t sum_durations = 0;
 
 	    uint32_t required_size = ConstVariables::MAX_MEDIAN_VALUES, count = 0;
@@ -404,32 +309,39 @@ private:
 	    do{
 		--it;
 		++count;
-		sum_durations += it->second.second;
+		sum_durations += (it->second.interval_duration/it->second.round_count);
 	    }while (it != actual_interval_start_time_info_.get_begin_iterator() && count < required_size);
 
 	    return sum_durations/required_size;
 
 	}
+
 	/// This method gets the sent time for a particular input node and timeslice
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
+	IntervalMetaData get_interval_sent_time(uint64_t interval_index){
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
-	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
-	    uint64_t median_interval_duration = get_median_interval_duration();
+	    IntervalMetaData last_completed_interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 
-	    std::pair<double, double> stats_data = get_mean_variance();
-	    /// LOGGING
-	    if (stats_data.first != 0){
-		mean_varience_interval_log_.insert(std::pair<uint64_t,std::pair<double,double>>(proposed_interval_start_time_info_.get_last_key(),stats_data));
-	    }
-	    /// END OF LOGGING
+	    IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
+	    uint64_t new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*input_node_count_; //TODO compute node count is NEEDED
+
+	    uint64_t median_round_duration = get_median_round_duration();
+	    uint32_t round_count = std::ceil(ConstVariables::MIN_INTERVAL_DURATION*1000000/median_round_duration);
+	    round_count = round_count == 0 ? 1 : round_count;
+
+
+	    double mean_interval_diff = get_mean_duration_difference();
 
 	    speedup_enabled_ = !speedup_enabled_ || (speedup_enabled_ && speedup_proposed_interval_+ ConstVariables::SPEEDUP_INTERVAL_PERIOD-1 <= interval_index) ? false : true;
 	    slowdown_enabled_ = !slowdown_enabled_ || (slowdown_enabled_ && slowdown_proposed_interval_+ ConstVariables::SLOWDOWN_INTERVAL_PERIOD-1 <= interval_index) ? false : true;
 	    // LOGGING
 	    double enhancement_factor_log = 0;
 	    // END LOGGING
-	    uint64_t enhanced_interval_duration = median_interval_duration;
+
+
+
+	    uint64_t median_interval_duration = median_round_duration*round_count,
+		    enhanced_interval_duration = median_interval_duration;
 
 	    if (speedup_enabled_){
 		if (speedup_proposed_duration_ <= median_interval_duration){
@@ -440,8 +352,6 @@ private:
 		/// LOGGING
 		}else{
 		    speedup_enabled_ = false;
-		    //enhanced_interval_duration = median_interval_duration;
-		    //enhancement_factor = 10; // flag that median is better than prev. enhancement
 		}
 		/// END OF LOGGING
 	    }
@@ -449,7 +359,7 @@ private:
 
 		// second stage of slowing down for network relaxation
 		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) >= interval_index &&
-		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
+		    (mean_interval_diff/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 		    slowdown_proposed_duration_+= ((slowdown_proposed_duration_/INTERVAL_LENGTH)*ConstVariables::SLOWDOWN_ROUND_FACTOR);
 		}
 
@@ -461,8 +371,6 @@ private:
 		/// LOGGING
 		}else{
 		    slowdown_enabled_ = false;
-		    //enhanced_interval_duration = median_interval_duration;
-		    //enhancement_factor = -10; // flag that median is better than prev. enhancement
 		}
 		/// END OF LOGGING
 	    }
@@ -470,8 +378,8 @@ private:
 	    //speedup
 	    if (!speedup_enabled_ &&
 		    !slowdown_enabled_ &&
-		    stats_data.first != 0 &&
-		    (stats_data.first/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
+		    mean_interval_diff != 0 &&
+		    (mean_interval_diff/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
 		enhancement_factor_log = 1;
 		enhanced_interval_duration -= ((enhanced_interval_duration/INTERVAL_LENGTH)*ConstVariables::SPEEDUP_ROUND_FACTOR);
 		speedup_enabled_ = true;
@@ -483,9 +391,9 @@ private:
 	    // slow down
 	    if (!speedup_enabled_ &&
 		    !slowdown_enabled_ &&
-		    stats_data.first != 0 &&
+		    mean_interval_diff != 0 &&
 		    speedup_proposed_interval_ != ConstVariables::MINUS_ONE && // limit the jump
-		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
+		    (mean_interval_diff/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 
 		enhancement_factor_log = -1;
 		enhanced_interval_duration = speedup_proposed_duration_ + ((speedup_proposed_duration_/INTERVAL_LENGTH) * ConstVariables::SLOWDOWN_ROUND_FACTOR);
@@ -500,22 +408,14 @@ private:
 		}
 	    }
 
-	    if (false){
-		L_(info) << "[" << compute_index_ << "] last complete interval: "
-			<< last_completed_interval << " with duration "
-			<< interval_info.second << " us and the requested interval: "
-			<< interval_index << " with duration "
-			<< enhanced_interval_duration;
-	    }
-
 	    // LOGGING
 	    speedup_duration_factor_log_.insert(std::pair<uint64_t, double>(interval_index,enhancement_factor_log));
 	    // END LOGGING
 
 	    proposed_median_enhanced_duration_log_.insert(std::pair<uint64_t,std::pair<uint64_t,uint64_t>>(interval_index,std::pair<uint64_t,uint64_t>(median_interval_duration, enhanced_interval_duration)));
 
-	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
-		    interval_info.first + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
+	    return IntervalMetaData(interval_index,round_count, new_start_timeslice,
+		    last_completed_interval_info.start_time + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
 		    enhanced_interval_duration);
 
 
@@ -527,28 +427,6 @@ private:
 
 	    it->second[input_index] = std::chrono::duration_cast<std::chrono::microseconds>(sent_time - compute_MPI_time_).count() + sender_info_[input_index].clock_offset;
 	    /// END OF Logging*/
-	}
-
-	uint64_t calculate_median_intervals_duration(uint32_t input_index){
-
-	    if (sender_info_[input_index].interval_info_.size() == 0)return ConstVariables::MINUS_ONE;
-
-	    // TODO SHOULD BE ENHANZED!!! BRUTEFORCE CODE!
-	    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > >::iterator
-		    start_it = sender_info_[input_index].interval_info_.get_begin_iterator(),
-		    end_it = sender_info_[input_index].interval_info_.get_end_iterator();
-	    std::vector<uint64_t> durations;
-
-	    int max_count = ConstVariables::MAX_MEDIAN_VALUES;
-	    while (max_count-- > 0 && --end_it != start_it){
-		durations.push_back(end_it->second.second);
-	    }
-	    std::sort(durations.begin(), durations.end());
-	    if (durations.size() > 1){
-		int mid_index = durations.size()/2;
-		return (durations[mid_index-1]+durations[mid_index])/2;
-	    }
-	    return durations[durations.size()/2];
 	}
 
 	/// This const variable limits the number of durations of timeslices to be kept
@@ -570,9 +448,9 @@ private:
 	std::vector<InputSchedulerData> sender_info_;
 
 	/// A history of the proposed start time for intervals <timeslice, <time, gap>>
-	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> proposed_interval_start_time_info_;
+	SizedMap<uint64_t, IntervalMetaData> proposed_interval_start_time_info_;
 
-	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> actual_interval_start_time_info_;
+	SizedMap<uint64_t, IntervalMetaData> actual_interval_start_time_info_;
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
 	SizedMap<uint64_t, uint32_t> acked_interval_count_;
@@ -598,7 +476,6 @@ private:
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_start_time_log_;
 	std::map<uint64_t, std::pair<int64_t, int64_t> > min_max_interval_duration_log_;
 	std::map<uint64_t, std::pair<uint64_t, uint64_t> > proposed_median_enhanced_duration_log_;
-	std::map<uint64_t, std::pair<double, double> > mean_varience_interval_log_;
 	std::map<uint64_t, double > speedup_duration_factor_log_;
 
 	/*

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "SizedMap.hpp"
+#include "SizedSet.hpp"
 #include <chrono>
 #include <utility>
 
@@ -14,13 +15,12 @@ namespace tl_libfabric
 struct InputSchedulerData {
     //uint32_t index_;
     std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
-    int64_t clock_offset;
+    int64_t clock_offset = 0;
     /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
-    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > > interval_info_;
-    // TODO add a list of durations to simplify the median calculations
-    uint64_t median_duration = ConstVariables::ZERO;
-    uint64_t max_duration = ConstVariables::ZERO;
-    uint64_t min_duration = ConstVariables::ZERO;
+    SizedMap< uint64_t, IntervalMetaData> interval_info_;
+    SizedSet<uint64_t> round_durations;
+
+    InputSchedulerData():round_durations(ConstVariables::MAX_MEDIAN_VALUES){}
 };
 }
 

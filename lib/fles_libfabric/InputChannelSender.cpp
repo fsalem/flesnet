@@ -161,71 +161,59 @@ uint64_t InputChannelSender::get_interval_start_ts(uint64_t interval_index){
     return interval_index * INTERVAL_LENGTH_ * conn_.size(); // fraction will be thrown away
 }
 
-void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_info){
+InputIntervalInfo* InputChannelSender::get_scheduler_proposed_info(const uint64_t interval_index){
 
-    std::chrono::high_resolution_clock::time_point min_start_time;
-    uint64_t min_duration;
-
-    bool found = false;
-
-    // LOGGING
-    std::vector<int64_t> times_log;
-    // END LOGGING
+    InputIntervalInfo* interval_info = nullptr;
 
     for (uint32_t i=0 ; i< conn_.size() ; i++) {
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> proposed_info = conn_[i]->get_proposed_interval_info(interval_info->index);
-
-	// LOGGING
-	if (ConstVariables::ENABLE_LOGGING) {
-	    times_log.push_back(proposed_info.second == ConstVariables::MINUS_ONE ? ConstVariables::MINUS_ONE
-		    : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_info.first - time_begin_).count());
-	}
-	// END LOGGING
-	if (proposed_info.second == ConstVariables::MINUS_ONE)continue;
-	if (!found){
-	    found = true;
-	    min_start_time = proposed_info.first;
-	    min_duration = proposed_info.second;
-	}
-	if (min_start_time > proposed_info.first){
-	    min_start_time = proposed_info.first;
-	}
-	if (min_duration > proposed_info.second){
-	    min_duration = proposed_info.second;
-	}
+	interval_info = conn_[i]->get_proposed_interval_info(interval_index);
+	if (interval_info != nullptr)break;
     }
-    if (!found){
-	min_start_time = std::chrono::high_resolution_clock::now();
-	if (interval_info->index > 0)
-	    min_duration = intervals_info_.get(interval_info->index-1)->actual_duration;
-	else
-	    min_duration = ConstVariables::ZERO;
-    }
-    interval_info->proposed_start_time = min_start_time;
-    interval_info->proposed_duration = min_duration;
-
-    if (false){
-	L_(trace) << "[i " << input_index_ << "] "
-	      << "interval"
-	      << interval_info->index
-	      << " should start after "
-	      << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->proposed_start_time - std::chrono::high_resolution_clock::now()).count()
-	      << " us & take " << interval_info->proposed_duration << " us";
-    }
-
     // LOGGING
-    if (ConstVariables::ENABLE_LOGGING){
+    if (ConstVariables::ENABLE_LOGGING && interval_info != nullptr) {
+	std::vector<int64_t> times_log;
+
+	for (uint32_t i=0 ; i< conn_.size() ; i++) {
+	    InputIntervalInfo* proposed_info = conn_[i]->get_proposed_interval_info(interval_index);
+
+	    times_log.push_back(proposed_info == nullptr ? ConstVariables::MINUS_ONE
+		    : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_info->proposed_start_time - time_begin_).count());
+
+	    if (proposed_info == nullptr)continue;
+
+	    assert(interval_info->proposed_start_time == proposed_info->proposed_start_time);
+	    assert(interval_info->proposed_duration == proposed_info->proposed_duration);
+
+	}
 	proposed_all_start_times_log_.insert(std::pair<uint64_t, std::vector<int64_t>>(interval_info->index, times_log));
     }
     // END LOGGING
+
+    return interval_info;
 }
 
 InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_index){
-    InputIntervalInfo* interval_info = new InputIntervalInfo(INTERVAL_LENGTH_);
-    interval_info->index = interval_index;
-    interval_info->start_ts = get_interval_start_ts(interval_index);
-    interval_info->end_ts = get_interval_start_ts(interval_index+1) - 1;
-    set_interval_proposed_info(interval_info);
+    InputIntervalInfo* interval_info = get_scheduler_proposed_info(interval_index);
+
+    // Interval meta-data not received from any of the compute schedulers
+    if (interval_info == nullptr){
+	if (intervals_info_.size() == 0 || !intervals_info_.contains(interval_index-1)){
+	    interval_info = new InputIntervalInfo(interval_index, INTERVAL_LENGTH_, 0, std::chrono::high_resolution_clock::now(), 0);
+	}else{ // use prev interval information
+	    InputIntervalInfo* prev_interval = intervals_info_.get(interval_index-1);
+	    interval_info = new InputIntervalInfo(interval_index, prev_interval->round_count, prev_interval->end_ts+1, std::chrono::high_resolution_clock::now(), prev_interval->proposed_duration);
+	}
+    }else{
+	// check if there is no gap in ts due to un-received durations
+	InputIntervalInfo* prev_interval = intervals_info_.get(interval_index-1);
+	if (interval_info->start_ts != prev_interval->end_ts+1){
+	    // LOGGING
+	    // END LOGGING
+	    interval_info->start_ts = prev_interval->end_ts+1;
+	}
+    }
+    interval_info->end_ts = interval_info->start_ts + (interval_info->round_count*conn_.size()) - 1;
+
     return interval_info;
 
 }
@@ -257,7 +245,7 @@ void InputChannelSender::ack_complete_interval_info(InputIntervalInfo* interval_
     // END LOGGING
 }
 
-InputIntervalInfo* InputChannelSender::add_new_interval(uint64_t interval_index){
+InputIntervalInfo* InputChannelSender::get_current_interval(uint64_t interval_index){
     if (intervals_info_.contains(interval_index))
 	return intervals_info_.get(interval_index);
 
@@ -269,11 +257,11 @@ InputIntervalInfo* InputChannelSender::add_new_interval(uint64_t interval_index)
 
 void InputChannelSender::check_send_timeslices()
 {
-    InputIntervalInfo* interval_info = add_new_interval(current_interval_);
-    if (interval_info->count_rounds == ConstVariables::ZERO){
+    InputIntervalInfo* interval_info = get_current_interval(current_interval_);
+    if (interval_info->rounds_counter == ConstVariables::ZERO){
 	interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
     }
-    interval_info->count_rounds++;
+    interval_info->rounds_counter++;
 
     if (false){
 	L_(trace) << "[i " << input_index_ << "] "
@@ -349,7 +337,7 @@ void InputChannelSender::check_send_timeslices()
     if (interval_info->is_interval_sent_ack_completed()){
 	ack_complete_interval_info(interval_info);
 	++current_interval_;
-	next_check_time = add_new_interval(current_interval_)->proposed_start_time;
+	next_check_time = get_current_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
 	if (ConstVariables::ENABLE_LOGGING){
 	    if (is_ack_blocked_){
@@ -374,14 +362,14 @@ void InputChannelSender::check_send_timeslices()
 
     /// LOGGING
     if (ConstVariables::ENABLE_LOGGING){
-	interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->count_rounds,
+	interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->rounds_counter,
 	sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
 	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
 	std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
 	input_buffer_problem_count, compute_buffer_problem_count});
 
 	if (false){
-	    L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->count_rounds <<
+	    L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->rounds_counter <<
 		    ", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
 		    ", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
 		    " us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";

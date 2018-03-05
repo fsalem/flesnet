@@ -12,6 +12,7 @@ namespace tl_libfabric
 {
 struct InputIntervalInfo {
     uint64_t index;
+    uint32_t round_count;
     uint64_t start_ts;
     uint64_t end_ts;
     std::chrono::high_resolution_clock::time_point proposed_start_time;
@@ -23,7 +24,7 @@ struct InputIntervalInfo {
 
     uint64_t count_acked_ts = ConstVariables::ZERO;
 
-    uint64_t count_rounds = ConstVariables::ZERO;
+    uint64_t rounds_counter = ConstVariables::ZERO;
 
     const uint16_t INTERVAL_LENGTH_;
 
@@ -40,8 +41,10 @@ struct InputIntervalInfo {
 	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
     }
 
-    InputIntervalInfo(const uint16_t interval_length):INTERVAL_LENGTH_(interval_length){
-
+    InputIntervalInfo(const uint64_t interval_index, const uint32_t rounds, const uint64_t start,
+	    const std::chrono::high_resolution_clock::time_point start_time, const uint64_t duration)
+			:index(interval_index),INTERVAL_LENGTH_(rounds), start_ts(start_ts),
+			 proposed_start_time(start_time), proposed_duration(duration){
     }
 
     uint64_t get_duration_to_next_round(){

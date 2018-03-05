@@ -26,14 +26,7 @@ struct InputChannelStatusMessage {
     /// TODO seperate message for the following to minimize the message size!!
     std::chrono::high_resolution_clock::time_point MPI_time;
 
-    /// The acked interval
-    uint64_t acked_interval_index = ConstVariables::MINUS_ONE;
-    // The actual start time for the acked interval
-    std::chrono::high_resolution_clock::time_point actual_start_time;
-    // The proposed start time for the acked interval
-    std::chrono::high_resolution_clock::time_point proposed_start_time;
-    // The taken duration for the whole interval
-    uint64_t interval_duration;
+    IntervalMetaData actual_interval_metadata;
 
     /// The required interval info
     uint64_t required_interval_index = ConstVariables::MINUS_ONE;

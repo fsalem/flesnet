@@ -251,16 +251,12 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
-    if (send_status_message_ .interval_index != recv_status_message_.required_interval_index &&
+    if (send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
 	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
-	send_status_message_.interval_index = recv_status_message_.required_interval_index;
-	send_status_message_.proposed_start_time = interval_info.first;
-	send_status_message_.interval_duration = interval_info.second;
-
+	send_status_message_.proposed_interval_metadata = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
 	data_acked_ = true;
 
 /*
@@ -312,8 +308,8 @@ void ComputeNodeConnection::on_complete_recv()
     	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
     }
 
-    if (recv_status_message_.acked_interval_index != ConstVariables::MINUS_ONE) {
-    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.acked_interval_index, recv_status_message_.actual_start_time, recv_status_message_.proposed_start_time, recv_status_message_.interval_duration);
+    if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
+    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.actual_interval_metadata);
     }
     post_recv_status_message();
 }

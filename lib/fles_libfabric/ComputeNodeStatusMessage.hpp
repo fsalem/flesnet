@@ -8,6 +8,8 @@
 #include "ComputeNodeInfo.hpp"
 #include <chrono>
 
+#include "IntervalMetaData.hpp"
+
 #pragma pack(1)
 
 namespace tl_libfabric
@@ -24,12 +26,7 @@ struct ComputeNodeStatusMessage {
     // address must be not null if connect = true
     unsigned char my_address[64];
 
-    /// The required interval
-    uint64_t interval_index = ConstVariables::MINUS_ONE;
-    // The proposed start time for the required interval
-    std::chrono::high_resolution_clock::time_point proposed_start_time;
-    // duration for the whole interval
-    uint64_t interval_duration;
+    IntervalMetaData proposed_interval_metadata;
 };
 }
 
