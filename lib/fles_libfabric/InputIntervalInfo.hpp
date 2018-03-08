@@ -26,8 +26,6 @@ struct InputIntervalInfo {
 
     uint64_t rounds_counter = ConstVariables::ZERO;
 
-    const uint16_t INTERVAL_LENGTH_;
-
     bool cb_blocked = false;
     std::chrono::high_resolution_clock::time_point cb_blocked_start_time;
     uint64_t cb_blocked_duration = 0;
@@ -43,7 +41,7 @@ struct InputIntervalInfo {
 
     InputIntervalInfo(const uint64_t interval_index, const uint32_t rounds, const uint64_t start,
 	    const std::chrono::high_resolution_clock::time_point start_time, const uint64_t duration)
-			:index(interval_index),INTERVAL_LENGTH_(rounds), start_ts(start),
+			:index(interval_index),round_count(rounds), start_ts(start),
 			 proposed_start_time(start_time), proposed_duration(duration){
     }
 
@@ -97,8 +95,8 @@ private:
     void init_statistical_variables(){
 	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
     	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
-    	    duration_per_round = proposed_duration/INTERVAL_LENGTH_;
-    	    num_ts_per_round = (end_ts - start_ts + 1) /INTERVAL_LENGTH_;
+    	    duration_per_round = proposed_duration/round_count;
+    	    num_ts_per_round = (end_ts - start_ts + 1) /round_count;
     	}
     }
     uint64_t duration_per_ts = ConstVariables::ZERO;
