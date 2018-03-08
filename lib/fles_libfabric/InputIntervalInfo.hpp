@@ -43,7 +43,7 @@ struct InputIntervalInfo {
 
     InputIntervalInfo(const uint64_t interval_index, const uint32_t rounds, const uint64_t start,
 	    const std::chrono::high_resolution_clock::time_point start_time, const uint64_t duration)
-			:index(interval_index),INTERVAL_LENGTH_(rounds), start_ts(start_ts),
+			:index(interval_index),INTERVAL_LENGTH_(rounds), start_ts(start),
 			 proposed_start_time(start_time), proposed_duration(duration){
     }
 
