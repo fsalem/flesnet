@@ -300,7 +300,9 @@ void InputChannelConnection::on_complete_recv()
     {
     	cn_ack_ = recv_status_message_.ack;
     }
-    if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE && !proposed_interval_list_.contains(recv_status_message_.proposed_interval_metadata.interval_index)) {
+    if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE &&
+	    !proposed_interval_list_.contains(recv_status_message_.proposed_interval_metadata.interval_index)) {
+
 	proposed_interval_list_.add(recv_status_message_.proposed_interval_metadata.interval_index,
 		new InputIntervalInfo(recv_status_message_.proposed_interval_metadata.interval_index, recv_status_message_.proposed_interval_metadata.round_count,
 			recv_status_message_.proposed_interval_metadata.start_timeslice, recv_status_message_.proposed_interval_metadata.start_time, recv_status_message_.proposed_interval_metadata.interval_duration));
@@ -551,6 +553,8 @@ void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* inter
     }
     if (send_status_message_.actual_interval_metadata.interval_index != interval_info->index){
 	send_status_message_.actual_interval_metadata.interval_index = interval_info->index;
+	send_status_message_.actual_interval_metadata.round_count = interval_info->round_count;
+	send_status_message_.actual_interval_metadata.start_timeslice = interval_info->start_ts;
 	send_status_message_.actual_interval_metadata.start_time = interval_info->proposed_start_time;
 	send_status_message_.actual_interval_metadata.interval_duration = interval_info->actual_duration;
 	send_status_message_.required_interval_index = interval_info->index + 2;
