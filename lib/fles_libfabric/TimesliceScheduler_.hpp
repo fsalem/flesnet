@@ -329,8 +329,11 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    IntervalMetaData last_completed_interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 
-	    IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
-	    uint64_t new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*input_node_count_; //TODO compute node count is NEEDED
+	    uint64_t new_start_timeslice = last_completed_interval_info.start_timeslice+ last_completed_interval_info.round_count*input_node_count_ * (interval_index-last_completed_interval_info.interval_index); //TODO compute node count is NEEDED;
+	    if (proposed_interval_start_time_info_.size() != 0){
+		IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
+		new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*input_node_count_ * (interval_index-last_proposed_interval_info.interval_index); //TODO compute node count is NEEDED
+	    }
 
 	    uint64_t median_round_duration = get_median_round_duration();
 	    uint32_t round_count = std::ceil(ConstVariables::MIN_INTERVAL_DURATION*1000000.0/(median_round_duration*1.0));
