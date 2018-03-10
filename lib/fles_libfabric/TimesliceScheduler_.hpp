@@ -173,6 +173,7 @@ public:
 			    << std::setw(25) << dur_it->second.first
 			    << std::setw(25) << dur_it->second.second
 			    << std::setw(25) << proposed_duration
+			    << std::setw(25) << enhanced_duration
 			    << std::setw(25) << factor
 			    << std::setw(25) << round_count << "\n";
 		    ++times_it;
