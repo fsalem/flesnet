@@ -139,6 +139,7 @@ public:
 			<< std::setw(25) << "Min duration"
 			<< std::setw(25) << "Max duration"
 			<< std::setw(25) << "Proposed duration"
+			<< std::setw(25) << "Enhanced duration"
 			<< std::setw(25) << "Speedup Factor"
 			<< std::setw(25) << "Rounds" << "\n";
 
@@ -151,7 +152,7 @@ public:
 		while (times_it != min_max_interval_start_time_log_.end() && dur_it != min_max_interval_duration_log_.end()){
 		    double factor = 0.0;
 		    uint32_t round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL;
-		    uint64_t proposed_duration = 0;
+		    uint64_t proposed_duration = 0, enhanced_duration = 0;
 
 		    speedup_factor = speedup_duration_factor_log_.find(times_it->first);
 		    interval_round = interval_round_log_.find(times_it->first);
@@ -161,8 +162,10 @@ public:
 		    }
 
 		    duration_it = proposed_median_enhanced_duration_log_.find(times_it->first);
-		    if (duration_it != proposed_median_enhanced_duration_log_.end())
+		    if (duration_it != proposed_median_enhanced_duration_log_.end()){
 			proposed_duration = duration_it->second.first/1000.0;
+			enhanced_duration = duration_it->second.second/1000.0;
+		    }
 
 		    log_file << std::setw(25) << times_it->first
 			    << std::setw(25) << times_it->second.first
