@@ -68,6 +68,7 @@ public:
 
 		uint64_t round_duration = interval_metadata.interval_duration/interval_metadata.round_count;
 
+		interval_metadata.start_time += std::chrono::microseconds(sender_info_[input_index].clock_offset);
 		sender_info_[input_index].interval_info_.add(interval_metadata.interval_index, interval_metadata);
 		sender_info_[input_index].round_durations.add(round_duration);
 
