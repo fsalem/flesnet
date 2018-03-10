@@ -183,26 +183,6 @@ public:
 		log_file.flush();
 		log_file.close();
 	    }
-	    if (true){
-		std::ofstream log_file;
-		log_file.open(std::to_string(compute_index_)+".compute.proposed_median_enhanced_duration.out");
-
-		log_file << std::setw(25) << "Interval"
-			<< std::setw(25) << "Median"
-			<< std::setw(25) << "Enhanced" << "\n";
-
-		std::map<uint64_t, std::pair<uint64_t, uint64_t> >::iterator duration_it = proposed_median_enhanced_duration_log_.begin();
-
-		while (duration_it != proposed_median_enhanced_duration_log_.end()){
-
-		    log_file << std::setw(25) << duration_it->first
-			    << std::setw(25) << duration_it->second.first
-			    << std::setw(25) << duration_it->second.second << "\n";
-		    ++duration_it;
-		}
-		log_file.flush();
-		log_file.close();
-	    }
 	}
 
 private:
