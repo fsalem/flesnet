@@ -30,8 +30,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
-      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,
-	      (uint16_t)ceil(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/num_compute_nodes)))
+      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_))
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());

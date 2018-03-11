@@ -24,8 +24,8 @@ namespace tl_libfabric {
 class TimesliceScheduler {
 public:
 	TimesliceScheduler(const uint64_t compute_index,
-		const uint32_t input_node_count, const uint32_t interval_length):
-			compute_index_(compute_index), input_node_count_(input_node_count), INTERVAL_LENGTH(interval_length),
+		const uint32_t input_node_count, const uint32_t compute_node_count):
+			compute_index_(compute_index), input_node_count_(input_node_count), compute_node_count_(compute_node_count),
 			proposed_interval_start_time_info_(MAX_DURATION_HISTORY), actual_interval_start_time_info_(MAX_DURATION_HISTORY),
 			acked_interval_count_(MAX_DURATION_HISTORY), sum_median_interval_duration_(MAX_DURATION_HISTORY){
 
@@ -314,10 +314,10 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    IntervalMetaData last_completed_interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 
-	    uint64_t new_start_timeslice = last_completed_interval_info.start_timeslice+ last_completed_interval_info.round_count*input_node_count_ * (interval_index-last_completed_interval_info.interval_index); //TODO compute node count is NEEDED;
+	    uint64_t new_start_timeslice = last_completed_interval_info.start_timeslice+ last_completed_interval_info.round_count*compute_node_count_ * (interval_index-last_completed_interval_info.interval_index);
 	    if (proposed_interval_start_time_info_.size() != 0){
 		IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
-		new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*input_node_count_ * (interval_index-last_proposed_interval_info.interval_index); //TODO compute node count is NEEDED
+		new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*compute_node_count_ * (interval_index-last_proposed_interval_info.interval_index);
 	    }
 
 	    uint64_t median_round_duration = get_median_round_duration();
@@ -359,7 +359,7 @@ private:
 		// second stage of slowing down for network relaxation
 		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) >= interval_index &&
 		    (mean_interval_diff/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
-		    slowdown_proposed_duration_+= ((slowdown_proposed_duration_/INTERVAL_LENGTH)*ConstVariables::SLOWDOWN_ROUND_FACTOR);
+		    slowdown_proposed_duration_+= ((slowdown_proposed_duration_/round_count)*ConstVariables::SLOWDOWN_ROUND_FACTOR);
 		}
 
 		if (slowdown_proposed_duration_ <= median_interval_duration){
@@ -380,7 +380,7 @@ private:
 		    mean_interval_diff != 0 &&
 		    (mean_interval_diff/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
 		enhancement_factor_log = 1;
-		enhanced_interval_duration -= ((enhanced_interval_duration/INTERVAL_LENGTH)*ConstVariables::SPEEDUP_ROUND_FACTOR);
+		enhanced_interval_duration -= ((enhanced_interval_duration/round_count)*ConstVariables::SPEEDUP_ROUND_FACTOR);
 		speedup_enabled_ = true;
 		speedup_proposed_duration_ = enhanced_interval_duration;
 		speedup_proposed_interval_ = interval_index;
@@ -395,7 +395,7 @@ private:
 		    (mean_interval_diff/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 
 		enhancement_factor_log = -1;
-		enhanced_interval_duration = speedup_proposed_duration_ + ((speedup_proposed_duration_/INTERVAL_LENGTH) * ConstVariables::SLOWDOWN_ROUND_FACTOR);
+		enhanced_interval_duration = speedup_proposed_duration_ + ((speedup_proposed_duration_/round_count) * ConstVariables::SLOWDOWN_ROUND_FACTOR);
 
 		if (enhanced_interval_duration > median_interval_duration){
 		    enhancement_factor_log = -2;
@@ -430,9 +430,6 @@ private:
 	/// This const variable limits the number of durations of timeslices to be kept
 	const int32_t MAX_DURATION_HISTORY = 100;
 
-	/// This const variable determines the interval length that a new sent_time and duration will be generated
-	const uint32_t INTERVAL_LENGTH;
-
 	/// The compute node index. The order of input nodes is based on this index
 	uint64_t compute_index_;
 
@@ -441,6 +438,9 @@ private:
 
 	/// The number of input nodes which the compute receives data from
 	uint32_t input_node_count_;
+
+	/// The number of compute nodes
+	uint32_t compute_node_count_;
 
 	/// This is a list of input nodes with the history of their data
 	std::vector<InputSchedulerData> sender_info_;
