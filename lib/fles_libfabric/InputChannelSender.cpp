@@ -286,6 +286,10 @@ void InputChannelSender::check_send_timeslices()
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
 	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
+	    // LOGGING
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->count_sent_ts+1
+		    , std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(interval_info->count_sent_ts+1) - std::chrono::high_resolution_clock::now()).count()));
+	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
 		if (interval_info->cb_blocked){
 		    interval_info->cb_blocked = false;
@@ -328,6 +332,10 @@ void InputChannelSender::check_send_timeslices()
 	}
 	conn_index = (conn_index+1) % conn_.size();
 	if (conn_index == (input_index_ % conn_.size()))break;
+	std::chrono::high_resolution_clock::time_point time_to_next_ts = interval_info->get_expected_sent_time(
+		interval_info->count_sent_ts + 1);
+	if (time_to_next_ts > std::chrono::high_resolution_clock::now())
+	std::this_thread::sleep_for(std::chrono::microseconds(std::chrono::duration_cast<std::chrono::microseconds>(time_to_next_ts - std::chrono::high_resolution_clock::now()).count()));
     }
 
     if (interval_info->is_interval_sent_completed() && !interval_info->is_interval_sent_ack_completed() && !is_ack_blocked_){
@@ -590,7 +598,7 @@ void InputChannelSender::operator()()
 
         sync_buffer_positions();
         report_status();
-        check_send_timeslices_TMP();
+        check_send_timeslices();
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {

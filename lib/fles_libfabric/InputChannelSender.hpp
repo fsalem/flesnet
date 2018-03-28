@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <thread>
 
 namespace tl_libfabric
 {

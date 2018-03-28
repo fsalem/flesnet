@@ -11,12 +11,12 @@
 namespace tl_libfabric
 {
 struct InputIntervalInfo {
-    uint64_t index;
-    uint32_t round_count;
+    const uint64_t index;
+    const uint32_t round_count;
     uint64_t start_ts;
     uint64_t end_ts;
-    std::chrono::high_resolution_clock::time_point proposed_start_time;
-    uint64_t proposed_duration;
+    const std::chrono::high_resolution_clock::time_point proposed_start_time;
+    const uint64_t proposed_duration;
     std::chrono::high_resolution_clock::time_point actual_start_time;
     uint64_t actual_duration;
 
@@ -43,6 +43,7 @@ struct InputIntervalInfo {
 	    const std::chrono::high_resolution_clock::time_point start_time, const uint64_t duration)
 			:index(interval_index),round_count(rounds), start_ts(start),
 			 proposed_start_time(start_time), proposed_duration(duration){
+
     }
 
     uint64_t get_duration_to_next_round(){
@@ -114,6 +115,11 @@ struct InputIntervalInfo {
     std::chrono::high_resolution_clock::time_point get_expected_sent_time(uint64_t timeslice){
 	return actual_start_time + std::chrono::microseconds((timeslice - start_ts) * duration_per_ts);
     }
+
+    uint64_t duration_per_ts = ConstVariables::ZERO;
+    uint64_t duration_per_round = ConstVariables::ZERO;
+    uint64_t num_ts_per_round = ConstVariables::ZERO;
+
 private:
 
     void init_statistical_variables(){
@@ -123,9 +129,6 @@ private:
     	    num_ts_per_round = (end_ts - start_ts + 1) /round_count;
     	}
     }
-    uint64_t duration_per_ts = ConstVariables::ZERO;
-    uint64_t duration_per_round = ConstVariables::ZERO;
-    uint64_t num_ts_per_round = ConstVariables::ZERO;
 };
 }
 
