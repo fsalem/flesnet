@@ -430,7 +430,7 @@ void InputChannelSender::check_send_timeslices_TMP()
 		// LOGGING
 		timeslice_delaying_log_.insert(std::pair<uint64_t, uint64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(next_ts) - std::chrono::high_resolution_clock::now()).count()));
 		// END OF LOGGING
-		conn_[cur_index_to_send]->set_last_sent_timeslice(next_ts);
+		conn_[cur_index_to_send_]->set_last_sent_timeslice(next_ts);
 		conn_[cur_index_to_send_]->add_sent_time(next_ts, now);
 		sent_timeslices_++;
 		interval_info->count_sent_ts++;
