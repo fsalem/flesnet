@@ -287,7 +287,7 @@ void InputChannelSender::check_send_timeslices()
 
 	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
 	    // LOGGING
-	    timeslice_delaying_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->count_sent_ts+1
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(interval_info->count_sent_ts+1
 		    , std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(interval_info->count_sent_ts+1) - std::chrono::high_resolution_clock::now()).count()));
 	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
@@ -436,7 +436,7 @@ void InputChannelSender::check_send_timeslices_TMP()
 		    interval_info->ib_blocked_duration += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-interval_info->ib_blocked_start_time).count();
 		}
 		// LOGGING
-		timeslice_delaying_log_.insert(std::pair<uint64_t, uint64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(next_ts) - std::chrono::high_resolution_clock::now()).count()));
+		timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(next_ts) - std::chrono::high_resolution_clock::now()).count()));
 		// END OF LOGGING
 		conn_[cur_index_to_send_]->set_last_sent_timeslice(next_ts);
 		conn_[cur_index_to_send_]->add_sent_time(next_ts, now);
@@ -765,7 +765,7 @@ void InputChannelSender::build_scheduled_time_file(){
     	block_log_file << std::setw(25) << "Timeslice" <<
     	    std::setw(25) << "duration" << "\n";
 
-    	std::map<uint64_t, uint64_t >::iterator delaying_time = timeslice_delaying_log_.begin();
+    	std::map<uint64_t, int64_t >::iterator delaying_time = timeslice_delaying_log_.begin();
     	while (delaying_time != timeslice_delaying_log_.end()){
     	    block_log_file << std::setw(25) << delaying_time->first <<
     			    std::setw(25) << delaying_time->second/1000.0 << "\n";

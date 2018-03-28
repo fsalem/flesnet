@@ -188,7 +188,7 @@ private:
     std::map<uint64_t, uint64_t > scheduler_CB_blocked_times_log_;
     std::map<uint64_t, uint64_t > ack_blocked_times_log_;
     std::map<uint64_t, uint64_t > timeslice_duration_log_;
-    std::map<uint64_t, uint64_t > timeslice_delaying_log_;
+    std::map<uint64_t, int64_t > timeslice_delaying_log_;
     std::vector<IntervalRoundDuration> interval_rounds_info_log_;
     uint64_t overall_running_time_ = 0;
     uint64_t overall_IB_blocked_time_ = 0;
