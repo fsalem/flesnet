@@ -68,6 +68,26 @@ struct InputIntervalInfo {
 	return duration;
     }
 
+    uint64_t get_duration_to_next_ts(){
+    	init_statistical_variables();
+
+    	if (duration_per_ts == 0) return ConstVariables::ZERO;
+    	// If the proposed finish time is reached, send as fast as possible.
+    	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) < std::chrono::high_resolution_clock::now())return ConstVariables::ZERO;
+
+    	uint64_t expected_sent_ts = get_expected_sent_ts();
+
+    	if (expected_sent_ts > count_sent_ts){ // on the schedule as expected
+	    return ConstVariables::ZERO;
+	}
+
+    	if (expected_sent_ts < count_sent_ts){
+	    return duration_per_ts + ((count_sent_ts - expected_sent_ts) * duration_per_ts);
+	}
+
+    	return duration_per_ts;
+    }
+
     uint64_t get_current_round_index(){
 	init_statistical_variables();
 	uint64_t expected_sent_ts = get_expected_sent_ts();

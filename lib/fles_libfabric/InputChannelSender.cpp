@@ -251,6 +251,8 @@ InputIntervalInfo* InputChannelSender::get_current_interval(uint64_t interval_in
 
     InputIntervalInfo* interval_info = create_interval_info(interval_index);
     intervals_info_.add(interval_index,interval_info);
+    //offset-based
+    cur_index_to_send_ = input_index_ % conn_.size();
     return interval_info;
 
 }
@@ -387,6 +389,140 @@ void InputChannelSender::check_send_timeslices()
     }
 }
 
+
+void InputChannelSender::check_send_timeslices_TMP()
+{
+    InputIntervalInfo* interval_info = get_current_interval(current_interval_);
+    if (interval_info->rounds_counter == ConstVariables::ZERO){
+	interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
+    }
+    interval_info->rounds_counter++;
+
+    if (false){
+	L_(trace) << "[i " << input_index_ << "] "
+		  << "start a new round of interval "
+		  << current_interval_
+		  << "(interval_sent_count = " << interval_info->count_sent_ts
+		  << " & sent_timeslices = " << sent_timeslices_ << ")";
+    }
+
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
+	    next_check_time;
+
+    int32_t sent_count = 0,
+	    input_buffer_problem_count = 0,
+	    compute_buffer_problem_count = 0;
+
+    if (!interval_info->is_interval_sent_completed()){
+	uint64_t next_ts = conn_[cur_index_to_send_]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? cur_index_to_send_ :
+			    conn_[cur_index_to_send_]->get_last_sent_timeslice() + conn_.size();
+
+	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
+	    if (try_send_timeslice(next_ts)){
+		if (interval_info->cb_blocked){
+		    interval_info->cb_blocked = false;
+		    interval_info->cb_blocked_duration += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-interval_info->cb_blocked_start_time).count();
+		}
+		if (interval_info->ib_blocked){
+		    interval_info->ib_blocked = false;
+		    interval_info->ib_blocked_duration += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-interval_info->ib_blocked_start_time).count();
+		}
+		// LOGGING
+		timeslice_delaying_log_.insert(std::pair<uint64_t, uint64_t>(next_ts, std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(next_ts) - std::chrono::high_resolution_clock::now()).count()));
+		// END OF LOGGING
+		conn_[cur_index_to_send]->set_last_sent_timeslice(next_ts);
+		conn_[cur_index_to_send_]->add_sent_time(next_ts, now);
+		sent_timeslices_++;
+		interval_info->count_sent_ts++;
+		sent_count++;
+	    }
+	    /// LOGGING
+	    else{
+		uint64_t desc_offset = next_ts * timeslice_size_ + start_index_desc_;
+		uint64_t desc_length = timeslice_size_ + overlap_size_;
+
+		if (write_index_desc_ < desc_offset + desc_length) {
+		    write_index_desc_ = data_source_.get_write_index().desc;
+		}
+		// check if microslice no. (desc_offset + desc_length - 1) is avail
+		if (write_index_desc_ < desc_offset + desc_length) {
+		    if (!interval_info->ib_blocked){
+			interval_info->ib_blocked = true;
+			interval_info->ib_blocked_start_time = std::chrono::high_resolution_clock::now();
+		    }
+		    input_buffer_problem_count++;
+		}else{
+		    if (!interval_info->cb_blocked){
+			interval_info->cb_blocked = true;
+			interval_info->cb_blocked_start_time = std::chrono::high_resolution_clock::now();
+		    }
+		    compute_buffer_problem_count++;
+		}
+	    }
+	    /// END LOGGING
+	}
+	cur_index_to_send_ = (cur_index_to_send_+1) % conn_.size();
+    }
+
+    if (interval_info->is_interval_sent_completed() && !interval_info->is_interval_sent_ack_completed() && !is_ack_blocked_){
+	is_ack_blocked_ = true;
+	ack_blocked_start_time_ = std::chrono::high_resolution_clock::now();
+    }
+
+    //get_timeslice_interval(sent_timeslices_+1) - 1 ==  interval_info->index
+    if (interval_info->is_interval_sent_ack_completed()){
+	ack_complete_interval_info(interval_info);
+	++current_interval_;
+	next_check_time = get_current_interval(current_interval_)->proposed_start_time;
+	/// LOGGING
+	if (ConstVariables::ENABLE_LOGGING){
+	    if (is_ack_blocked_){
+		is_ack_blocked_ = false;
+		uint64_t ack_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - ack_blocked_start_time_).count();
+		ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, ack_blocked_time));
+		overall_ACK_blocked_time_ += ack_blocked_time;
+	    }
+	    int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
+	    scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
+	    if (scheduler_blocked_time > 0)
+		overall_scheduler_blocked_time_ += scheduler_blocked_time;
+	    scheduler_IB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->ib_blocked_duration));
+	    overall_IB_blocked_time_ += interval_info->ib_blocked_duration;
+	    scheduler_CB_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, interval_info->cb_blocked_duration));
+	    overall_CB_blocked_time_ += interval_info->cb_blocked_duration;
+	}
+	/// END LOGGING
+    }else{
+	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_ts());
+    }
+
+    /// LOGGING
+    if (ConstVariables::ENABLE_LOGGING){
+	interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->rounds_counter,
+	sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
+	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
+	std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
+	input_buffer_problem_count, compute_buffer_problem_count});
+
+	if (false){
+	    L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->rounds_counter <<
+		    ", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
+		    ", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
+		    " us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";
+	}
+    }
+    /// END LOGGING
+    if (sent_timeslices_ <= max_timeslice_number_){
+	if (false){
+	    L_(trace) << "[i " << input_index_ << "] "
+		      << "check a new round after "
+		      << std::chrono::duration_cast<std::chrono::milliseconds>(
+				next_check_time - now).count() << " ms";
+	}
+	scheduler_.add(std::bind(&InputChannelSender::check_send_timeslices_TMP, this), next_check_time);
+    }
+}
+
 void InputChannelSender::bootstrap_with_connections()
 {
     connect();
@@ -454,7 +590,7 @@ void InputChannelSender::operator()()
 
         sync_buffer_positions();
         report_status();
-        check_send_timeslices();
+        check_send_timeslices_TMP();
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
@@ -611,6 +747,25 @@ void InputChannelSender::build_scheduled_time_file(){
 
 	overall_block_log_file.flush();
 	overall_block_log_file.close();
+    }
+
+/////////////////////////////////////////////////////////////////
+    if (true) {
+    	std::ofstream block_log_file;
+    	block_log_file.open(std::to_string(input_index_)+".input.ts_delaying_times.out");
+
+    	block_log_file << std::setw(25) << "Timeslice" <<
+    	    std::setw(25) << "duration" << "\n";
+
+    	std::map<uint64_t, uint64_t >::iterator delaying_time = timeslice_delaying_log_.begin();
+    	while (delaying_time != timeslice_delaying_log_.end()){
+    	    block_log_file << std::setw(25) << delaying_time->first <<
+    			    std::setw(25) << delaying_time->second/1000.0 << "\n";
+
+    	delaying_time++;
+    	}
+    	block_log_file.flush();
+    	block_log_file.close();
     }
 
 /////////////////////////////////////////////////////////////////
