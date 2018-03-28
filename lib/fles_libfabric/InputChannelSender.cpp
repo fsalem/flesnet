@@ -287,7 +287,7 @@ void InputChannelSender::check_send_timeslices()
 
 	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
 	    // LOGGING
-	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(interval_info->count_sent_ts+1
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1
 		    , std::chrono::duration_cast<std::chrono::microseconds>(interval_info->get_expected_sent_time(interval_info->count_sent_ts+1) - std::chrono::high_resolution_clock::now()).count()));
 	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
