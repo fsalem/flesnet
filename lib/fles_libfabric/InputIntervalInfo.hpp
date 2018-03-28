@@ -110,6 +110,10 @@ struct InputIntervalInfo {
 	return (count_acked_ts*1.0)/((end_ts-start_ts+1)*1.0) >= 0.7 ? true: false;
     }
 
+    // TMP
+    std::chrono::high_resolution_clock::time_point get_expected_sent_time(uint64_t timeslice){
+	return actual_start_time + std::chrono::microseconds((timeslice - start_ts) * duration_per_ts);
+    }
 private:
 
     void init_statistical_variables(){

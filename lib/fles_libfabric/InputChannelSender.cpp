@@ -181,8 +181,8 @@ InputIntervalInfo* InputChannelSender::get_scheduler_proposed_info(const uint64_
 
 	    if (proposed_info == nullptr)continue;
 
-	    assert(interval_info->proposed_start_time == proposed_info->proposed_start_time);
-	    assert(interval_info->proposed_duration == proposed_info->proposed_duration);
+	    //assert(interval_info->proposed_start_time == proposed_info->proposed_start_time);
+	    //assert(interval_info->proposed_duration == proposed_info->proposed_duration);
 
 	}
 	proposed_all_start_times_log_.insert(std::pair<uint64_t, std::vector<int64_t>>(interval_info->index, times_log));
