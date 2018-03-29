@@ -78,15 +78,11 @@ struct InputIntervalInfo {
 
     	uint64_t expected_sent_ts = get_expected_sent_ts();
 
-    	if (expected_sent_ts > count_sent_ts){ // on the schedule as expected
+    	if (expected_sent_ts > count_sent_ts){ // late
 	    return ConstVariables::ZERO;
 	}
 
-    	if (expected_sent_ts < count_sent_ts){
-	    return duration_per_ts + ((count_sent_ts - expected_sent_ts) * duration_per_ts);
-	}
-
-    	return duration_per_ts;
+	return ((count_sent_ts - expected_sent_ts) * duration_per_ts);
     }
 
     uint64_t get_current_round_index(){
