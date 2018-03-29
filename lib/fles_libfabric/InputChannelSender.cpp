@@ -427,8 +427,7 @@ void InputChannelSender::check_send_timeslices_TMP()
 
 	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
 	    // LOGGING
-	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1
-	    		    , std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - interval_info->get_expected_sent_time(sent_timeslices_+1)).count()));
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1, interval_info->get_duration_to_next_ts()));
 	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
 		if (interval_info->cb_blocked){
