@@ -10,6 +10,7 @@ target_include_directories(fles_libfabric PUBLIC .)
 target_include_directories(fles_libfabric SYSTEM
   PUBLIC ${LIBFABRIC_INCLUDE_DIR}
   PUBLIC ${Boost_INCLUDE_DIRS}
+  PUBLIC ${MPI_INCLUDE_DIR}
 )
 
 target_link_libraries(fles_libfabric
@@ -17,4 +18,5 @@ target_link_libraries(fles_libfabric
   PUBLIC fles_core
   PUBLIC logging
   PUBLIC ${LIBFABRIC_LIBRARY}
+  PUBLIC ${MPI_LIBRARY}
 )
