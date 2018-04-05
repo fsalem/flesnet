@@ -10,7 +10,7 @@ SET(CMAKE_C_COMPILER mpicc)
 SET(CMAKE_CXX_COMPILER mpicxx)
 
 include_directories(SYSTEM ${MPI_INCLUDE_DIR})
-
+add_definitions(-DOMPI_SKIP_MPICXX)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(MPI REQUIRED_VARS MPI_LIBRARY MPI_INCLUDE_DIR)
