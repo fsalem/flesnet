@@ -9,11 +9,11 @@ target_compile_definitions(flesnet PUBLIC BOOST_ALL_DYN_LINK)
 
 target_include_directories(flesnet PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 
-target_include_directories(flesnet SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+target_include_directories(flesnet SYSTEM PUBLIC ${Boost_INCLUDE_DIRS} ${MPI_INCLUDE_DIR})
 
 target_link_libraries(flesnet
   flib_ipc fles_core fles_ipc fles_zeromq logging
-  ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT}
+  ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${MPI_LIBRARY}
 )
 
 if (USE_RDMA AND RDMA_FOUND)
