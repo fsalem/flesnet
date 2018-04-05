@@ -55,6 +55,9 @@ public:
 		hints->caps =
 			FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
 		hints->ep_attr->type = ep_type;
+		hints->mode = FI_LOCAL_MR;
+		hints->addr_format = FI_SOCKADDR_IN;
+		hints->rx_attr->mode = FI_LOCAL_MR | FI_RX_CQ_DATA;
 		hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
 		hints->domain_attr->threading = FI_THREAD_SAFE;
 		hints->domain_attr->mr_mode = FI_MR_BASIC;
