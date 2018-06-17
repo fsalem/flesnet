@@ -108,6 +108,12 @@ public:
     /// get the scheduled time when a specific timeslice is sent
     InputIntervalInfo* get_proposed_interval_info(uint64_t interval_index) const;
 
+    /// get the proposed latency time
+    uint64_t get_proposed_median_latency() const;
+
+    /// get the actual latency time
+    uint64_t get_actual_median_latency() const;
+
     /// Add the needed duration to transmit each timeslice and getting the ack back
     void add_sent_duration(uint64_t timeslice, double duration);
 

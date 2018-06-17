@@ -52,6 +52,7 @@ SizedSet<KEY>::SizedSet() :
 template <typename KEY>
 void SizedSet<KEY>::add(const KEY key)
 {
+    // TODO only add up to MAX_SET_SIZE_ elements!!
     set_.insert(key);
 }
 

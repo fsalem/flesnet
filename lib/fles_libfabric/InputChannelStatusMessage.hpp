@@ -27,6 +27,8 @@ struct InputChannelStatusMessage {
     std::chrono::high_resolution_clock::time_point MPI_time;
 
     IntervalMetaData actual_interval_metadata;
+    /// the median latency of the last MAX_HISTORY_SIZE timeslices
+    uint64_t median_latency = ConstVariables::ZERO;
 
     /// The required interval info
     uint64_t required_interval_index = ConstVariables::MINUS_ONE;

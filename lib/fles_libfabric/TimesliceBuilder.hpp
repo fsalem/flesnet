@@ -116,6 +116,9 @@ private:
 
     std::set<uint64_t> pending_complete_ts_;
 
+    // input id, its current median latency
+    SizedMap<uint32_t, uint64_t> input_median_latancy_;
+
     // LOGGING
     std::map<uint64_t, double> first_last_arrival_diff_;
     std::map<uint64_t, std::chrono::high_resolution_clock::time_point> first_arrival_time_;

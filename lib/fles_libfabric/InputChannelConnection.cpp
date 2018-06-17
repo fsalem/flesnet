@@ -523,6 +523,14 @@ InputIntervalInfo* InputChannelConnection::get_proposed_interval_info(uint64_t i
     return proposed_interval_list_.get(interval_index);
 }
 
+uint64_t InputChannelConnection::get_proposed_median_latency() const {
+    return this->recv_status_message_.overall_median_latency;
+}
+
+uint64_t InputChannelConnection::get_actual_median_latency() const {
+    return this->send_status_message_.median_latency;
+}
+
 uint64_t InputChannelConnection::get_last_acked_timeslice()
 {
 	if (sent_duration_list_.size() == 0)
@@ -557,6 +565,7 @@ void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* inter
 	send_status_message_.actual_interval_metadata.start_timeslice = interval_info->start_ts;
 	send_status_message_.actual_interval_metadata.start_time = interval_info->actual_start_time;
 	send_status_message_.actual_interval_metadata.interval_duration = interval_info->actual_duration;
+	send_status_message_.median_latency = sent_duration_list_.get_median_value();
 	send_status_message_.required_interval_index = interval_info->index + 2;
 	data_acked_ = true;
     }

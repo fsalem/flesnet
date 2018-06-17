@@ -95,6 +95,10 @@ struct InputIntervalInfo {
 	return ts <= (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
     }
 
+    bool is_ts_within_current_interval(uint64_t ts){
+    	return ts <= end_ts;
+    }
+
     bool is_interval_sent_completed(){
 	return count_sent_ts == (end_ts-start_ts+1) ? true: false;
     }

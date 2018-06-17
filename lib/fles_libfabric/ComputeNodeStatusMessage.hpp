@@ -27,6 +27,9 @@ struct ComputeNodeStatusMessage {
     unsigned char my_address[64];
 
     IntervalMetaData proposed_interval_metadata;
+
+    /// the median latency of the all input connections to that compute node
+    uint64_t overall_median_latency = ConstVariables::ZERO;
 };
 }
 

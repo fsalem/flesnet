@@ -348,6 +348,11 @@ void ComputeNodeConnection::set_remote_info(InputNodeInfo remote_info)
     this->remote_info_.index = remote_info.index;
 }
 
+void ComputeNodeConnection::set_median_latency(uint64_t latency)
+{
+    this->send_status_message_.overall_median_latency = latency;
+}
+
 void ComputeNodeConnection::send_ep_addr()
 {
 

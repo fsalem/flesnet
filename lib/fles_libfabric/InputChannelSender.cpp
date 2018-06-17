@@ -402,32 +402,39 @@ void InputChannelSender::check_send_timeslices_TMP()
 {
     InputIntervalInfo* interval_info = get_current_interval(current_interval_);
     if (interval_info->rounds_counter == ConstVariables::ZERO){
-	interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
+    interval_info->actual_start_time = std::chrono::high_resolution_clock::now();
     }
     interval_info->rounds_counter++;
 
     if (false){
 	L_(trace) << "[i " << input_index_ << "] "
-		  << "start a new round of interval "
-		  << current_interval_
-		  << "(interval_sent_count = " << interval_info->count_sent_ts
-		  << " & sent_timeslices = " << sent_timeslices_ << ")";
+	      << "start a new round of interval "
+	      << current_interval_
+	      << "(interval_sent_count = " << interval_info->count_sent_ts
+	      << " & sent_timeslices = " << sent_timeslices_ << ")";
     }
 
-    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
-	    next_check_time;
-
     int32_t sent_count = 0,
-	    input_buffer_problem_count = 0,
-	    compute_buffer_problem_count = 0;
+	input_buffer_problem_count = 0,
+	compute_buffer_problem_count = 0;
 
-    if (!interval_info->is_interval_sent_completed()){
-	uint64_t next_ts = conn_[cur_index_to_send_]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? cur_index_to_send_ :
-			    conn_[cur_index_to_send_]->get_last_sent_timeslice() + conn_.size();
+    uint32_t conn_index = input_index_ % conn_.size();
+    while (!interval_info->is_interval_sent_completed()){
 
-	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_round(next_ts)){
+	std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now(),
+		expected_sent_time;
+
+	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
+			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
+	expected_sent_time = interval_info->get_expected_sent_time(next_ts);
+
+	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_interval(next_ts) &&
+		((conn_[conn_index]->get_proposed_median_latency() >= conn_[conn_index]->get_actual_median_latency() && expected_sent_time <= now) ||
+		(conn_[conn_index]->get_proposed_median_latency() < conn_[conn_index]->get_actual_median_latency() &&
+			expected_sent_time - std::chrono::microseconds(conn_[conn_index]->get_actual_median_latency()-conn_[conn_index]->get_proposed_median_latency()) <= now))){
 	    // LOGGING
-	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1, interval_info->get_duration_to_next_ts()));
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1
+		    , std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - interval_info->get_expected_sent_time(sent_timeslices_+1)).count()));
 	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
 		if (interval_info->cb_blocked){
@@ -438,8 +445,8 @@ void InputChannelSender::check_send_timeslices_TMP()
 		    interval_info->ib_blocked = false;
 		    interval_info->ib_blocked_duration += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-interval_info->ib_blocked_start_time).count();
 		}
-		conn_[cur_index_to_send_]->set_last_sent_timeslice(next_ts);
-		conn_[cur_index_to_send_]->add_sent_time(next_ts, now);
+		conn_[conn_index]->set_last_sent_timeslice(next_ts);
+		conn_[conn_index]->add_sent_time(next_ts, now);
 		sent_timeslices_++;
 		interval_info->count_sent_ts++;
 		sent_count++;
@@ -469,8 +476,11 @@ void InputChannelSender::check_send_timeslices_TMP()
 	    }
 	    /// END LOGGING
 	}
-	cur_index_to_send_ = (cur_index_to_send_+1) % conn_.size();
+	conn_index = (conn_index+1) % conn_.size();
+	if (conn_index == (input_index_ % conn_.size()))break;
     }
+
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
 
     if (interval_info->is_interval_sent_completed() && !interval_info->is_interval_sent_ack_completed() && !is_ack_blocked_){
 	is_ack_blocked_ = true;
@@ -481,7 +491,7 @@ void InputChannelSender::check_send_timeslices_TMP()
     if (interval_info->is_interval_sent_ack_completed()){
 	ack_complete_interval_info(interval_info);
 	++current_interval_;
-	next_check_time = get_current_interval(current_interval_)->proposed_start_time;
+	//next_check_time = get_current_interval(current_interval_)->proposed_start_time;
 	/// LOGGING
 	if (ConstVariables::ENABLE_LOGGING){
 	    if (is_ack_blocked_){
@@ -490,7 +500,7 @@ void InputChannelSender::check_send_timeslices_TMP()
 		ack_blocked_times_log_.insert(std::pair<uint64_t, uint64_t>(interval_info->index, ack_blocked_time));
 		overall_ACK_blocked_time_ += ack_blocked_time;
 	    }
-	    int64_t scheduler_blocked_time = std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
+	    int64_t scheduler_blocked_time = 0;//std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count();
 	    scheduler_blocked_times_log_.insert(std::pair<uint64_t, int64_t>(current_interval_, scheduler_blocked_time));
 	    if (scheduler_blocked_time > 0)
 		overall_scheduler_blocked_time_ += scheduler_blocked_time;
@@ -501,33 +511,33 @@ void InputChannelSender::check_send_timeslices_TMP()
 	}
 	/// END LOGGING
     }else{
-	next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_ts());
+	//next_check_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(interval_info->get_duration_to_next_round());
     }
 
     /// LOGGING
     if (ConstVariables::ENABLE_LOGGING){
-	interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->rounds_counter,
-	sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
-	std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
-	std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
-	input_buffer_problem_count, compute_buffer_problem_count});
+    interval_rounds_info_log_.push_back(IntervalRoundDuration{interval_info->index, interval_info->rounds_counter,
+    sent_count, (interval_info->end_ts-interval_info->start_ts+1-interval_info->count_sent_ts),
+    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-now).count(),
+    0,//std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - std::chrono::high_resolution_clock::now()).count(),
+    input_buffer_problem_count, compute_buffer_problem_count});
 
-	if (false){
-	    L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->rounds_counter <<
-		    ", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
-		    ", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
-		    " us , next interval = " << current_interval_ << " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us";
-	}
+    if (false){
+	L_(info) << "interval = " << interval_info->index << ", round = " << interval_info->rounds_counter <<
+		", IB = " << input_buffer_problem_count << ", CB = " << compute_buffer_problem_count <<
+		", sent = " << sent_count << " in " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count() <<
+		" us , next interval = " << current_interval_ /*<< " after " << std::chrono::duration_cast<std::chrono::microseconds>(next_check_time - now).count() << " us"*/;
+    }
     }
     /// END LOGGING
     if (sent_timeslices_ <= max_timeslice_number_){
-	if (false){
-	    L_(trace) << "[i " << input_index_ << "] "
-		      << "check a new round after "
-		      << std::chrono::duration_cast<std::chrono::milliseconds>(
-				next_check_time - now).count() << " ms";
-	}
-	scheduler_.add(std::bind(&InputChannelSender::check_send_timeslices_TMP, this), next_check_time);
+    /*if (false){
+	L_(trace) << "[i " << input_index_ << "] "
+		  << "check a new round after "
+		  << std::chrono::duration_cast<std::chrono::milliseconds>(
+			    next_check_time - now).count() << " ms";
+    }*/
+    scheduler_.add(std::bind(&InputChannelSender::check_send_timeslices, this), now + std::chrono::microseconds(0));
     }
 }
 

@@ -151,6 +151,8 @@ public:
 
     void set_remote_info(InputNodeInfo remote_info);
 
+    void set_median_latency(uint64_t latency);
+
     bool is_connection_finalized();
 
     /// LOGGING

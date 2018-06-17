@@ -23,6 +23,7 @@
 #include <chrono>
 #include <fstream>
 #include <mpi.h>
+#include <stdint.h>
 
 namespace tl_libfabric
 {

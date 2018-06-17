@@ -30,8 +30,11 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
-      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_))
+      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_),
+      input_median_latancy_(num_input_nodes))
 {
+    for (uint32_t input_id = 0 ; input_id < num_input_nodes ; input_id++) input_median_latancy_.add(input_id, ConstVariables::ZERO);
+
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
     if (Provider::getInst()->is_connection_oriented()) {
@@ -488,6 +491,17 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 	const uint64_t old_recv = conn_[in]->last_recv_ts_;
 
         conn_[in]->on_complete_recv();
+
+        // update median latency
+        if (conn_[in]->recv_status_message().median_latency != input_median_latancy_.get(in)){
+            uint64_t old_median_latency = input_median_latancy_.get_median_value();
+            input_median_latancy_.update(in, conn_[in]->recv_status_message().median_latency);
+            uint64_t new_median_latency = input_median_latancy_.get_median_value();
+            //check the median value of all input connections to update them with the new value
+            if (new_median_latency != old_median_latency)
+        	for (auto& connection : conn_) connection->set_median_latency(new_median_latency);
+
+        }
 
         const uint64_t new_recv = conn_[in]->last_recv_ts_;
 
