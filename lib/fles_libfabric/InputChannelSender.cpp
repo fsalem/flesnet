@@ -427,14 +427,13 @@ void InputChannelSender::check_send_timeslices_TMP()
 	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 	expected_sent_time = interval_info->get_expected_sent_time(next_ts);
+	if (conn_[conn_index]->get_proposed_median_latency() < conn_[conn_index]->get_actual_median_latency())
+	    expected_sent_time = expected_sent_time - std::chrono::microseconds(conn_[conn_index]->get_actual_median_latency()-conn_[conn_index]->get_proposed_median_latency());
 
-	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_interval(next_ts) &&
-		((conn_[conn_index]->get_proposed_median_latency() >= conn_[conn_index]->get_actual_median_latency() && expected_sent_time <= now) ||
-		(conn_[conn_index]->get_proposed_median_latency() < conn_[conn_index]->get_actual_median_latency() &&
-			expected_sent_time - std::chrono::microseconds(conn_[conn_index]->get_actual_median_latency()-conn_[conn_index]->get_proposed_median_latency()) <= now))){
+	if (next_ts <= max_timeslice_number_ && interval_info->is_ts_within_current_interval(next_ts) && expected_sent_time <= now ){
 	    // LOGGING
-	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(sent_timeslices_+1
-		    , std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - interval_info->get_expected_sent_time(sent_timeslices_+1)).count()));
+	    timeslice_delaying_log_.insert(std::pair<uint64_t, int64_t>(next_ts
+		    , std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - expected_sent_time).count()));
 	    // END OF LOGGING
 	    if (try_send_timeslice(next_ts)){
 		if (interval_info->cb_blocked){
