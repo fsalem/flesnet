@@ -30,8 +30,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
-      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_),
-      input_median_latancy_(num_input_nodes))
+      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_))
 {
     for (uint32_t input_id = 0 ; input_id < num_input_nodes ; input_id++) input_median_latancy_.add(input_id, ConstVariables::ZERO);
 
