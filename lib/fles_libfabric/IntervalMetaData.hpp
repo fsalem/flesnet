@@ -31,6 +31,8 @@ struct IntervalMetaData {
 		    interval_index(index), round_count(rounds), start_timeslice(start_ts),
 		    start_time(start_time), interval_duration(duration){}
 
+    bool operator< (const IntervalMetaData& rhs) const{ return this->interval_index < rhs.interval_index; }
+
 };
 }
 
