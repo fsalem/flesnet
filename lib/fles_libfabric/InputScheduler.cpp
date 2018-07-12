@@ -82,7 +82,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    new_interval_info = new InputIntervalInfo(interval_index, INTERVAL_LENGTH_, 0, COMPUTE_COUNT_, std::chrono::system_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, INTERVAL_LENGTH_/COMPUTE_COUNT_, 0, INTERVAL_LENGTH_-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
