@@ -152,6 +152,8 @@ std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expec
     return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
 }
 
-//static InputScheduler* InputScheduler::instance_ = nullptr;
+InputScheduler* InputScheduler::instance_ = nullptr;
+// TODO
+uint64_t InputScheduler::INTERVAL_LENGTH_=1000, COMPUTE_COUNT_=8;
 
 }
