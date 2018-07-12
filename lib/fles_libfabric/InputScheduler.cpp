@@ -154,6 +154,6 @@ std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expec
 
 InputScheduler* InputScheduler::instance_ = nullptr;
 // TODO
-uint64_t InputScheduler::INTERVAL_LENGTH_=1000, COMPUTE_COUNT_=8;
+uint64_t InputScheduler::INTERVAL_LENGTH_=1000, InputScheduler::COMPUTE_COUNT_=8;
 
 }
