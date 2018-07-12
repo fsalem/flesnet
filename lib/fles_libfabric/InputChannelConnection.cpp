@@ -25,8 +25,7 @@ InputChannelConnection::InputChannelConnection(
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       max_pending_write_requests_(max_pending_write_requests),
       sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
-      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE),
-      proposed_interval_list_(ConstVariables::MAX_HISTORY_SIZE)
+      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -296,16 +295,11 @@ void InputChannelConnection::on_complete_recv()
 		  << recv_status_message_.proposed_interval_metadata.interval_index
 		  << " for " << recv_status_message_.proposed_interval_metadata.interval_duration;
     }
-    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc)
-    {
+    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {
     	cn_ack_ = recv_status_message_.ack;
     }
-    if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE &&
-	    !proposed_interval_list_.contains(recv_status_message_.proposed_interval_metadata.interval_index)) {
-
-	proposed_interval_list_.add(recv_status_message_.proposed_interval_metadata.interval_index,
-		new InputIntervalInfo(recv_status_message_.proposed_interval_metadata.interval_index, recv_status_message_.proposed_interval_metadata.round_count,
-			recv_status_message_.proposed_interval_metadata.start_timeslice, recv_status_message_.proposed_interval_metadata.start_time, recv_status_message_.proposed_interval_metadata.interval_duration));
+    if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
+	input_scheduler_->add_proposed_meta_data(&recv_status_message_.proposed_interval_metadata);
     }
     post_recv_status_message();
 }
@@ -516,18 +510,11 @@ void InputChannelConnection::set_remote_info()
     this->remote_info_.index = this->recv_status_message_.info.index;
 }
 
-InputIntervalInfo* InputChannelConnection::get_proposed_interval_info(uint64_t interval_index) const {
-    if (!proposed_interval_list_.contains(interval_index)){
-	return nullptr;
-    }
-    return proposed_interval_list_.get(interval_index);
-}
-
 uint64_t InputChannelConnection::get_last_acked_timeslice()
 {
-	if (sent_duration_list_.size() == 0)
-		return ConstVariables::MINUS_ONE;
-	return sent_duration_list_.get_last_key();
+    if (sent_duration_list_.size() == 0)
+    	return ConstVariables::MINUS_ONE;
+    return sent_duration_list_.get_last_key();
 }
 
 void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
@@ -540,24 +527,12 @@ void InputChannelConnection::add_sent_duration(uint64_t timeslice, double durati
     sent_duration_list_.add(timeslice, duration);
 }
 
-void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* interval_info){
-    if (false) {
-	L_(trace) << "[i" << remote_index_ << "] "
-		  << "[" << index_ << "] "
-		  << "MARK INTERVAL "
-		  << interval_info->index
-		  << " completed in " << interval_info->actual_duration
-		  << " delayed for "
-		  << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->actual_start_time - interval_info->proposed_start_time).count()
-		  << " and lasts for " << (interval_info->actual_duration - interval_info->proposed_duration) << " more" ;
-    }
-    if (send_status_message_.actual_interval_metadata.interval_index != interval_info->index){
-	send_status_message_.actual_interval_metadata.interval_index = interval_info->index;
-	send_status_message_.actual_interval_metadata.round_count = interval_info->round_count;
-	send_status_message_.actual_interval_metadata.start_timeslice = interval_info->start_ts;
-	send_status_message_.actual_interval_metadata.start_time = interval_info->actual_start_time;
-	send_status_message_.actual_interval_metadata.interval_duration = interval_info->actual_duration;
-	send_status_message_.required_interval_index = interval_info->index + 2;
+void InputChannelConnection::ack_complete_interval_info(){
+    IntervalMetaData* meta_data = input_scheduler_->get_actual_meta_data(
+	    send_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE ? send_status_message_.actual_interval_metadata.interval_index + 1 :0);
+    if (meta_data != nullptr){
+	send_status_message_.actual_interval_metadata = *meta_data;
+	send_status_message_.required_interval_index = meta_data->interval_index + 2;
 	data_acked_ = true;
     }
 }

@@ -8,7 +8,7 @@
 #include "Connection.hpp"
 #include "InputChannelStatusMessage.hpp"
 #include "InputIntervalInfo.hpp"
-#include "pid.h"
+#include "InputScheduler.hpp"
 
 #include <sys/uio.h>
 
@@ -80,7 +80,7 @@ public:
                  struct fid_domain* domain, struct fid_cq* cq,
                  struct fid_av* av, fi_addr_t fi_addr);
 
-    void set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) { send_status_message_.MPI_time = time_MPI; }
+    void set_time_MPI(const std::chrono::system_clock::time_point time_MPI) { send_status_message_.MPI_time = time_MPI; }
 
     void reconnect();
 
@@ -105,9 +105,6 @@ public:
     /// get the time when a specific timeslice is sent
     const std::chrono::high_resolution_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
 
-    /// get the scheduled time when a specific timeslice is sent
-    InputIntervalInfo* get_proposed_interval_info(uint64_t interval_index) const;
-
     /// Add the needed duration to transmit each timeslice and getting the ack back
     void add_sent_duration(uint64_t timeslice, double duration);
 
@@ -121,7 +118,7 @@ public:
     uint64_t get_last_acked_timeslice();
 
     /// Update the status message with the completed interval information
-    void ack_complete_interval_info(InputIntervalInfo* interval_info);
+    void ack_complete_interval_info();
 
 
 private:
@@ -187,11 +184,11 @@ private:
     /// This list of sent timestamp of latest timeslices
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
 
-    /// This list of scheduled intervals <interval index, <proposed start time, interval duration>>
-    SizedMap<uint64_t, InputIntervalInfo*> proposed_interval_list_;
-
     /// This map contains the spent time to send a receive acknowledgment of timeslices
     SizedMap<uint64_t, double> sent_duration_list_;
+
+    ///
+    InputScheduler* input_scheduler_;
 
 };
 }

@@ -39,13 +39,13 @@ public:
 
 	/// set the MPI barrier time of TimesliceBuilder
 	void set_compute_MPI_time(
-			std::chrono::high_resolution_clock::time_point compute_MPI_time){
+			std::chrono::system_clock::time_point compute_MPI_time){
 		compute_MPI_time_ = compute_MPI_time;
 	}
 
 	/// Init compute info
 	void init_compute_time(uint64_t compute_index, uint32_t input_node_count,
-			std::chrono::high_resolution_clock::time_point compute_MPI_time){
+			std::chrono::system_clock::time_point compute_MPI_time){
 		compute_index_ = compute_index;
 		input_node_count_ = input_node_count;
 		compute_MPI_time_ = compute_MPI_time;
@@ -53,7 +53,7 @@ public:
 
 	/// This method initializes the required data from each input node such as when the MPI barrier is passed
 	void init_input_index_info(uint32_t input_index,
-			std::chrono::high_resolution_clock::time_point MPI_time){
+			std::chrono::system_clock::time_point MPI_time){
 
 		assert(sender_info_.size() == input_node_count_);
 		sender_info_[input_index].MPI_Barrier_time = MPI_time;
@@ -205,7 +205,7 @@ private:
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
-	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
+	    std::chrono::system_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
 	    std::vector<uint64_t> round_durations;
 	    /// If an input scheduler doesn't receive the updated info from the compute scheduler, the last received data would be used
 	    std::vector<uint32_t> round_counts;
@@ -412,7 +412,7 @@ private:
 	    proposed_median_enhanced_duration_log_.insert(std::pair<uint64_t,std::pair<uint64_t,uint64_t>>(interval_index,std::pair<uint64_t,uint64_t>(median_interval_duration, enhanced_interval_duration)));
 	    // END LOGGING
 
-	    return IntervalMetaData(interval_index,round_count, new_start_timeslice,
+	    return IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*input_node_count_) - 1,
 		    last_completed_interval_info.start_time + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
 		    enhanced_interval_duration);
 
@@ -434,7 +434,7 @@ private:
 	uint64_t compute_index_;
 
 	/// The local time of the compute node when the MPI barrier reached
-	std::chrono::high_resolution_clock::time_point compute_MPI_time_;
+	std::chrono::system_clock::time_point compute_MPI_time_;
 
 	/// The number of input nodes which the compute receives data from
 	uint32_t input_node_count_;

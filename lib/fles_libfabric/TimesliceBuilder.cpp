@@ -336,7 +336,7 @@ void TimesliceBuilder::operator()()
 
         int rc = MPI_Barrier(MPI_COMM_WORLD);
 	assert(rc == MPI_SUCCESS);
-        time_begin_ = std::chrono::high_resolution_clock::now();
+        time_begin_ = std::chrono::system_clock::now();
         timeslice_scheduler_->set_compute_MPI_time(time_begin_);
 
         sync_buffer_positions();
@@ -357,7 +357,7 @@ void TimesliceBuilder::operator()()
             }
         }
 
-        time_end_ = std::chrono::high_resolution_clock::now();
+        time_end_ = std::chrono::system_clock::now();
 
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
@@ -578,7 +578,7 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 void TimesliceBuilder::process_pending_complete_timeslices()
 {
     //L_(info) << "Start a new round of process_pending_complete_timeslices";
-    double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
+    double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_begin_).count())/1000.0;
     uint64_t last_processed_ts = ConstVariables::MINUS_ONE;
     for (uint64_t ts_pos : pending_complete_ts_){
 	// check whether all contributions are received!

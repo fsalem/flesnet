@@ -8,9 +8,10 @@
 #include "InputChannelConnection.hpp"
 #include "RingBuffer.hpp"
 #include "InputIntervalInfo.hpp"
+#include "InputScheduler.hpp"
+
 #include <boost/format.hpp>
 #include <cassert>
-
 #include <rdma/fi_domain.h>
 #include <set>
 #include <string>
@@ -50,11 +51,7 @@ public:
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection
-    void check_send_timeslices();
-
-    // TMP
-    void check_send_timeslices_TMP();
-    //
+    void send_timeslices();
 
     /// The central function for distributing timeslice data.
     bool try_send_timeslice(uint64_t timeslice);
@@ -91,23 +88,8 @@ private:
     /// setup connections between nodes
     void bootstrap_wo_connections();
 
-    /// Create a new InputIntervalInfo
-    InputIntervalInfo* create_interval_info(uint64_t interval_index);
-    
-    /// Calculate the interval of a specific timslice
-    uint64_t get_timeslice_interval(uint64_t timeslice);
-    
-    /// Calculate the start timeslice of a particular interval
-    uint64_t get_interval_start_ts(uint64_t interval_index);
-    
-    /// Set the proposed information of a specific interval
-    InputIntervalInfo* get_scheduler_proposed_info(const uint64_t iinterval_index);
-    
-    /// Acknowledge the inputConnections about the completion of an interval
-    void ack_complete_interval_info(InputIntervalInfo* interval_info);
-
-    /// create and get the current intervalInfo to intervals_info_
-    InputIntervalInfo* get_current_interval(uint64_t interval_index);
+    /// Update compute scheduler when an interval is completed
+    void update_compute_schedulers();
 
     uint64_t input_index_;
 
@@ -163,45 +145,7 @@ private:
 
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
 
-    SizedMap<uint64_t, InputIntervalInfo*> intervals_info_;
-
-    const uint16_t INTERVAL_LENGTH_;
-    uint64_t current_interval_ = ConstVariables::ZERO;
-
-    struct IntervalRoundDuration{
-	uint64_t interval_index;
-	uint32_t round_index;
-	uint32_t sent_ts;
-	uint32_t remaining_sent_ts;
-	uint64_t duration;
-	int64_t duration_to_next_round;
-	int32_t input_buffer_problem_count;
-	int32_t compute_buffer_problem_count;
-    };
-
-    /// LOGGING
-    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_start_times_log_;
-    std::map<uint64_t, std::pair<int64_t, int64_t> > proposed_actual_durations_log_;
-    std::map<uint64_t, std::vector<int64_t>> proposed_all_start_times_log_;
-    std::map<uint64_t, int64_t > scheduler_blocked_times_log_;
-    std::map<uint64_t, uint64_t > scheduler_IB_blocked_times_log_;
-    std::map<uint64_t, uint64_t > scheduler_CB_blocked_times_log_;
-    std::map<uint64_t, uint64_t > ack_blocked_times_log_;
-    std::map<uint64_t, uint64_t > timeslice_duration_log_;
-    std::map<uint64_t, int64_t > timeslice_delaying_log_;
-    std::vector<IntervalRoundDuration> interval_rounds_info_log_;
-    uint64_t overall_running_time_ = 0;
-    uint64_t overall_IB_blocked_time_ = 0;
-    uint64_t overall_CB_blocked_time_ = 0;
-    uint64_t overall_scheduler_blocked_time_ = 0;
-    uint64_t overall_ACK_blocked_time_ = 0;
-    bool is_ack_blocked_ = false;
-    std::chrono::system_clock::time_point ack_blocked_start_time_;
-    uint32_t cur_index_to_send_;
-    /// END LOGGING
-
-    uint64_t get_interval_index(uint64_t timeslice);
-    void build_scheduled_time_file();
+    InputScheduler* input_scheduler_;
 
     struct SendBufferStatus {
         std::chrono::system_clock::time_point time;

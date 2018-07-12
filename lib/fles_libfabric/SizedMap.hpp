@@ -23,6 +23,8 @@ public:
 
     bool contains(const KEY key) const;
 
+    bool empty() const;
+
     uint32_t size() const;
 
     VALUE get(const KEY key) const;
@@ -103,7 +105,12 @@ bool SizedMap<KEY,VALUE>::remove(const KEY key)
 
 template <typename KEY, typename VALUE>
 bool SizedMap<KEY,VALUE>::contains(const KEY key) const {
-	return map_.find(key) == map_.end() ? false : true;
+	return !empty() && map_.find(key) != map_.end() ? true : false;
+}
+
+template <typename KEY, typename VALUE>
+bool SizedMap<KEY,VALUE>::empty() const {
+	return size() == 0 ? true : false;
 }
 
 template <typename KEY, typename VALUE>

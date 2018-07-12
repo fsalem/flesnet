@@ -14,7 +14,7 @@ namespace tl_libfabric
 {
 struct InputSchedulerData {
     //uint32_t index_;
-    std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
+    std::chrono::system_clock::time_point MPI_Barrier_time;
     int64_t clock_offset = 0;
     /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
     SizedMap< uint64_t, IntervalMetaData> interval_info_;

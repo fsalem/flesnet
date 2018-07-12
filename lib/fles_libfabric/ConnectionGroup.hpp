@@ -345,9 +345,9 @@ protected:
     /// RDMA event channel
     struct fid_eq* eq_ = nullptr;
 
-    std::chrono::high_resolution_clock::time_point time_begin_;
+    std::chrono::system_clock::time_point time_begin_;
 
-    std::chrono::high_resolution_clock::time_point time_end_;
+    std::chrono::system_clock::time_point time_end_;
 
     Scheduler scheduler_;
 
