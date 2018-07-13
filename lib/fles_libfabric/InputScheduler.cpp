@@ -32,8 +32,12 @@ uint64_t InputScheduler::get_last_timeslice_to_send(){
 }
 
 void InputScheduler::increament_sent_timeslices(){
-    interval_info_.get(interval_info_.get_last_key())->count_sent_ts++;
-    // TODO create new interval
+    InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+    current_interval->count_sent_ts++;
+
+    if (current_interval->count_sent_ts == (current_interval->end_ts - current_interval->start_ts + 1)){
+	create_new_interval_info(current_interval->index+1);
+    }
 }
 
 void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
@@ -41,7 +45,6 @@ void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
     current_interval->count_acked_ts++;
     if (is_interval_sent_ack_completed(current_interval->index)){
 	create_actual_interval_meta_data(current_interval);
-	create_new_interval_info(current_interval->index+1);
     }
 }
 
