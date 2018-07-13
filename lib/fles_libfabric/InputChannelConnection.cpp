@@ -528,6 +528,8 @@ void InputChannelConnection::add_sent_duration(uint64_t timeslice, double durati
 }
 
 void InputChannelConnection::ack_complete_interval_info(){
+    if (input_scheduler_ == nullptr)input_scheduler_ = InputScheduler::get_instance();
+
     IntervalMetaData* meta_data = input_scheduler_->get_actual_meta_data(
 	    send_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE ? send_status_message_.actual_interval_metadata.interval_index + 1 :0);
     if (meta_data != nullptr){

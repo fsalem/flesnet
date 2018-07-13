@@ -188,7 +188,7 @@ private:
     SizedMap<uint64_t, double> sent_duration_list_;
 
     ///
-    InputScheduler* input_scheduler_;
+    InputScheduler* input_scheduler_ = nullptr;
 
 };
 }
