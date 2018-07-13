@@ -33,6 +33,8 @@ uint64_t InputScheduler::get_last_timeslice_to_send(){
 
 void InputScheduler::increament_sent_timeslices(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+    if (current_interval->count_sent_ts == 0)
+	current_interval->actual_start_time = std::chrono::system_clock::now();
     current_interval->count_sent_ts++;
 
     if (current_interval->count_sent_ts == (current_interval->end_ts - current_interval->start_ts + 1)){
@@ -99,6 +101,8 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 }
 
 void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interval_info){
+    interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::system_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration);
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
@@ -112,12 +116,12 @@ uint64_t InputScheduler::get_expected_sent_ts(uint64_t interval){
 
 uint64_t InputScheduler::get_interval_current_round_index(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
-    return (uint64_t)(current_interval->count_sent_ts / current_interval->num_ts_per_round);
+    return current_interval->count_sent_ts / current_interval->num_ts_per_round;
 }
 
 uint64_t InputScheduler::get_interval_expected_round_index(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
-    return (uint64_t)(get_expected_sent_ts(interval) / current_interval->num_ts_per_round);
+    return get_expected_sent_ts(interval) / current_interval->num_ts_per_round;
 }
 
 InputIntervalInfo* InputScheduler::get_interval_of_timeslice(uint64_t timeslice){

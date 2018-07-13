@@ -26,6 +26,8 @@ struct InputIntervalInfo {
 
     uint64_t rounds_counter = ConstVariables::ZERO;
 
+    bool interval_started = false;
+
     bool cb_blocked = false;
     std::chrono::system_clock::time_point cb_blocked_start_time;
     uint64_t cb_blocked_duration = 0;
