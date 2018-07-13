@@ -49,7 +49,7 @@ public:
     std::chrono::system_clock::time_point get_next_fire_time();
 
     // TODO TO BE REMOVED
-    static uint64_t INTERVAL_LENGTH_, COMPUTE_COUNT_;
+    static uint64_t COMPUTE_COUNT_;
 private:
     InputScheduler();
 
