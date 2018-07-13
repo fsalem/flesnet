@@ -162,10 +162,10 @@ void InputChannelSender::send_timeslices()
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
 	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
+	    input_scheduler_->increament_sent_timeslices();
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
 	    conn_[conn_index]->add_sent_time(next_ts, std::chrono::high_resolution_clock::now());
 	    sent_timeslices_++;
-	    input_scheduler_->increament_sent_timeslices();
 	}
 	conn_index = (conn_index+1) % conn_.size();
     }while(conn_index != (input_index_ % conn_.size()));
