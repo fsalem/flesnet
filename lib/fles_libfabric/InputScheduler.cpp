@@ -111,6 +111,8 @@ void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interva
 uint64_t InputScheduler::get_expected_sent_ts(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     if (current_interval->duration_per_ts == 0)return (current_interval->end_ts-current_interval->start_ts+1);
+    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+    if (now < current_interval->actual_start_time) return 0;
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts;
 }
 

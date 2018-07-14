@@ -26,8 +26,6 @@ struct InputIntervalInfo {
 
     uint64_t rounds_counter = ConstVariables::ZERO;
 
-    bool interval_started = false;
-
     bool cb_blocked = false;
     std::chrono::system_clock::time_point cb_blocked_start_time;
     uint64_t cb_blocked_duration = 0;
@@ -40,6 +38,7 @@ struct InputIntervalInfo {
 	    const std::chrono::system_clock::time_point start_time, const uint64_t duration)
 			:index(interval_index),round_count(rounds), start_ts(start_ts), end_ts(end_ts),
 			 proposed_start_time(start_time), proposed_duration(duration){
+	actual_start_time = proposed_start_time;
 	duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
     	duration_per_round = proposed_duration/round_count;
     	num_ts_per_round = (end_ts - start_ts + 1) /round_count;
