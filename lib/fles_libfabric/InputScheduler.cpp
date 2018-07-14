@@ -26,14 +26,12 @@ IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_index){
 }
 
 uint64_t InputScheduler::get_last_timeslice_to_send(){
-    if (interval_info_.empty())return 0;
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
     uint64_t next_round = get_interval_current_round_index(current_interval->index)+1;
     return current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1;
 }
 
 void InputScheduler::increament_sent_timeslices(){
-    if (interval_info_.empty())return;
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
     if (current_interval->count_sent_ts == 0)
 	current_interval->actual_start_time = std::chrono::system_clock::now();
@@ -45,8 +43,8 @@ void InputScheduler::increament_sent_timeslices(){
 }
 
 void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
-    if (interval_info_.empty())return;
     InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
+    if (current_interval == nullptr)return;
     current_interval->count_acked_ts++;
     if (is_interval_sent_ack_completed(current_interval->index)){
 	create_actual_interval_meta_data(current_interval);
@@ -54,7 +52,6 @@ void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
 }
 
 std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
-    if (interval_info_.empty())return std::chrono::system_clock::now();
     uint64_t interval = interval_info_.get_last_key();
     InputIntervalInfo* current_interval = interval_info_.get(interval);
 
