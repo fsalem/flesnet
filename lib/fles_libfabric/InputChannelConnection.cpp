@@ -23,9 +23,7 @@ InputChannelConnection::InputChannelConnection(
     uint_fast16_t remote_connection_count, unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
-      max_pending_write_requests_(max_pending_write_requests),
-      sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
-      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE)
+      max_pending_write_requests_(max_pending_write_requests)
 {
     assert(max_pending_write_requests_ > 0);
 
@@ -510,21 +508,9 @@ void InputChannelConnection::set_remote_info()
     this->remote_info_.index = this->recv_status_message_.info.index;
 }
 
-uint64_t InputChannelConnection::get_last_acked_timeslice()
-{
-    if (sent_duration_list_.size() == 0)
-    	return ConstVariables::MINUS_ONE;
-    return sent_duration_list_.get_last_key();
-}
-
 void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
 {
     last_sent_timeslice_ = sent_ts;
-}
-
-/// Add the needed duration to transmit each timeslice and getting the ack back
-void InputChannelConnection::add_sent_duration(uint64_t timeslice, double duration) {
-    sent_duration_list_.add(timeslice, duration);
 }
 
 void InputChannelConnection::ack_complete_interval_info(){

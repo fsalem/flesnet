@@ -2,17 +2,30 @@
 
 #include "InputScheduler.hpp"
 
+// TO BE REMOVED
+#include <fstream>
+#include <iomanip>
+
 namespace tl_libfabric
 {
-
-
-
 // PUBLIC
 InputScheduler* InputScheduler::get_instance(){
     if (instance_ == nullptr){
 	instance_ = new InputScheduler();
     }
     return instance_;
+}
+
+void InputScheduler::update_compute_connection_count(uint32_t compute_count){
+    COMPUTE_COUNT_ = compute_count;
+}
+
+void InputScheduler::set_input_scheduler_index(uint32_t scheduler_index){
+    SCHEDULER_INDEX_ = scheduler_index;
+}
+
+void InputScheduler::set_input_begin_time(std::chrono::system_clock::time_point begin_time){
+    begin_time_ = begin_time;
 }
 
 void InputScheduler::add_proposed_meta_data(IntervalMetaData* meta_data){
@@ -65,7 +78,6 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
     return expected_round_time < std::chrono::system_clock::now() ? std::chrono::system_clock::now() : expected_round_time;
 
 }
-
 
 // PRIVATE
 
@@ -163,7 +175,103 @@ std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expec
 }
 
 InputScheduler* InputScheduler::instance_ = nullptr;
-// TODO
-uint64_t  InputScheduler::COMPUTE_COUNT_=8;
+uint32_t  InputScheduler::COMPUTE_COUNT_= 1;
+uint32_t InputScheduler::SCHEDULER_INDEX_=0;
+std::chrono::system_clock::time_point InputScheduler::begin_time_;
 
+
+
+
+
+
+
+
+// TO BO REMOVED
+
+void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t compute_index){
+    InputIntervalInfo* interval_info = get_interval_of_timeslice(timeslice);
+    if (interval_info == nullptr)return;
+    TimesliceInfo* timeslice_info = new TimesliceInfo();
+    timeslice_info->expected_time = get_expected_ts_sent_time(interval_info->index, timeslice);
+    timeslice_info->compute_index = compute_index;
+    timeslice_info->transmit_time = std::chrono::system_clock::now();;
+    timeslice_info_log_.add(timeslice, timeslice_info);
+}
+
+void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
+    TimesliceInfo* timeslice_info = timeslice_info_log_.get(timeslice);
+    if (timeslice_info == nullptr)return;
+    timeslice_info->acked_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+	    std::chrono::system_clock::now() - timeslice_info->transmit_time).count();
+}
+
+void InputScheduler::generate_log_files(){
+    if (true){
+    	std::ofstream log_file;
+    	log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.proposed_actual_interval_info.out");
+
+    	log_file << std::setw(25) << "Interval" <<
+    		std::setw(25) << "proposed time" <<
+    		std::setw(25) << "Actual time" <<
+    		std::setw(25) << "Proposed duration" <<
+    		std::setw(25) << "Actual duration" << "\n";
+
+    	SizedMap<uint64_t, IntervalMetaData*>::iterator it_actual = actual_interval_meta_data_.get_begin_iterator();
+    	IntervalMetaData* proposed_metadata = nullptr;
+    	uint64_t proposed_time, actual_time;
+    	while (it_actual != actual_interval_meta_data_.get_end_iterator()){
+    	    proposed_metadata = proposed_interval_meta_data_.contains(it_actual->first) ? proposed_interval_meta_data_.get(it_actual->first): nullptr;
+    	    proposed_time = proposed_metadata == nullptr ? 0 : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_metadata->start_time - begin_time_).count();
+    	    actual_time = std::chrono::duration_cast<std::chrono::milliseconds>(it_actual->second->start_time - begin_time_).count();
+    	    log_file << std::setw(25) << it_actual->first
+    		    << std::setw(25) << proposed_time
+    		    << std::setw(25) << actual_time
+    		    << std::setw(25) << (proposed_metadata == nullptr ? 0 : proposed_metadata->interval_duration)
+    		    << std::setw(25) << it_actual->second->interval_duration << "\n";
+
+    	    it_actual++;
+    	}
+    	log_file.flush();
+    	log_file.close();
+    }
+
+/////////////////////////////////////////////////////////////////
+    if (true) {
+	std::ofstream block_log_file;
+	block_log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.ts_delaying_times.out");
+
+	block_log_file << std::setw(25) << "Timeslice" <<
+	    std::setw(25) << "duration" << "\n";
+
+	SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
+	while (delaying_time != timeslice_info_log_.get_end_iterator()){
+	    block_log_file << std::setw(25) << delaying_time->first <<
+		std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
+			delaying_time->second->transmit_time - delaying_time->second->expected_time).count()<< "\n";
+	    delaying_time++;
+	}
+	block_log_file.flush();
+	block_log_file.close();
+    }
+
+/////////////////////////////////////////////////////////////////
+    if (false) {
+    	std::ofstream duration_log_file;
+    	duration_log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.ts_duration.out");
+
+    	duration_log_file << std::setw(25) << "Timeslice" <<
+    		std::setw(25) << "Compute Index" <<
+    		std::setw(25) << "Duration" << "\n";
+
+    	SizedMap<uint64_t, TimesliceInfo*>::iterator timeslice_info = timeslice_info_log_.get_begin_iterator();
+	while (timeslice_info != timeslice_info_log_.get_end_iterator()){
+	    duration_log_file << std::setw(25) << timeslice_info->first <<
+		std::setw(25) << timeslice_info->second->compute_index <<
+		std::setw(25) << timeslice_info->second->acked_duration << "\n";
+	    timeslice_info++;
+	}
+    	duration_log_file.flush();
+    	duration_log_file.close();
+    }
+}
 }

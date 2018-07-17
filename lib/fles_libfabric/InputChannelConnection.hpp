@@ -96,27 +96,6 @@ public:
     /// Set the last sent timeslice
     void set_last_sent_timeslice(uint64_t sent_ts);
 
-    /// Add the time of sent a timeslice
-    void add_sent_time(uint64_t timeslice, std::chrono::high_resolution_clock::time_point time) { sent_time_list_.add(timeslice, time); }
-
-    /// Check whether a timeslice is sent
-    bool contains_sent_time(uint64_t timeslice) const { return sent_time_list_.contains(timeslice); }
-
-    /// get the time when a specific timeslice is sent
-    const std::chrono::high_resolution_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
-
-    /// Add the needed duration to transmit each timeslice and getting the ack back
-    void add_sent_duration(uint64_t timeslice, double duration);
-
-    /// Check whether a timeslice is acked
-    bool contains_sent_duration(uint64_t timeslice) const { return sent_duration_list_.contains(timeslice); }
-
-    /// Get the needed duration to transmit specific timeslice
-    double get_sent_duration(uint64_t timeslice) const { return sent_duration_list_.get(timeslice); }
-
-    /// Return the last acked timeslice
-    uint64_t get_last_acked_timeslice();
-
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
 
@@ -180,12 +159,6 @@ private:
     fi_addr_t partner_addr_ = 0;
 
     uint64_t last_sent_timeslice_ = ConstVariables::MINUS_ONE;
-
-    /// This list of sent timestamp of latest timeslices
-    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> sent_time_list_;
-
-    /// This map contains the spent time to send a receive acknowledgment of timeslices
-    SizedMap<uint64_t, double> sent_duration_list_;
 
     ///
     InputScheduler* input_scheduler_ = nullptr;

@@ -30,6 +30,15 @@ public:
     // Get singleton instance
     static InputScheduler* get_instance();
 
+    // update the compute node count which is needed for the initial interval (#0)
+    static void update_compute_connection_count(uint32_t);
+
+    // Set the input scheduler index
+    static void set_input_scheduler_index(uint32_t);
+
+    // Set the begin time to be used in logging
+    static void set_input_begin_time(std::chrono::system_clock::time_point);
+
     // Receive proposed interval meta-data from InputChannelConnections
     void add_proposed_meta_data(IntervalMetaData*);
 
@@ -48,31 +57,57 @@ public:
     // Get the time to start sending more timeslices
     std::chrono::system_clock::time_point get_next_fire_time();
 
-    // TODO TO BE REMOVED
-    static uint64_t COMPUTE_COUNT_;
+    // Log the transmission time of a timeslice
+    void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
+
+    // Log the duration of a timeslice until receiving the ack
+    void log_timeslice_ack_time(uint64_t);
+
+    //Generate log files of the stored data
+    void generate_log_files();
+
 private:
+
+    struct TimesliceInfo{
+	std::chrono::system_clock::time_point expected_time;
+	std::chrono::system_clock::time_point transmit_time;
+	uint32_t compute_index;
+	uint64_t acked_duration;
+    };
+
     InputScheduler();
 
+    // The singleton instance for this class
     static InputScheduler* instance_;
 
+    /// create a new interval with specific index
     void create_new_interval_info(uint64_t);
 
+    // Create an entry in the actual interval meta-data list to be sent to compute schedulers
     void create_actual_interval_meta_data(InputIntervalInfo*);
 
+    // Get the expected number of sent timeslices so far of a particular interval
     uint64_t get_expected_sent_ts(uint64_t);
 
+    // Get the current round index of a particular interval
     uint64_t get_interval_current_round_index(uint64_t);
 
+    // Get the expected round index of a particular interval based on round duration
     uint64_t get_interval_expected_round_index(uint64_t);
 
+    // Get the interval info of a particular timeslice
     InputIntervalInfo* get_interval_of_timeslice(uint64_t);
 
+    // Check whether all timeslices of a particular interval are sent out
     bool is_interval_sent_completed(uint64_t);
 
+    // Check whether all timeslices of a particular interval are acked
     bool is_interval_sent_ack_completed(uint64_t);
 
+    // Check whether a specific ack theshold is reached to speedup sending rate to catch others
     bool is_ack_percentage_reached(uint64_t);
 
+    // Retrieve the time of the expected round of a particular interval based on the actual start time and duration
     std::chrono::system_clock::time_point get_interval_time_to_expected_round(uint64_t);
 
     std::chrono::system_clock::time_point get_expected_ts_sent_time(uint64_t, uint64_t);
@@ -86,6 +121,16 @@ private:
     // Actual interval meta-data
     SizedMap<uint64_t, IntervalMetaData*> actual_interval_meta_data_;
 
+    // The number of compute connections
+    static uint32_t COMPUTE_COUNT_;
+
+    // Input Scheduler index
+    static uint32_t SCHEDULER_INDEX_;
+
+    static std::chrono::system_clock::time_point begin_time_;
+
+    /// LOGGING
+    SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
 
 
 };

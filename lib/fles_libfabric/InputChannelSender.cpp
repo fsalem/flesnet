@@ -162,9 +162,9 @@ void InputChannelSender::send_timeslices()
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
 	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
+	    input_scheduler_->log_timeslice_transmit_time(next_ts, conn_index);
 	    input_scheduler_->increament_sent_timeslices();
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
-	    conn_[conn_index]->add_sent_time(next_ts, std::chrono::high_resolution_clock::now());
 	    sent_timeslices_++;
 	}
 	conn_index = (conn_index+1) % conn_.size();
@@ -565,9 +565,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        double duration = std::chrono::duration_cast<std::chrono::microseconds>(
-		std::chrono::high_resolution_clock::now() - conn_[cn]->get_sent_time(ts)).count();
-        conn_[cn]->add_sent_duration(ts, duration);
+        input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
