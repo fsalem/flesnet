@@ -199,8 +199,8 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
 }
 
 void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
+    if (!timeslice_info_log_.contains(timeslice))return;
     TimesliceInfo* timeslice_info = timeslice_info_log_.get(timeslice);
-    if (timeslice_info == nullptr)return;
     timeslice_info->acked_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 	    std::chrono::system_clock::now() - timeslice_info->transmit_time).count();
 }
