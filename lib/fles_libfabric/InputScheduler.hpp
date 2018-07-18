@@ -30,6 +30,9 @@ public:
     // Get singleton instance
     static InputScheduler* get_instance();
 
+    // Create the first initial interval and set the compute nodes count
+    static void initial_input_scheduler(uint32_t compute_nodes_count);
+
     // update the compute node count which is needed for the initial interval (#0)
     static void update_compute_connection_count(uint32_t);
 

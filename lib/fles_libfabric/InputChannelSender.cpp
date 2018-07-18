@@ -42,6 +42,8 @@ InputChannelSender::InputChannelSender(
     } else {
         connection_oriented_ = false;
     }
+
+    input_scheduler_ = InputScheduler::get_instance();
 }
 
 InputChannelSender::~InputChannelSender()
@@ -233,7 +235,7 @@ void InputChannelSender::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
         assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::system_clock::now();
-        input_scheduler_ = InputScheduler::get_instance();
+        input_scheduler_->initial_input_scheduler(conn_.size());
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
 	    conn_[indx]->set_time_MPI(time_begin_);

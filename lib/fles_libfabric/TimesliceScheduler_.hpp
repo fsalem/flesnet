@@ -317,10 +317,10 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    IntervalMetaData last_completed_interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 
-	    uint64_t new_start_timeslice = (last_completed_interval_info.last_timeslice+1) + (last_completed_interval_info.last_timeslice-last_completed_interval_info.start_timeslice+1) * (interval_index-last_completed_interval_info.interval_index - 1);
+	    uint64_t new_start_timeslice = last_completed_interval_info.start_timeslice+ last_completed_interval_info.round_count*compute_node_count_ * (interval_index-last_completed_interval_info.interval_index);
 	    if (proposed_interval_start_time_info_.size() != 0){
 		IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
-		new_start_timeslice = (last_proposed_interval_info.last_timeslice+1) + (last_proposed_interval_info.last_timeslice-last_proposed_interval_info.start_timeslice+1) * (interval_index-last_proposed_interval_info.interval_index-1);
+		new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*compute_node_count_ * (interval_index-last_proposed_interval_info.interval_index);
 	    }
 
 	    uint64_t median_round_duration = get_median_round_duration();

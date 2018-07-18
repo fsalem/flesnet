@@ -16,6 +16,12 @@ InputScheduler* InputScheduler::get_instance(){
     return instance_;
 }
 
+static void InputScheduler::initial_input_scheduler(uint32_t compute_nodes_count){
+    update_compute_connection_count(compute_nodes_count);
+    // create the first interval
+    instance_->create_new_interval_info(0);
+}
+
 void InputScheduler::update_compute_connection_count(uint32_t compute_count){
     COMPUTE_COUNT_ = compute_count;
 }
@@ -81,10 +87,7 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
 
 // PRIVATE
 
-InputScheduler::InputScheduler(){
-    // create the first interval
-    create_new_interval_info(0);
-}
+InputScheduler::InputScheduler(){}
 
 void InputScheduler::create_new_interval_info(uint64_t interval_index){
     InputIntervalInfo* new_interval_info = nullptr;
@@ -100,7 +103,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    new_interval_info = new InputIntervalInfo(interval_index, 1, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/COMPUTE_COUNT_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
