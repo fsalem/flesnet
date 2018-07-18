@@ -16,7 +16,7 @@ InputScheduler* InputScheduler::get_instance(){
     return instance_;
 }
 
-static void InputScheduler::initial_input_scheduler(uint32_t compute_nodes_count){
+void InputScheduler::initial_input_scheduler(uint32_t compute_nodes_count){
     update_compute_connection_count(compute_nodes_count);
     // create the first interval
     instance_->create_new_interval_info(0);
