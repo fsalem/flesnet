@@ -85,11 +85,14 @@ public:
 	/// This method retrieves the interval information that will be sent to input nodes
 	const IntervalMetaData get_interval_info(uint64_t interval_index,uint32_t input_index){
 
-	    if (!proposed_interval_start_time_info_.contains(interval_index)){
-		proposed_interval_start_time_info_.add(interval_index, get_interval_sent_time(interval_index));
+	    IntervalMetaData interval_info;
+	    if (proposed_interval_start_time_info_.contains(interval_index)){
+		interval_info = proposed_interval_start_time_info_.get(interval_index);
+	    }else{
+		interval_info = get_interval_sent_time(interval_index);
+		proposed_interval_start_time_info_.add(interval_index, interval_info);
 	    }
 
-	    IntervalMetaData interval_info = proposed_interval_start_time_info_.get(interval_index);
 	    interval_info.start_time -= std::chrono::microseconds(sender_info_[input_index].clock_offset);
 	    return interval_info;
 	}
@@ -314,10 +317,10 @@ private:
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
 	    IntervalMetaData last_completed_interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 
-	    uint64_t new_start_timeslice = last_completed_interval_info.start_timeslice+ last_completed_interval_info.round_count*compute_node_count_ * (interval_index-last_completed_interval_info.interval_index);
+	    uint64_t new_start_timeslice = (last_completed_interval_info.last_timeslice+1) + (last_completed_interval_info.last_timeslice-last_completed_interval_info.start_timeslice+1) * (interval_index-last_completed_interval_info.interval_index - 1);
 	    if (proposed_interval_start_time_info_.size() != 0){
 		IntervalMetaData last_proposed_interval_info = proposed_interval_start_time_info_.get(proposed_interval_start_time_info_.get_last_key());
-		new_start_timeslice = last_proposed_interval_info.start_timeslice+ last_proposed_interval_info.round_count*compute_node_count_ * (interval_index-last_proposed_interval_info.interval_index);
+		new_start_timeslice = (last_proposed_interval_info.last_timeslice+1) + (last_proposed_interval_info.last_timeslice-last_proposed_interval_info.start_timeslice+1) * (interval_index-last_proposed_interval_info.interval_index-1);
 	    }
 
 	    uint64_t median_round_duration = get_median_round_duration();

@@ -100,7 +100,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/COMPUTE_COUNT_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, 1, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
@@ -194,7 +194,7 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
     TimesliceInfo* timeslice_info = new TimesliceInfo();
     timeslice_info->expected_time = get_expected_ts_sent_time(interval_info->index, timeslice);
     timeslice_info->compute_index = compute_index;
-    timeslice_info->transmit_time = std::chrono::system_clock::now();;
+    timeslice_info->transmit_time = std::chrono::system_clock::now();
     timeslice_info_log_.add(timeslice, timeslice_info);
 }
 
