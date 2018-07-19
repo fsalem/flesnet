@@ -286,6 +286,7 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
+        input_scheduler_->generate_log_files();
         summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
