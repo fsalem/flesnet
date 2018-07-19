@@ -34,13 +34,13 @@ void InputScheduler::set_input_begin_time(std::chrono::system_clock::time_point 
     begin_time_ = begin_time;
 }
 
-void InputScheduler::add_proposed_meta_data(IntervalMetaData* meta_data){
-    if (!proposed_interval_meta_data_.contains(meta_data->interval_index)){
-	proposed_interval_meta_data_.add(meta_data->interval_index,meta_data);
+void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
+    if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
+	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
     }
 }
 
-IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_index){
+const IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_index){
     return actual_interval_meta_data_.contains(interval_index) ? actual_interval_meta_data_.get(interval_index) : nullptr;
 }
 

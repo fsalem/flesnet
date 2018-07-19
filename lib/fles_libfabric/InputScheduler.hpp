@@ -43,10 +43,10 @@ public:
     static void set_input_begin_time(std::chrono::system_clock::time_point);
 
     // Receive proposed interval meta-data from InputChannelConnections
-    void add_proposed_meta_data(IntervalMetaData*);
+    void add_proposed_meta_data(const IntervalMetaData);
 
     // Return the actual interval meta-data to InputChannelConnections
-    IntervalMetaData* get_actual_meta_data(uint64_t);
+    const IntervalMetaData* get_actual_meta_data(uint64_t);
 
     // Get last timeslice to be sent
     uint64_t get_last_timeslice_to_send();
