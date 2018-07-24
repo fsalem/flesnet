@@ -18,13 +18,11 @@ ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
     uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
     InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
-    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp,
-    TimesliceScheduler* timeslice_scheduler)
+    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp)
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
-      desc_buffer_size_exp_(desc_buffer_size_exp),
-      timeslice_scheduler_(timeslice_scheduler)
+      desc_buffer_size_exp_(desc_buffer_size_exp)
 {
     // send and receive only single StatusMessage struct
     max_send_wr_ = 2; // one additional wr to avoid race (recv before
@@ -38,6 +36,8 @@ ComputeNodeConnection::ComputeNodeConnection(
     } else {
         connection_oriented_ = false;
     }
+
+    timeslice_scheduler_ = DDScheduler::get_instance();
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
@@ -46,11 +46,10 @@ ComputeNodeConnection::ComputeNodeConnection(
     uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
     /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
     uint32_t data_buffer_size_exp, fles::TimesliceComponentDescriptor* desc_ptr,
-    uint32_t desc_buffer_size_exp, TimesliceScheduler* timeslice_scheduler)
+    uint32_t desc_buffer_size_exp)
     : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
-      desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp),
-      timeslice_scheduler_(timeslice_scheduler)
+      desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp)
 {
 
     // send and receive only single StatusMessage struct
@@ -68,6 +67,8 @@ ComputeNodeConnection::ComputeNodeConnection(
 
     //  setup anonymous endpoint
     make_endpoint(Provider::getInst()->get_info(), "", "", pd, cq, av);
+
+    timeslice_scheduler_ = DDScheduler::get_instance();
 }
 
 void ComputeNodeConnection::post_recv_status_message()
@@ -251,12 +252,14 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
-    if (send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
+    if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
+	    send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
 	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
-	send_status_message_.proposed_interval_metadata = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
+	const IntervalMetaData* meta_data = timeslice_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
+	if (meta_data != nullptr)
+	    send_status_message_.proposed_interval_metadata = *meta_data;
 	data_acked_ = true;
 
 /*
@@ -305,11 +308,11 @@ void ComputeNodeConnection::on_complete_recv()
 
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;
-    	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
+    	timeslice_scheduler_->init_input_scheduler(index_,recv_status_message_.MPI_time);
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.actual_interval_metadata);
+    	timeslice_scheduler_->add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
     }
     post_recv_status_message();
 }

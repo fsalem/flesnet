@@ -110,7 +110,7 @@ private:
 
     bool drop_;
 
-    TimesliceScheduler* timeslice_scheduler_;
+    DDScheduler* timeslice_scheduler_;
 
     std::vector<double> completed_ts;
 

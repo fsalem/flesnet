@@ -7,10 +7,13 @@
 #include "RequestIdentifier.hpp"
 #include "TimesliceCompletion.hpp"
 #include "TimesliceWorkItem.hpp"
+
 #include <boost/algorithm/string.hpp>
+#include <iomanip>
 //#include <boost/lexical_cast.hpp>
 //#include <log.hpp>
 //#include <random>
+
 
 //#include <valgrind/memcheck.h>
 
@@ -30,7 +33,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
-      drop_(drop), timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,num_input_nodes_))
+      drop_(drop)
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
@@ -39,6 +42,8 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
+    timeslice_scheduler_ = DDScheduler::get_instance();
+    timeslice_scheduler_->set_scheduler_index(compute_index_);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -228,7 +233,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
             eq_, pd_, cq_, av_, index, compute_index_, conn_.size(), data_ptr,
             timeslice_buffer_.get_data_size_exp(), desc_ptr,
-            timeslice_buffer_.get_desc_size_exp(), timeslice_scheduler_));
+            timeslice_buffer_.get_desc_size_exp()));
         conn->setup_mr(pd_);
         conn->setup();
         conn_.at(index) = std::move(conn);
@@ -337,7 +342,7 @@ void TimesliceBuilder::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
 	assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::system_clock::now();
-        timeslice_scheduler_->set_compute_MPI_time(time_begin_);
+        timeslice_scheduler_->set_begin_time(time_begin_);
 
         sync_buffer_positions();
         report_status();
@@ -362,8 +367,7 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        timeslice_scheduler_->build_duration_file();
-        timeslice_scheduler_->build_scheduled_time_file();
+        timeslice_scheduler_->generate_log_files();
 
         build_time_file();
         summary();
@@ -439,8 +443,7 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
                                   timeslice_buffer_.get_data_ptr(index),
                                   timeslice_buffer_.get_data_size_exp(),
                                   timeslice_buffer_.get_desc_ptr(index),
-                                  timeslice_buffer_.get_desc_size_exp(),
-                                  timeslice_scheduler_));
+                                  timeslice_buffer_.get_desc_size_exp()));
     conn_.at(index) = std::move(conn);
 
     conn_.at(index)->on_connect_request(event, pd_, cq_);
