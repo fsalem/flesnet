@@ -17,17 +17,12 @@ struct ConstVariables {
     static constexpr double MIN_INTERVAL_DURATION = 1.0f; // in seconds
 
     const static bool ENABLE_LOGGING = 0;
-    const static uint32_t MAX_MEDIAN_VALUES = 10;
+    const static uint32_t SCHEDULER_HISTORY_SIZE = 10;
 
-    const static uint32_t SPEEDUP_SLOWDOWN_HISTORY = 10;
 
-    static constexpr double SPEEDUP_ROUND_FACTOR = 1.0f;
+    static constexpr double SPEEDUP_ROUND_FACTOR = 1.0f; // between zero and one!
     static constexpr double SPEEDUP_GAP_PERCENTAGE = 0.25;
-    const static uint32_t SPEEDUP_INTERVAL_PERIOD = 10;
-
-    static constexpr double SLOWDOWN_ROUND_FACTOR = 1.0f;
-    static constexpr double SLOWDOWN_GAP_PERCENTAGE = 2.5;
-    const static uint32_t SLOWDOWN_INTERVAL_PERIOD = 10;
+    //const static uint32_t SPEEDUP_INTERVAL_PERIOD = 10;
 
     static std::string LOG_DIRECTORY;
 
