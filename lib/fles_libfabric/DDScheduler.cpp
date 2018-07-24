@@ -47,7 +47,7 @@ void DDScheduler::set_begin_time(std::chrono::system_clock::time_point begin_tim
     begin_time_ = begin_time;
 }
 
-void DDScheduler::add_actual_meta_data(uint32_t input_index, const IntervalMetaData meta_data) {
+void DDScheduler::add_actual_meta_data(uint32_t input_index, IntervalMetaData meta_data) {
 
     if (input_scheduler_info_[input_index]->interval_info_.contains(meta_data.interval_index)) return;
 
@@ -60,7 +60,7 @@ void DDScheduler::add_actual_meta_data(uint32_t input_index, const IntervalMetaD
 const IntervalMetaData* DDScheduler::get_proposed_meta_data(uint32_t input_index, uint64_t interval_index){
     if (actual_interval_meta_data_.empty())return nullptr;
 
-    const IntervalMetaData* interval_info;
+    IntervalMetaData* interval_info;
     if (proposed_interval_meta_data_.contains(interval_index)){
 	interval_info = proposed_interval_meta_data_.get(interval_index);
     }else{
@@ -162,7 +162,7 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     //
 }
 
-const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
+IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
     uint64_t last_interval = actual_interval_meta_data_.get_last_key();
     IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
     if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key() > last_interval) {

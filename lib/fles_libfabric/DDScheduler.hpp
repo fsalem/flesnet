@@ -45,7 +45,7 @@ public:
     void set_begin_time(std::chrono::system_clock::time_point begin_time);
 
     // Receive actual interval meta-data from ComputeNodeConnection
-    void add_actual_meta_data(const uint32_t input_index, const IntervalMetaData meta_data);
+    void add_actual_meta_data(const uint32_t input_index, IntervalMetaData meta_data);
 
     // Return the proposed interval meta-data to ComputeNodeConnection
     const IntervalMetaData* get_proposed_meta_data(uint32_t input_index, uint64_t interval_index);
@@ -98,7 +98,7 @@ private:
     void calculate_interval_info(uint64_t interval_index);
 
     // Calculate the proposed meta-data of a new/requested interval
-    const IntervalMetaData* calculate_proposed_interval_meta_data(uint64_t interval_index);
+    IntervalMetaData* calculate_proposed_interval_meta_data(uint64_t interval_index);
 
     // Minimize the round duration if the variance is low
     uint64_t enhance_round_duration(uint64_t round_duration);
