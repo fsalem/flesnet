@@ -44,6 +44,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     }
     timeslice_scheduler_ = DDScheduler::get_instance();
     timeslice_scheduler_->set_scheduler_index(compute_index_);
+    timeslice_scheduler_->init_scheduler(num_input_nodes);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
