@@ -136,15 +136,8 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     uint64_t average_start_timeslice = get_average_start_timeslice(interval_index);
     uint64_t average_last_timeslice = get_average_last_timeslice(interval_index);
 
-    IntervalMetaData interval_metadata;
-    interval_metadata.interval_index = interval_index;
-    interval_metadata.round_count = average_round_count;
-    interval_metadata.start_timeslice = average_start_timeslice;
-    interval_metadata.last_timeslice = average_last_timeslice;
-    interval_metadata.start_time = average_start_time;
-    interval_metadata.interval_duration = max_round_duration*interval_metadata.round_count;
-
-    actual_interval_meta_data_.add(interval_index, &interval_metadata);
+    actual_interval_meta_data_.add(interval_index,
+	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice, average_start_time, max_round_duration*average_round_count));
 
     // LOGGING
     uint64_t min_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(get_start_time_statistics(interval_index,0,1) - begin_time_).count();
@@ -269,8 +262,8 @@ uint64_t DDScheduler::get_max_round_duration_history() {
 
     if (actual_interval_meta_data_.size() < required_size) required_size = actual_interval_meta_data_.size();
 
-    for (SizedMap<uint64_t, IntervalMetaData*>::iterator it = actual_interval_meta_data_.get_end_iterator();
-	    it != actual_interval_meta_data_.get_begin_iterator() && count < required_size ; --it) {
+    for (SizedMap<uint64_t, IntervalMetaData*>::iterator it = --actual_interval_meta_data_.get_end_iterator();
+	    it != actual_interval_meta_data_.get_begin_iterator() && count < required_size ; --it, ++count) {
 	IntervalMetaData* meta_data = it->second;
 	uint64_t average_round_duration = meta_data->interval_duration/meta_data->round_count;
 	if (max_round_duration < average_round_duration)
