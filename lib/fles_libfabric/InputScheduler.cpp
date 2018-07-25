@@ -16,21 +16,23 @@ InputScheduler* InputScheduler::get_instance(){
     return instance_;
 }
 
-void InputScheduler::initial_input_scheduler(uint32_t compute_nodes_count){
-    update_compute_connection_count(compute_nodes_count);
+void InputScheduler::initial_input_scheduler(uint32_t scheduler_index , uint32_t compute_conn_count, std::chrono::system_clock::time_point begin_time){
+    update_compute_connection_count(compute_conn_count);
+    update_input_scheduler_index(scheduler_index);
+    update_input_begin_time(begin_time);
     // create the first interval
     create_new_interval_info(0);
 }
 
 void InputScheduler::update_compute_connection_count(uint32_t compute_count){
-    COMPUTE_COUNT_ = compute_count;
+    compute_count_ = compute_count;
 }
 
-void InputScheduler::set_input_scheduler_index(uint32_t scheduler_index){
-    SCHEDULER_INDEX_ = scheduler_index;
+void InputScheduler::update_input_scheduler_index(uint32_t scheduler_index){
+    scheduler_index_ = scheduler_index;
 }
 
-void InputScheduler::set_input_begin_time(std::chrono::system_clock::time_point begin_time){
+void InputScheduler::update_input_begin_time(std::chrono::system_clock::time_point begin_time){
     begin_time_ = begin_time;
 }
 
@@ -101,13 +103,13 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/COMPUTE_COUNT_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_count_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    // TODO wait for the proposing!!!
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
 	    new_interval_info = new InputIntervalInfo(interval_index, prev_interval->round_count, prev_interval->end_ts+1,
-		    prev_interval->end_ts + (prev_interval->round_count*COMPUTE_COUNT_),
+		    prev_interval->end_ts + (prev_interval->round_count*compute_count_),
 		    prev_interval->proposed_start_time + std::chrono::microseconds(prev_interval->proposed_duration), prev_interval->proposed_duration);
 	}
     }
@@ -201,7 +203,7 @@ void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
 void InputScheduler::generate_log_files(){
     if (true){
     	std::ofstream log_file;
-    	log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.proposed_actual_interval_info.out");
+    	log_file.open(std::to_string(scheduler_index_)+".input.proposed_actual_interval_info.out");
 
     	log_file << std::setw(25) << "Interval" <<
     		std::setw(25) << "proposed time" <<
@@ -231,7 +233,7 @@ void InputScheduler::generate_log_files(){
 /////////////////////////////////////////////////////////////////
     if (true) {
 	std::ofstream block_log_file;
-	block_log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.ts_delaying_times.out");
+	block_log_file.open(std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
 
 	block_log_file << std::setw(25) << "Timeslice" <<
 	    std::setw(25) << "duration" << "\n";
@@ -250,7 +252,7 @@ void InputScheduler::generate_log_files(){
 /////////////////////////////////////////////////////////////////
     if (false) {
     	std::ofstream duration_log_file;
-    	duration_log_file.open(std::to_string(InputScheduler::SCHEDULER_INDEX_)+".input.ts_duration.out");
+    	duration_log_file.open(std::to_string(scheduler_index_)+".input.ts_duration.out");
 
     	duration_log_file << std::setw(25) << "Timeslice" <<
     		std::setw(25) << "Compute Index" <<

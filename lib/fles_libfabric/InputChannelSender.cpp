@@ -235,7 +235,7 @@ void InputChannelSender::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
         assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::system_clock::now();
-        input_scheduler_->initial_input_scheduler(conn_.size());
+        input_scheduler_->initial_input_scheduler(input_index_, conn_.size(), time_begin_);
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
 	    conn_[indx]->set_time_MPI(time_begin_);
