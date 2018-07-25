@@ -262,13 +262,16 @@ uint64_t DDScheduler::get_max_round_duration_history() {
 
     if (actual_interval_meta_data_.size() < required_size) required_size = actual_interval_meta_data_.size();
 
-    for (SizedMap<uint64_t, IntervalMetaData*>::iterator it = --actual_interval_meta_data_.get_end_iterator();
-	    it != actual_interval_meta_data_.get_begin_iterator() && count < required_size ; --it, ++count) {
+    SizedMap<uint64_t, IntervalMetaData*>::iterator it = actual_interval_meta_data_.get_end_iterator();
+    do {
+	--it;
+	++count;
 	IntervalMetaData* meta_data = it->second;
 	uint64_t average_round_duration = meta_data->interval_duration/meta_data->round_count;
 	if (max_round_duration < average_round_duration)
 	    max_round_duration = average_round_duration;
-    }
+    }while (it != actual_interval_meta_data_.get_begin_iterator() && count < required_size);
+
     return max_round_duration;
 }
 
