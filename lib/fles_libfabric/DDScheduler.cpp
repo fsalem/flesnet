@@ -62,9 +62,9 @@ const IntervalMetaData* DDScheduler::get_proposed_meta_data(uint32_t input_index
 
     IntervalMetaData* interval_info;
     if (proposed_interval_meta_data_.contains(interval_index)){
-	interval_info = proposed_interval_meta_data_.get(interval_index);
+	interval_info = new IntervalMetaData(*proposed_interval_meta_data_.get(interval_index));
     }else{
-	interval_info = calculate_proposed_interval_meta_data(interval_index);
+	interval_info = new IntervalMetaData(*calculate_proposed_interval_meta_data(interval_index));
     }
     interval_info->start_time -= std::chrono::microseconds(input_scheduler_info_[input_index]->clock_offset);
     return interval_info;
@@ -155,9 +155,9 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     //
 }
 
-IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
+const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
     uint64_t last_interval = actual_interval_meta_data_.get_last_key();
-    IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
+    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
     if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key() > last_interval) {
 	last_interval = proposed_interval_meta_data_.get_last_key();
 	last_interval_info = proposed_interval_meta_data_.get(last_interval);
@@ -280,7 +280,7 @@ double DDScheduler::get_mean_round_duration_difference_distory() {
 
     double mean = 0;
     uint64_t proposed_round_dur, actual_round_dur;
-    IntervalMetaData *proposed_interval, *actual_interval;
+    const IntervalMetaData *proposed_interval, *actual_interval;
     for (uint32_t i=0 ; i< ConstVariables::SCHEDULER_HISTORY_SIZE ; i++){
 	proposed_interval = proposed_interval_meta_data_.get(last_completed_interval-i);
 	proposed_round_dur = proposed_interval->interval_duration/proposed_interval->round_count;
@@ -296,7 +296,7 @@ double DDScheduler::get_mean_round_duration_difference_distory() {
 }
 
 uint32_t DDScheduler::get_last_compute_connection_count(){
-    IntervalMetaData* meta_data = actual_interval_meta_data_.get(actual_interval_meta_data_.get_last_key());
+    const IntervalMetaData* meta_data = actual_interval_meta_data_.get(actual_interval_meta_data_.get_last_key());
     return (meta_data->last_timeslice - meta_data->start_timeslice+1)/meta_data->round_count;
 }
 

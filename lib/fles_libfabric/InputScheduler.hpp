@@ -31,16 +31,16 @@ public:
     static InputScheduler* get_instance();
 
     // Create the first initial interval and set the compute nodes count
-    static void initial_input_scheduler(uint32_t compute_nodes_count);
+    void initial_input_scheduler(uint32_t compute_nodes_count);
 
     // update the compute node count which is needed for the initial interval (#0)
-    static void update_compute_connection_count(uint32_t);
+    void update_compute_connection_count(uint32_t);
 
     // Set the input scheduler index
-    static void set_input_scheduler_index(uint32_t);
+    void set_input_scheduler_index(uint32_t);
 
     // Set the begin time to be used in logging
-    static void set_input_begin_time(std::chrono::system_clock::time_point);
+    void set_input_begin_time(std::chrono::system_clock::time_point);
 
     // Receive proposed interval meta-data from InputChannelConnections
     void add_proposed_meta_data(const IntervalMetaData);
@@ -125,12 +125,12 @@ private:
     SizedMap<uint64_t, IntervalMetaData*> actual_interval_meta_data_;
 
     // The number of compute connections
-    static uint32_t COMPUTE_COUNT_;
+    uint32_t COMPUTE_COUNT_;
 
     // Input Scheduler index
-    static uint32_t SCHEDULER_INDEX_;
+    uint32_t SCHEDULER_INDEX_;
 
-    static std::chrono::system_clock::time_point begin_time_;
+    std::chrono::system_clock::time_point begin_time_;
 
     /// LOGGING
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;

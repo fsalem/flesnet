@@ -98,7 +98,7 @@ private:
     void calculate_interval_info(uint64_t interval_index);
 
     // Calculate the proposed meta-data of a new/requested interval
-    IntervalMetaData* calculate_proposed_interval_meta_data(uint64_t interval_index);
+    const IntervalMetaData* calculate_proposed_interval_meta_data(uint64_t interval_index);
 
     // Minimize the round duration if the variance is low
     uint64_t enhance_round_duration(uint64_t round_duration);

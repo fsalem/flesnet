@@ -19,7 +19,7 @@ InputScheduler* InputScheduler::get_instance(){
 void InputScheduler::initial_input_scheduler(uint32_t compute_nodes_count){
     update_compute_connection_count(compute_nodes_count);
     // create the first interval
-    instance_->create_new_interval_info(0);
+    create_new_interval_info(0);
 }
 
 void InputScheduler::update_compute_connection_count(uint32_t compute_count){
@@ -96,16 +96,15 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 	IntervalMetaData* proposed_meta_data = proposed_interval_meta_data_.get(interval_index);
 
 	// check if there is a gap in ts due to un-received meta-data
-	InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
-	uint64_t start_timeslice = prev_interval->end_ts+1 != start_timeslice ? proposed_meta_data->start_timeslice: prev_interval->end_ts+1;
-
-	new_interval_info = new InputIntervalInfo(interval_index, proposed_meta_data->round_count, start_timeslice, proposed_meta_data->last_timeslice, proposed_meta_data->start_time, proposed_meta_data->interval_duration);
+	const InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
+	new_interval_info = new InputIntervalInfo(interval_index, proposed_meta_data->round_count, prev_interval->end_ts+1, proposed_meta_data->last_timeslice, proposed_meta_data->start_time, proposed_meta_data->interval_duration);
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
 	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/COMPUTE_COUNT_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
+	    // TODO wait for the proposing!!!
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
 	    new_interval_info = new InputIntervalInfo(interval_index, prev_interval->round_count, prev_interval->end_ts+1,
 		    prev_interval->end_ts + (prev_interval->round_count*COMPUTE_COUNT_),
@@ -178,15 +177,6 @@ std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expec
 }
 
 InputScheduler* InputScheduler::instance_ = nullptr;
-uint32_t  InputScheduler::COMPUTE_COUNT_= 1;
-uint32_t InputScheduler::SCHEDULER_INDEX_=0;
-std::chrono::system_clock::time_point InputScheduler::begin_time_;
-
-
-
-
-
-
 
 
 // TO BO REMOVED
