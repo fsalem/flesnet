@@ -19,10 +19,9 @@ namespace tl_libfabric
 
 InputChannelConnection::InputChannelConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index,
-    uint_fast16_t remote_connection_count, unsigned int max_send_wr,
+    uint_fast16_t remote_connection_index, unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
-    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
+    : Connection(eq, connection_index, remote_connection_index),
       max_pending_write_requests_(max_pending_write_requests)
 {
     assert(max_pending_write_requests_ > 0);
@@ -248,8 +247,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 		data_changed_ = true;
 	}
     }
-    // TODO do we need && contains_sent_duration(cn_wp_.desc - 1) ??
-    if ((data_changed_ || data_acked_) /*&& contains_sent_duration(last_sent_timeslice_)*/) { //
+    if ((data_changed_ || data_acked_)) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;

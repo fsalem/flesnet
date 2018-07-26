@@ -18,7 +18,6 @@
 //#include <vector>
 #include <rdma/fi_domain.h>
 #include <set>
-#include <math.h>
 
 #include <chrono>
 #include <fstream>
@@ -35,7 +34,7 @@ class ConnectionGroup : public ConnectionGroupWorker
 {
 public:
     /// The ConnectionGroup default constructor.
-    ConnectionGroup(std::string local_node_name, bool is_input_node):IS_INPUT_NODE(is_input_node)
+    ConnectionGroup(std::string local_node_name, bool is_input_node):IS_INPUT_NODE(is_input_node) // This flag is used to control the number of retrieved events from the EventQueue
     {
         Provider::init(local_node_name);
         // std::cout << "ConnectionGroup constructor" << std::endl;

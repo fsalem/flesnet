@@ -373,7 +373,7 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index)
         static_cast<unsigned int>((num_cqe_ - 1) / compute_hostnames_.size()));
 
     std::unique_ptr<InputChannelConnection> connection(
-        new InputChannelConnection(eq_, index, input_index_, conn_.size(), max_send_wr,
+        new InputChannelConnection(eq_, index, input_index_, max_send_wr,
                                    max_pending_write_requests));
     return connection;
 }

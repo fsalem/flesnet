@@ -26,13 +26,12 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
                                    uint32_t num_input_nodes,
                                    uint32_t timeslice_size,
                                    volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name,
-				   uint32_t num_compute_nodes)
+                                   bool drop, std::string local_node_name)
     : ConnectionGroup(local_node_name, false), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
-      signal_status_(signal_status), local_node_name_(local_node_name), num_compute_nodes_(num_compute_nodes),
+      signal_status_(signal_status), local_node_name_(local_node_name),
       drop_(drop)
 {
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
@@ -232,7 +231,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
             timeslice_buffer_.get_desc_ptr(index);
 
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
-            eq_, pd_, cq_, av_, index, compute_index_, conn_.size(), data_ptr,
+            eq_, pd_, cq_, av_, index, compute_index_, data_ptr,
             timeslice_buffer_.get_data_size_exp(), desc_ptr,
             timeslice_buffer_.get_desc_size_exp()));
         conn->setup_mr(pd_);
@@ -380,33 +379,6 @@ void TimesliceBuilder::operator()()
 void TimesliceBuilder::build_time_file(){
 
     if (!ConstVariables::ENABLE_LOGGING) return;
-    if (true){
-	std::ofstream log_file;
-	log_file.open(std::to_string(compute_index_)+".compute.scheduler_send_time.out");
-
-	log_file << std::setw(25) << "Input Index" << std::setw(25) << "Timeslice" << std::setw(25) << "Contribution" << std::setw(25) << "send(t)" << "\n";
-
-	std::map<uint64_t,std::chrono::system_clock::time_point>::iterator it;
-	for (int i=0 ; i< conn_.size() ; i++){
-	    it = conn_[i]->send_interval_times_log_.begin();
-	    while (it != conn_[i]->send_interval_times_log_.end()){
-		log_file << std::setw(25) << i << std::setw(25) << it->first << std::setw(25) << (it->first+i) << std::setw(25) << std::chrono::duration_cast
-			    <std::chrono::microseconds>(it->second - time_begin_).count()/1000.0 << "\n";
-		it++;
-	    }
-	}
-
-	/*std::map<uint64_t, std::pair<int64_t, int64_t> >::iterator it = proposed_actual_times_.begin();
-	while (it != proposed_actual_times_.end()){
-	int64_t blocked_time=(blocked_times_.find(it->first) == blocked_times_.end() ? 0: blocked_times_.find(it->first)->second);
-	log_file << std::setw(25) << (it->first%conn_.size()) << std::setw(25) << it->first << std::setw(25) << it->second.first << std::setw(25) << it->second.second << std::setw(25) << (it->second.second - it->second.first) << std::setw(25) << blocked_time << std::setw(25) << ((it->second.second - it->second.first) - blocked_time) << "\n";
-
-	++it;
-	}*/
-
-	log_file.flush();
-	log_file.close();
-    }
 
     if (true){
 	std::ofstream log_file;
@@ -440,7 +412,7 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
     assert(index < conn_.size() && conn_.at(index) == nullptr);
 
     std::unique_ptr<ComputeNodeConnection> conn(
-        new ComputeNodeConnection(eq_, index, compute_index_, conn_.size(), remote_info,
+        new ComputeNodeConnection(eq_, index, compute_index_, remote_info,
                                   timeslice_buffer_.get_data_ptr(index),
                                   timeslice_buffer_.get_data_size_exp(),
                                   timeslice_buffer_.get_desc_ptr(index),

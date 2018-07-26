@@ -16,10 +16,10 @@ namespace tl_libfabric
 
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
+    uint_fast16_t remote_connection_index,
     InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
     fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
+    : Connection(eq, connection_index, remote_connection_index),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
       desc_buffer_size_exp_(desc_buffer_size_exp)
@@ -43,11 +43,11 @@ ComputeNodeConnection::ComputeNodeConnection(
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, struct fid_domain* pd, struct fid_cq* cq,
     struct fid_av* av, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count,
+    uint_fast16_t remote_connection_index,
     /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
     uint32_t data_buffer_size_exp, fles::TimesliceComponentDescriptor* desc_ptr,
     uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index, remote_connection_count),
+    : Connection(eq, connection_index, remote_connection_index),
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
       desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp)
 {
@@ -253,29 +253,20 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
     if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
-	    send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
+	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
 	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
 	const IntervalMetaData* meta_data = timeslice_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
-	if (meta_data != nullptr)
+	if (meta_data != nullptr){
 	    send_status_message_.proposed_interval_metadata = *meta_data;
-	data_acked_ = true;
-
-/*
- 	/// LOGGING
-        if (data_acked_){
-            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::system_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
-        }
-        /// END LOGGING
-*/
-
+	    data_acked_ = true;
+	}
     }
 
     if (data_changed_ && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
     }
-
 
     if (data_acked_ || data_changed_){
 	post_send_status_message();

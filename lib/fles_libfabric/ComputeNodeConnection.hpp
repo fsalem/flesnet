@@ -10,7 +10,6 @@
 #include "TimesliceComponentDescriptor.hpp"
 #include "DDScheduler.hpp"
 #include <boost/format.hpp>
-#include <map>
 
 #include <sys/uio.h>
 
@@ -27,7 +26,6 @@ class ComputeNodeConnection : public Connection
 public:
     ComputeNodeConnection(struct fid_eq* eq, uint_fast16_t connection_index,
                           uint_fast16_t remote_connection_index,
-                          uint_fast16_t remote_connection_count,
                           InputNodeInfo remote_info, uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
@@ -37,7 +35,6 @@ public:
                           struct fid_cq* cq, struct fid_av* av,
                           uint_fast16_t connection_index,
                           uint_fast16_t remote_connection_index,
-                          uint_fast16_t remote_connection_count,
                           /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
@@ -152,7 +149,6 @@ public:
     bool is_connection_finalized();
 
     /// LOGGING
-    std::map<uint64_t,std::chrono::system_clock::time_point> send_interval_times_log_;
     uint64_t last_recv_ts_ = 0;
     /// END LOGGING
 

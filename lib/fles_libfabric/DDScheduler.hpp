@@ -64,7 +64,6 @@ private:
         int64_t clock_offset = 0;
         /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
         SizedMap< uint64_t, IntervalMetaData> interval_info_;
-        //SizedSet<uint64_t> round_durations;
     };
 
     // LOGGING

@@ -15,7 +15,6 @@
 #include <rdma/fi_errno.h>
 #include <rdma/fi_rma.h>
 
-#include <math.h>
 #include <cstdint>
 #include <string>
 #include <chrono>
@@ -31,7 +30,7 @@ class Connection
 public:
     /// The Connection constructor. Creates an endpoint.
     Connection(struct fid_eq* eq, uint_fast16_t connection_index,
-               uint_fast16_t remote_connection_index, uint_fast16_t remote_connection_count);
+               uint_fast16_t remote_connection_index);
 
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -129,9 +128,6 @@ protected:
 
     /// Index of this connection in the remote group of connections.
     uint_fast16_t remote_index_;
-
-    /// Count of the connections in the remote group of connections.
-    uint_fast16_t remote_connection_count_;
 
     /// Flag indicating connection finished state.
     bool done_ = false;

@@ -25,7 +25,6 @@ public:
     /// The InputChannelConnection constructor.
     InputChannelConnection(struct fid_eq* eq, uint_fast16_t connection_index,
                            uint_fast16_t remote_connection_index,
-                           uint_fast16_t remote_connection_count,
                            unsigned int max_send_wr,
                            unsigned int max_pending_write_requests);
 
