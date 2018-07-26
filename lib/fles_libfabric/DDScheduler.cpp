@@ -182,7 +182,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     proposed_interval_meta_data_.add(interval_index, new_interval_metadata);
 
     // LOGGING
-    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration, new_round_duration, round_count, max_round_duration != new_round_duration ? 1 : 0));
+    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, max_round_duration != new_round_duration ? 1 : 0));
 
     return new_interval_metadata;
 }
