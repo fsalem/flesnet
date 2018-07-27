@@ -37,7 +37,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
-      drop_(drop)
+      drop_(drop), log_directory_(log_directory)
 {
     listening_cq_ = nullptr;
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
@@ -387,7 +387,7 @@ void TimesliceBuilder::build_time_file(){
 
     if (true){
 	std::ofstream log_file;
-	log_file.open(std::to_string(compute_index_)+".compute.arrival_diff.out");
+	log_file.open(log_directory_+"/"+std::to_string(compute_index_)+".compute.arrival_diff.out");
 
 	log_file << std::setw(25) << "Timeslice" << std::setw(25) << "Diff" << "\n";
 	std::map<uint64_t,double>::iterator it = first_last_arrival_diff_.begin();
