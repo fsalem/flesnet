@@ -34,7 +34,12 @@ public:
                      unsigned short service, uint32_t num_input_nodes,
                      uint32_t timeslice_size,
                      volatile sig_atomic_t* signal_status,
-		     bool drop, std::string local_node_name);
+		     bool drop, std::string local_node_name,
+		     uint32_t scheduler_history_size,
+		     uint32_t scheduler_interval_duration,
+		     uint32_t scheduler_speedup_difference_percentage,
+		     uint32_t scheduler_speedup_percentage,
+		     std::string log_directory, bool enable_logging);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;

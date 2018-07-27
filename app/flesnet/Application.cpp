@@ -82,7 +82,10 @@ Application::Application(Parameters const& par,
                 new tl_libfabric::TimesliceBuilder(
                     i, *tsb, par_.base_port() + i, input_nodes_size,
                     par_.timeslice_size(), signal_status_, par_.drop_process_ts(),
-                    par_.compute_nodes()[i]));
+                    par_.compute_nodes()[i], par_.scheduler_history_size(),
+		    par_.scheduler_interval_duration(),
+		    par_.scheduler_speedup_difference_percentage(),
+		    par_.scheduler_speedup_percentage(), par_.log_directory(), par_.enable_logging()));
             timeslice_builders_.push_back(std::move(builder));
 #else
             L_(fatal) << "flesnet built without LIBFABRIC support";
@@ -151,7 +154,8 @@ Application::Application(Parameters const& par,
                 new tl_libfabric::InputChannelSender(
                     index, *(data_sources_.at(c).get()), par.compute_nodes(),
                     compute_services, par.timeslice_size(), par.overlap_size(),
-                    par.max_timeslice_number(), par.input_nodes().at(index)));
+                    par.max_timeslice_number(), par.input_nodes().at(index),
+		    par.log_directory(), par.enable_logging()));
             input_channel_senders_.push_back(std::move(sender));
 #else
             L_(fatal) << "flesnet built without LIBFABRIC support";

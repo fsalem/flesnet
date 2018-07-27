@@ -26,7 +26,12 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
                                    uint32_t num_input_nodes,
                                    uint32_t timeslice_size,
                                    volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name)
+                                   bool drop, std::string local_node_name,
+				   uint32_t scheduler_history_size,
+				   uint32_t scheduler_interval_duration,
+				   uint32_t scheduler_speedup_difference_percentage,
+				   uint32_t scheduler_speedup_percentage,
+				   std::string log_directory, bool enable_logging)
     : ConnectionGroup(local_node_name, false), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
@@ -34,6 +39,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       signal_status_(signal_status), local_node_name_(local_node_name),
       drop_(drop)
 {
+    listening_cq_ = nullptr;
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
     assert(not local_node_name_.empty());
     if (Provider::getInst()->is_connection_oriented()) {
@@ -41,9 +47,10 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    timeslice_scheduler_ = DDScheduler::get_instance();
-    timeslice_scheduler_->set_scheduler_index(compute_index_);
-    timeslice_scheduler_->init_scheduler(num_input_nodes);
+    timeslice_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
+	    scheduler_history_size, scheduler_interval_duration,
+	    scheduler_speedup_difference_percentage,
+	    scheduler_speedup_percentage, log_directory, enable_logging);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -378,8 +385,6 @@ void TimesliceBuilder::operator()()
 
 void TimesliceBuilder::build_time_file(){
 
-    if (!ConstVariables::ENABLE_LOGGING) return;
-
     if (true){
 	std::ofstream log_file;
 	log_file.open(std::to_string(compute_index_)+".compute.arrival_diff.out");
@@ -468,7 +473,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         const uint64_t new_recv = conn_[in]->last_recv_ts_;
 
 	// LOGGING
-        if (ConstVariables::ENABLE_LOGGING){
+        if (true){
 	    uint64_t remote_ts_num;
 	    std::map<uint64_t, uint32_t>::iterator it;
 	    for (uint64_t desc=old_recv+1 ; desc <= new_recv ; desc++){

@@ -36,7 +36,8 @@ public:
                        const std::vector<std::string> compute_services,
                        uint32_t timeslice_size, uint32_t overlap_size,
                        uint32_t max_timeslice_number,
-                       std::string input_node_name);
+                       std::string input_node_name,
+		       std::string log_directory, bool enable_logging);
 
     InputChannelSender(const InputChannelSender&) = delete;
     void operator=(const InputChannelSender&) = delete;

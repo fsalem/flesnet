@@ -18,7 +18,7 @@ InputChannelSender::InputChannelSender(
     const std::vector<std::string> compute_hostnames,
     const std::vector<std::string> compute_services, uint32_t timeslice_size,
     uint32_t overlap_size, uint32_t max_timeslice_number,
-    std::string input_node_name)
+    std::string input_node_name, std::string log_directory, bool enable_logging)
     : ConnectionGroup(input_node_name, true), input_index_(input_index),
       data_source_(data_source), compute_hostnames_(compute_hostnames),
       compute_services_(compute_services), timeslice_size_(timeslice_size),
@@ -43,7 +43,7 @@ InputChannelSender::InputChannelSender(
         connection_oriented_ = false;
     }
 
-    input_scheduler_ = InputScheduler::get_instance();
+    input_scheduler_ = InputScheduler::get_instance(input_index, compute_hostnames.size(), log_directory, enable_logging);
 }
 
 InputChannelSender::~InputChannelSender()
@@ -235,7 +235,7 @@ void InputChannelSender::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
         assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::system_clock::now();
-        input_scheduler_->initial_input_scheduler(input_index_, conn_.size(), time_begin_);
+        input_scheduler_->update_input_begin_time(time_begin_);
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
 	    conn_[indx]->set_time_MPI(time_begin_);

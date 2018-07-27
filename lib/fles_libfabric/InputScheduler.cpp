@@ -9,19 +9,16 @@
 namespace tl_libfabric
 {
 // PUBLIC
-InputScheduler* InputScheduler::get_instance(){
+InputScheduler* InputScheduler::get_instance(uint32_t scheduler_index , uint32_t compute_conn_count,
+	std::string log_directory, bool enable_logging){
     if (instance_ == nullptr){
-	instance_ = new InputScheduler();
+	instance_ = new InputScheduler(scheduler_index, compute_conn_count, log_directory, enable_logging);
     }
     return instance_;
 }
 
-void InputScheduler::initial_input_scheduler(uint32_t scheduler_index , uint32_t compute_conn_count, std::chrono::system_clock::time_point begin_time){
-    update_compute_connection_count(compute_conn_count);
-    update_input_scheduler_index(scheduler_index);
-    update_input_begin_time(begin_time);
-    // create the first interval
-    create_new_interval_info(0);
+InputScheduler* InputScheduler::get_instance(){
+    return instance_;
 }
 
 void InputScheduler::update_compute_connection_count(uint32_t compute_count){
@@ -34,6 +31,10 @@ void InputScheduler::update_input_scheduler_index(uint32_t scheduler_index){
 
 void InputScheduler::update_input_begin_time(std::chrono::system_clock::time_point begin_time){
     begin_time_ = begin_time;
+    if (interval_info_.empty()){
+	// create the first interval
+	create_new_interval_info(0);
+    }
 }
 
 void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
@@ -89,7 +90,11 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
 
 // PRIVATE
 
-InputScheduler::InputScheduler(){}
+InputScheduler::InputScheduler(uint32_t scheduler_index , uint32_t compute_conn_count,
+    	std::string log_directory, bool enable_logging):
+    		scheduler_index_(scheduler_index), compute_count_(compute_conn_count),
+		log_directory_(log_directory), enable_logging_(enable_logging) {
+}
 
 void InputScheduler::create_new_interval_info(uint64_t interval_index){
     InputIntervalInfo* new_interval_info = nullptr;
@@ -201,72 +206,68 @@ void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
 }
 
 void InputScheduler::generate_log_files(){
-    if (true){
-    	std::ofstream log_file;
-    	log_file.open(std::to_string(scheduler_index_)+".input.proposed_actual_interval_info.out");
+    if (!enable_logging_) return;
 
-    	log_file << std::setw(25) << "Interval" <<
-    		std::setw(25) << "proposed time" <<
-    		std::setw(25) << "Actual time" <<
-    		std::setw(25) << "Proposed duration" <<
-    		std::setw(25) << "Actual duration" << "\n";
+    std::ofstream log_file;
+    log_file.open(std::to_string(scheduler_index_)+".input.proposed_actual_interval_info.out");
 
-    	SizedMap<uint64_t, IntervalMetaData*>::iterator it_actual = actual_interval_meta_data_.get_begin_iterator();
-    	IntervalMetaData* proposed_metadata = nullptr;
-    	uint64_t proposed_time, actual_time;
-    	while (it_actual != actual_interval_meta_data_.get_end_iterator()){
-    	    proposed_metadata = proposed_interval_meta_data_.contains(it_actual->first) ? proposed_interval_meta_data_.get(it_actual->first): nullptr;
-    	    proposed_time = proposed_metadata == nullptr ? 0 : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_metadata->start_time - begin_time_).count();
-    	    actual_time = std::chrono::duration_cast<std::chrono::milliseconds>(it_actual->second->start_time - begin_time_).count();
-    	    log_file << std::setw(25) << it_actual->first
-    		    << std::setw(25) << proposed_time
-    		    << std::setw(25) << actual_time
-    		    << std::setw(25) << (proposed_metadata == nullptr ? 0 : proposed_metadata->interval_duration)
-    		    << std::setw(25) << it_actual->second->interval_duration << "\n";
+    log_file << std::setw(25) << "Interval" <<
+	    std::setw(25) << "proposed time" <<
+	    std::setw(25) << "Actual time" <<
+	    std::setw(25) << "Proposed duration" <<
+	    std::setw(25) << "Actual duration" << "\n";
 
-    	    it_actual++;
-    	}
-    	log_file.flush();
-    	log_file.close();
+    SizedMap<uint64_t, IntervalMetaData*>::iterator it_actual = actual_interval_meta_data_.get_begin_iterator();
+    IntervalMetaData* proposed_metadata = nullptr;
+    uint64_t proposed_time, actual_time;
+    while (it_actual != actual_interval_meta_data_.get_end_iterator()){
+	proposed_metadata = proposed_interval_meta_data_.contains(it_actual->first) ? proposed_interval_meta_data_.get(it_actual->first): nullptr;
+	proposed_time = proposed_metadata == nullptr ? 0 : std::chrono::duration_cast<std::chrono::milliseconds>(proposed_metadata->start_time - begin_time_).count();
+	actual_time = std::chrono::duration_cast<std::chrono::milliseconds>(it_actual->second->start_time - begin_time_).count();
+	log_file << std::setw(25) << it_actual->first
+		<< std::setw(25) << proposed_time
+		<< std::setw(25) << actual_time
+		<< std::setw(25) << (proposed_metadata == nullptr ? 0 : proposed_metadata->interval_duration)
+		<< std::setw(25) << it_actual->second->interval_duration << "\n";
+
+	it_actual++;
     }
+    log_file.flush();
+    log_file.close();
 
 /////////////////////////////////////////////////////////////////
-    if (true) {
-	std::ofstream block_log_file;
-	block_log_file.open(std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
+    std::ofstream block_log_file;
+    block_log_file.open(std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
 
-	block_log_file << std::setw(25) << "Timeslice" <<
-	    std::setw(25) << "duration" << "\n";
+    block_log_file << std::setw(25) << "Timeslice" <<
+	std::setw(25) << "duration" << "\n";
 
-	SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
-	while (delaying_time != timeslice_info_log_.get_end_iterator()){
-	    block_log_file << std::setw(25) << delaying_time->first <<
-		std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
-			delaying_time->second->transmit_time - delaying_time->second->expected_time).count()<< "\n";
-	    delaying_time++;
-	}
-	block_log_file.flush();
-	block_log_file.close();
+    SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
+    while (delaying_time != timeslice_info_log_.get_end_iterator()){
+	block_log_file << std::setw(25) << delaying_time->first <<
+	    std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
+		    delaying_time->second->transmit_time - delaying_time->second->expected_time).count()<< "\n";
+	delaying_time++;
     }
+    block_log_file.flush();
+    block_log_file.close();
 
 /////////////////////////////////////////////////////////////////
-    if (false) {
-    	std::ofstream duration_log_file;
-    	duration_log_file.open(std::to_string(scheduler_index_)+".input.ts_duration.out");
+    std::ofstream duration_log_file;
+    duration_log_file.open(std::to_string(scheduler_index_)+".input.ts_duration.out");
 
-    	duration_log_file << std::setw(25) << "Timeslice" <<
-    		std::setw(25) << "Compute Index" <<
-    		std::setw(25) << "Duration" << "\n";
+    duration_log_file << std::setw(25) << "Timeslice" <<
+	    std::setw(25) << "Compute Index" <<
+	    std::setw(25) << "Duration" << "\n";
 
-    	SizedMap<uint64_t, TimesliceInfo*>::iterator timeslice_info = timeslice_info_log_.get_begin_iterator();
-	while (timeslice_info != timeslice_info_log_.get_end_iterator()){
-	    duration_log_file << std::setw(25) << timeslice_info->first <<
-		std::setw(25) << timeslice_info->second->compute_index <<
-		std::setw(25) << timeslice_info->second->acked_duration << "\n";
-	    timeslice_info++;
-	}
-    	duration_log_file.flush();
-    	duration_log_file.close();
+    SizedMap<uint64_t, TimesliceInfo*>::iterator timeslice_info = timeslice_info_log_.get_begin_iterator();
+    while (timeslice_info != timeslice_info_log_.get_end_iterator()){
+	duration_log_file << std::setw(25) << timeslice_info->first <<
+	    std::setw(25) << timeslice_info->second->compute_index <<
+	    std::setw(25) << timeslice_info->second->acked_duration << "\n";
+	timeslice_info++;
     }
+    duration_log_file.flush();
+    duration_log_file.close();
 }
 }

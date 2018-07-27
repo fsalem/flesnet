@@ -26,20 +26,20 @@ namespace tl_libfabric
 class DDScheduler
 {
 public:
+    // Initialize the instance and retrieve it
+    static DDScheduler* get_instance(uint32_t scheduler_index,
+	    uint32_t input_connection_count,
+	    uint32_t history_size,
+	    uint32_t interval_duration,
+	    uint32_t speedup_difference_percentage,
+	    uint32_t speedup_percentage,
+	    std::string log_directory, bool enable_logging);
+
     // Get singleton instance
     static DDScheduler* get_instance();
 
     // Set the input nodes count
-    void init_scheduler(uint32_t input_nodes_count);
-
-    // Set the input nodes count
     void init_input_scheduler(uint32_t input_index, std::chrono::system_clock::time_point MPI_time);
-
-    // update the input node count
-    void update_input_connection_count(uint32_t input_conn_count);
-
-    // Set the DD scheduler index
-    void set_scheduler_index(uint32_t index);
 
     // Set the begin time to be used in logging
     void set_begin_time(std::chrono::system_clock::time_point begin_time);
@@ -87,8 +87,14 @@ private:
 	    max_duration(max_duration), proposed_duration(0), enhanced_duration(0),
 	    rounds_count(rounds_count), speedup_applied(0){}
     };
+    ///
 
-    DDScheduler();
+    DDScheduler(uint32_t scheduler_index, uint32_t input_connection_count,
+	    uint32_t history_size,
+	    uint32_t interval_duration,
+	    uint32_t speedup_difference_percentage,
+	    uint32_t speedup_percentage,
+	    std::string log_directory, bool enable_logging);
 
     // Trigger when all the actual meta-data have been received to calculate the statistics
     void trigger_complete_interval(const uint64_t interval_index);
@@ -144,13 +150,30 @@ private:
     static DDScheduler* instance_;
 
     // The number of input connections
-    uint32_t input_scheduler_count_;
+    uint32_t input_connection_count_;
 
     // Input Scheduler index
-    uint32_t SCHEDULER_INDEX_;
+    uint32_t scheduler_index_;
 
+    // The MPI time of TimesliceBuilder start
     std::chrono::system_clock::time_point begin_time_;
 
+    // The history size
+    uint32_t history_size_;
+
+    // The minimum interval duration
+    uint32_t interval_duration_;
+
+    // The max variance percentage between proposed and actual duration to speedup
+    uint32_t speedup_difference_percentage_;
+
+    // The speedup percentage
+    uint32_t speedup_percentage_;
+
+    // The log directory
+    std::string log_directory_;
+
+    bool enable_logging_;
     // LOGGING
     SizedMap<uint64_t, IntervalDataLog*> interval_info_logger_;
 

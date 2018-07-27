@@ -27,11 +27,13 @@ namespace tl_libfabric
 class InputScheduler
 {
 public:
+
+    // Initialize and get singleton instance
+    static InputScheduler* get_instance(uint32_t scheduler_index , uint32_t compute_conn_count,
+    	std::string log_directory, bool enable_logging);
+
     // Get singleton instance
     static InputScheduler* get_instance();
-
-    // Create the first initial interval and set the compute nodes count
-    void initial_input_scheduler(uint32_t scheduler_index , uint32_t compute_conn_count, std::chrono::system_clock::time_point begin_time);
 
     // update the compute node count which is needed for the initial interval (#0)
     void update_compute_connection_count(uint32_t);
@@ -39,7 +41,7 @@ public:
     // Set the input scheduler index
     void update_input_scheduler_index(uint32_t);
 
-    // Set the begin time to be used in logging
+    // Set the begin time to be used in logging and create the first interval if not there
     void update_input_begin_time(std::chrono::system_clock::time_point);
 
     // Receive proposed interval meta-data from InputChannelConnections
@@ -78,7 +80,8 @@ private:
 	uint64_t acked_duration;
     };
 
-    InputScheduler();
+    InputScheduler(uint32_t scheduler_index , uint32_t compute_conn_count,
+	    	std::string log_directory, bool enable_logging);
 
     // The singleton instance for this class
     static InputScheduler* instance_;
@@ -130,7 +133,14 @@ private:
     // Input Scheduler index
     uint32_t scheduler_index_;
 
+    // Time at which the InputChannelSender started
     std::chrono::system_clock::time_point begin_time_;
+
+    // The Log folder
+    std::string log_directory_;
+
+    // Check whether to generate log files
+    bool enable_logging_;
 
     /// LOGGING
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;

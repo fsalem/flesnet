@@ -112,6 +112,25 @@ public:
     /// Retrieve the number of completion queue entries.
     uint32_t num_cqe() const { return num_cqe_; }
 
+    /// Retrieve the history size of intervals that the scheduler would decide based on
+    uint32_t scheduler_history_size() const { return scheduler_history_size_; }
+
+    /// Retrieve the minimum duration of each interval
+    uint32_t scheduler_interval_duration() const { return scheduler_interval_duration_; }
+
+    /// Retrieve the maximum difference percentage between the proposed and the actual duration
+    /// to apply the scheduler_speedup_percentage_
+    uint32_t scheduler_speedup_difference_percentage() const { return scheduler_speedup_difference_percentage_; }
+
+    /// Retrieve the speeding up percentage of the scheduler to reduce the duration
+    uint32_t scheduler_speedup_percentage() const { return scheduler_speedup_percentage_; }
+
+    /// Retrieve the directory to store the log files
+    std::string log_directory() const { return log_directory_; }
+
+    /// Check whether to generate log files
+    bool enable_logging() const { return enable_logging_; }
+
     /// Retrieve the list of participating input nodes.
     std::vector<std::string> const input_nodes() const { return input_nodes_; }
 
@@ -191,6 +210,24 @@ private:
     bool drop_process_ts_ = false;
 
     uint32_t num_cqe_ = 1000000;
+
+    /// This history size of intervals that the scheduler would decide based on
+    uint32_t scheduler_history_size_;
+
+    /// The minimum duration of each interval of the scheduler
+    uint32_t scheduler_interval_duration_;
+
+    /// The maximum difference percentage between the proposed and the actual duration
+    /// to apply the scheduler_speedup_percentage_
+    uint32_t scheduler_speedup_difference_percentage_;
+
+    /// The speeding up percentage of the scheduler to reduce the duration
+    uint32_t scheduler_speedup_percentage_;
+
+    /// The directory to store the log files
+    std::string log_directory_;
+
+    bool enable_logging_ = false;
 
     /// The list of participating input nodes.
     std::vector<std::string> input_nodes_;
