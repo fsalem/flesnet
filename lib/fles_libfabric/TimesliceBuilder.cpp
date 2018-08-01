@@ -65,6 +65,9 @@ void TimesliceBuilder::report_status()
     L_(debug) << "[c" << compute_index_ << "] " << completely_written_
               << " completely written, " << acked_ << " acked";
 
+    // LOGGING
+    std::vector<double> buffer_percentage(conn_.size());
+    //
     for (auto& c : conn_) {
         auto status_desc = c->buffer_status_desc();
         auto status_data = c->buffer_status_data();
@@ -78,7 +81,17 @@ void TimesliceBuilder::report_status()
         L_(info) << "[c" << compute_index_ << "_" << c->index() << "] |"
                  << bar_graph(status_data.vector(), "#._", 20) << "|"
                  << bar_graph(status_desc.vector(), "#._", 10) << "| ";
+
+        // LOGGING
+        buffer_percentage[c->index()] = std::stod(status_data.percentage_str(status_data.used()));
+        //
     }
+    // LOGGING
+    int last_second = -1;
+    if (!buffer_status_.empty())last_second=(--buffer_status_.end())->first;
+    buffer_status_.insert(std::pair<uint64_t, std::vector<double>>((last_second+1), buffer_percentage));
+    //
+
 
     scheduler_.add(std::bind(&TimesliceBuilder::report_status, this),
                    now + interval);
@@ -398,6 +411,28 @@ void TimesliceBuilder::build_time_file(){
 
 	log_file.flush();
 	log_file.close();
+    }
+
+    if (true){
+    	std::ofstream log_file;
+    	log_file.open(log_directory_+"/"+std::to_string(compute_index_)+".compute.buffer_status.out");
+
+    	log_file << std::setw(25) << "Second" << std::setw(25);
+    	for (uint32_t i=0 ; i<conn_.size() ; i++)
+    	    log_file << "Conn_" << i << std::setw(25);
+    	log_file << "\n";
+
+    	std::map<uint64_t, std::vector<double>>::iterator it = buffer_status_.begin();
+    	while(it != buffer_status_.end()){
+    	    log_file << std::setw(25) << it->first;
+	    for (uint32_t i=0 ; i<it->second.size() ; i++)
+		log_file << it->second[i] << std::setw(25);
+    	    log_file << "\n";
+    	    ++it;
+    	}
+
+    	log_file.flush();
+    	log_file.close();
     }
 }
 

@@ -122,6 +122,7 @@ private:
     std::map<uint64_t, double> first_last_arrival_diff_;
     std::map<uint64_t, std::chrono::high_resolution_clock::time_point> first_arrival_time_;
     std::map<uint64_t, uint32_t> arrival_count_;
+    std::map<uint64_t, std::vector<double>> buffer_status_;
     std::string log_directory_;
     // END OF LOGGING
 };
