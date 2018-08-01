@@ -204,7 +204,7 @@ uint64_t DDScheduler::enhance_round_duration(uint64_t round_duration) {
     // TODO keep speeding up for an interval of time
 
     if (round_dur_mean_difference/round_duration*100.0 <= speedup_difference_percentage_)
-	return round_duration - (round_duration*speedup_percentage_);
+	return round_duration - (round_duration*speedup_percentage_/100);
     return round_duration;
 
 }
