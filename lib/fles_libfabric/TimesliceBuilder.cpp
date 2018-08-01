@@ -31,6 +31,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
 				   uint32_t scheduler_interval_duration,
 				   uint32_t scheduler_speedup_difference_percentage,
 				   uint32_t scheduler_speedup_percentage,
+				   uint32_t scheduler_speedup_interval_count,
 				   std::string log_directory, bool enable_logging)
     : ConnectionGroup(local_node_name, false), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
@@ -50,7 +51,8 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     timeslice_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
 	    scheduler_history_size, scheduler_interval_duration,
 	    scheduler_speedup_difference_percentage,
-	    scheduler_speedup_percentage, log_directory, enable_logging);
+	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
+	    log_directory, enable_logging);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}

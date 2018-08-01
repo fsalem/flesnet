@@ -33,6 +33,7 @@ public:
 	    uint32_t interval_duration,
 	    uint32_t speedup_difference_percentage,
 	    uint32_t speedup_percentage,
+	    uint32_t speedup_interval_count,
 	    std::string log_directory, bool enable_logging);
 
     // Get singleton instance
@@ -93,7 +94,7 @@ private:
 	    uint32_t history_size,
 	    uint32_t interval_duration,
 	    uint32_t speedup_difference_percentage,
-	    uint32_t speedup_percentage,
+	    uint32_t speedup_percentage, uint32_t speedup_interval_count,
 	    std::string log_directory, bool enable_logging);
 
     // Trigger when all the actual meta-data have been received to calculate the statistics
@@ -105,8 +106,8 @@ private:
     // Calculate the proposed meta-data of a new/requested interval
     const IntervalMetaData* calculate_proposed_interval_meta_data(uint64_t interval_index);
 
-    // Minimize the round duration if the variance is low
-    uint64_t enhance_round_duration(uint64_t round_duration);
+    // Minimize the max round duration if the variance is low
+    uint64_t get_enhanced_round_duration(uint64_t interval_index);
 
     // Get statistics about start time of an interval average, minimal, or maximal
     std::chrono::system_clock::time_point get_start_time_statistics(uint64_t interval_index, bool average = true, bool min = false);
@@ -169,6 +170,16 @@ private:
 
     // The speedup percentage
     uint32_t speedup_percentage_;
+
+    // The number of intervals to keep speeding up
+    uint32_t speedup_interval_count_;
+
+    // The interval number when speeding up is started
+    uint64_t speedup_interval_index_ = 0;
+
+    // The minimum interval duration
+    uint32_t enhanced_round_duration_;
+
 
     // The log directory
     std::string log_directory_;

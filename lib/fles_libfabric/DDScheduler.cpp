@@ -19,11 +19,13 @@ DDScheduler* DDScheduler::get_instance(uint32_t scheduler_index,
 	uint32_t interval_duration,
 	uint32_t speedup_difference_percentage,
 	uint32_t speedup_percentage,
+	uint32_t speedup_interval_count,
 	std::string log_directory, bool enable_logging){
     if (instance_ == nullptr){
     	instance_ = new DDScheduler(scheduler_index, input_scheduler_count,
     		history_size, interval_duration, speedup_difference_percentage,
-		speedup_percentage, log_directory, enable_logging);
+		speedup_percentage, speedup_interval_count,
+		log_directory, enable_logging);
     }
     return instance_;
 }
@@ -108,19 +110,19 @@ void DDScheduler::generate_log_files(){
 }
 
 // PRIVATE
-// TODO check the constructor
 DDScheduler::DDScheduler(uint32_t scheduler_index,
 	uint32_t input_connection_count,
 	uint32_t history_size,
 	uint32_t interval_duration,
 	uint32_t speedup_difference_percentage,
 	uint32_t speedup_percentage,
+	uint32_t speedup_interval_count,
 	std::string log_directory, bool enable_logging):
 	scheduler_index_(scheduler_index), input_connection_count_(input_connection_count),
     history_size_(history_size), interval_duration_(interval_duration),
     speedup_difference_percentage_(speedup_difference_percentage),
-    speedup_percentage_(speedup_percentage), log_directory_(log_directory),
-    enable_logging_(enable_logging){
+    speedup_percentage_(speedup_percentage), speedup_interval_count_(speedup_interval_count),
+    log_directory_(log_directory), enable_logging_(enable_logging){
 
     for (uint_fast16_t i=0 ; i<input_connection_count ; i++)
     	input_scheduler_info_.push_back(new InputSchedulerData());
@@ -179,8 +181,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
     std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(last_interval_info->interval_duration * (interval_index - last_interval));
 
-    uint64_t max_round_duration = get_max_round_duration_history();
-    uint64_t new_round_duration = enhance_round_duration(max_round_duration);
+    uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
     uint32_t round_count = std::ceil(interval_duration_*1000000.0/(new_round_duration*1.0));
     round_count = round_count == 0 ? 1 : round_count;
 
@@ -193,19 +194,27 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     proposed_interval_meta_data_.add(interval_index, new_interval_metadata);
 
     // LOGGING
+    uint64_t max_round_duration = get_max_round_duration_history();
     interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, max_round_duration != new_round_duration ? 1 : 0));
 
     return new_interval_metadata;
 }
 
-uint64_t DDScheduler::enhance_round_duration(uint64_t round_duration) {
+uint64_t DDScheduler::get_enhanced_round_duration(uint64_t interval_index) {
+
+    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ < interval_index) // in speeding up phase
+    	return enhanced_round_duration_;
+
+    uint64_t max_round_duration = get_max_round_duration_history();
     double round_dur_mean_difference = get_mean_round_duration_difference_distory();
 
-    // TODO keep speeding up for an interval of time
 
-    if (round_dur_mean_difference/round_duration*100.0 <= speedup_difference_percentage_)
-	return round_duration - (round_duration*speedup_percentage_/100);
-    return round_duration;
+    if (round_dur_mean_difference/max_round_duration*100.0 <= speedup_difference_percentage_) {
+	enhanced_round_duration_ = max_round_duration - (max_round_duration*speedup_percentage_/100);
+	speedup_interval_index_ = interval_index;
+	return enhanced_round_duration_;
+    }
+    return max_round_duration;
 
 }
 

@@ -125,6 +125,10 @@ public:
     /// Retrieve the speeding up percentage of the scheduler to reduce the duration
     uint32_t scheduler_speedup_percentage() const { return scheduler_speedup_percentage_; }
 
+    /// Retrieve the speeding up interval count of the scheduler
+    uint32_t scheduler_speedup_interval_count() const { return scheduler_speedup_interval_count_; }
+
+
     /// Retrieve the directory to store the log files
     std::string log_directory() const { return log_directory_; }
 
@@ -223,6 +227,9 @@ private:
 
     /// The speeding up percentage of the scheduler to reduce the duration
     uint32_t scheduler_speedup_percentage_;
+
+    /// The speeding up interval count of the scheduler
+    uint32_t scheduler_speedup_interval_count_;
 
     /// The directory to store the log files
     std::string log_directory_;

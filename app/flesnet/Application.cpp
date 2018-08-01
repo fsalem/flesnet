@@ -85,7 +85,9 @@ Application::Application(Parameters const& par,
                     par_.compute_nodes()[i], par_.scheduler_history_size(),
 		    par_.scheduler_interval_duration(),
 		    par_.scheduler_speedup_difference_percentage(),
-		    par_.scheduler_speedup_percentage(), par_.log_directory(), par_.enable_logging()));
+		    par_.scheduler_speedup_percentage(),
+		    par_.scheduler_speedup_interval_count(),
+		    par_.log_directory(), par_.enable_logging()));
             timeslice_builders_.push_back(std::move(builder));
 #else
             L_(fatal) << "flesnet built without LIBFABRIC support";

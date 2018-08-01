@@ -39,6 +39,7 @@ public:
 		     uint32_t scheduler_interval_duration,
 		     uint32_t scheduler_speedup_difference_percentage,
 		     uint32_t scheduler_speedup_percentage,
+		     uint32_t scheduler_speedup_interval_count,
 		     std::string log_directory, bool enable_logging);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
