@@ -424,7 +424,7 @@ void TimesliceBuilder::build_time_file(){
 
     	std::map<uint64_t, std::vector<double>>::iterator it = buffer_status_.begin();
     	while(it != buffer_status_.end()){
-    	    log_file << std::setw(25) << it->first;
+    	    log_file << std::setw(25) << it->first << std::setw(25);
 	    for (uint32_t i=0 ; i<it->second.size() ; i++)
 		log_file << it->second[i] << std::setw(25);
     	    log_file << "\n";
