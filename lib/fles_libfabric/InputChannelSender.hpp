@@ -47,7 +47,7 @@ public:
 
     void report_status();
 
-    void sync_data_source(uint64_t timeslice);
+    void sync_data_source(bool schedule);
 
     virtual void operator()() override;
 
@@ -103,9 +103,6 @@ private:
     /// Buffer to store acknowledged status of timeslices.
     RingBuffer<uint64_t, true> ack_;
 
-    /// Buffer to store sent status of timeslices.
-    RingBuffer<uint64_t, true> sent_;
-
     /// Number of acknowledged microslices. Written to FLIB.
     uint64_t acked_desc_ = 0;
 
@@ -134,9 +131,6 @@ private:
     uint64_t cached_acked_data_ = 0;
     uint64_t cached_acked_desc_ = 0;
 
-    uint64_t cached_sent_data_ = 0;
-    uint64_t cached_sent_desc_ = 0;
-    
     uint64_t start_index_desc_;
     uint64_t start_index_data_;
 

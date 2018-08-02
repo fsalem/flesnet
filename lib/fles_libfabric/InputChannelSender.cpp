@@ -27,15 +27,14 @@ InputChannelSender::InputChannelSender(
       min_acked_data_(data_source.data_buffer().size() / 4)
 {
 
-    start_index_desc_ = sent_desc_ = acked_desc_ = cached_sent_desc_ = cached_acked_desc_ =
+    start_index_desc_ = sent_desc_ = acked_desc_ = cached_acked_desc_ =
         data_source.get_read_index().desc;
-    start_index_data_ = sent_data_ = acked_data_ = cached_sent_data_ = cached_acked_data_ =
+    start_index_data_ = sent_data_ = acked_data_ = cached_acked_data_ =
         data_source.get_read_index().data;
 
     size_t min_ack_buffer_size =
         data_source_.desc_buffer().size() / timeslice_size_ + 1;
     ack_.alloc_with_size(min_ack_buffer_size);
-    sent_.alloc_with_size(min_ack_buffer_size);
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -66,7 +65,7 @@ void InputChannelSender::report_status()
 {
     constexpr auto interval = std::chrono::seconds(1);
 
-        // if data_source.written pointers are lagging behind due to lazy updates,
+	// if data_source.written pointers are lagging behind due to lazy updates,
         // use sent value instead
         uint64_t written_desc = data_source_.get_write_index().desc;
         if (written_desc < sent_desc_) {
@@ -81,14 +80,14 @@ void InputChannelSender::report_status()
             std::chrono::system_clock::now();
         SendBufferStatus status_desc{now,
                                      data_source_.desc_buffer().size(),
-                                     cached_sent_desc_,
-                                     sent_desc_,
+                                     cached_acked_desc_,
+                                     acked_desc_,
                                      sent_desc_,
                                      written_desc};
         SendBufferStatus status_data{now,
                                      data_source_.data_buffer().size(),
-                                     cached_sent_data_,
-                                     sent_data_,
+                                     cached_acked_data_,
+                                     acked_data_,
                                      sent_data_,
                                      written_data};
 
@@ -128,28 +127,19 @@ void InputChannelSender::report_status()
     now + interval);
 }
 
-void InputChannelSender::sync_data_source(uint64_t timeslice)
+void InputChannelSender::sync_data_source(bool schedule)
 {
-    uint64_t sent_ts = (cached_sent_desc_ - start_index_desc_) / timeslice_size_;
-    if (timeslice != sent_ts) {
-	// transmission has been reordered, store completion information
-	sent_.at(timeslice) = timeslice;
-    } else {
-	// completion is for earliest pending timeslice, update indices
-	do {
-	    ++sent_ts;
-	} while (sent_.at(sent_ts) > timeslice);
+    if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
+            cached_acked_data_ = acked_data_;
+            cached_acked_desc_ = acked_desc_;
+            data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
+    }
 
-	uint64_t temp_sent_desc = sent_ts * timeslice_size_ + start_index_desc_;
-	uint64_t temp_sent_data =
-	data_source_.desc_buffer().at(temp_sent_desc - 1).offset +
-	data_source_.desc_buffer().at(temp_sent_desc - 1).size;
-	if (temp_sent_data >= cached_sent_data_ || temp_sent_desc >= cached_sent_desc_) {
-	    cached_sent_data_ = temp_sent_data;
-	    cached_sent_desc_ = temp_sent_desc;
-	    data_source_.set_read_index(
-		    {cached_sent_desc_, cached_sent_data_});
-	}
+    if (schedule) {
+	auto now = std::chrono::system_clock::now();
+	scheduler_.add(
+	    std::bind(&InputChannelSender::sync_data_source, this, true),
+	    now + std::chrono::milliseconds(100));
     }
 }
 
@@ -242,6 +232,7 @@ void InputChannelSender::operator()()
         }
 
         sync_buffer_positions();
+        sync_data_source(true);
         report_status();
         send_timeslices();
 
@@ -263,6 +254,7 @@ void InputChannelSender::operator()()
             poll_completion();
             scheduler_.timer();
         }
+        sync_data_source(false);
 
         L_(debug) << "[i " << input_index_ << "] "
                   << "Finalize Connections";
@@ -345,12 +337,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
             conn_[cn]->inc_write_pointers(total_length, 1);
 
-            if (data_end > sent_data_){
+            if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
             	sent_desc_ = desc_offset + desc_length;
             	sent_data_ = data_end;
             }
 
-            sync_data_source(timeslice);
             return true;
         }
     }
@@ -589,7 +580,9 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 		acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
 		cached_acked_data_ = acked_data_;
 		cached_acked_desc_ = acked_desc_;
-            }
+		data_source_.set_read_index(
+		    {cached_acked_desc_, cached_acked_data_});
+	    }
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "
