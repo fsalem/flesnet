@@ -71,6 +71,8 @@ public:
     //Generate log files of the stored data
     void generate_log_files();
 
+    void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
+
 private:
 
     struct TimesliceInfo{
@@ -144,6 +146,8 @@ private:
 
     /// LOGGING
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
+    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_IB_blocked_start_log_;
+    SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;
 
 
 };

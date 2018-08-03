@@ -341,10 +341,11 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             	sent_desc_ = desc_offset + desc_length;
             	sent_data_ = data_end;
             }
-
+            input_scheduler_->log_timeslice_IB_blocked(timeslice,true);
             return true;
         }
     }
+    input_scheduler_->log_timeslice_IB_blocked(timeslice);
 
     return false;
 }
