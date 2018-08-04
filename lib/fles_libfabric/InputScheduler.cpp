@@ -237,15 +237,17 @@ void InputScheduler::generate_log_files(){
 
 /////////////////////////////////////////////////////////////////
     std::ofstream block_log_file;
-    block_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
+    block_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_info.out");
 
     block_log_file << std::setw(25) << "Timeslice"
+	    << std::setw(25) << "Compute Index"
 	    << std::setw(25) << "duration"
 	    << std::setw(25) << "delay" << "\n";
 
     SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
     while (delaying_time != timeslice_info_log_.get_end_iterator()){
 	block_log_file << std::setw(25) << delaying_time->first
+		<< std::setw(25) << delaying_time->second->compute_index
 		<< std::setw(25) << delaying_time->second->acked_duration
 		<< std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
 		    delaying_time->second->transmit_time - delaying_time->second->expected_time).count()
@@ -254,24 +256,6 @@ void InputScheduler::generate_log_files(){
     }
     block_log_file.flush();
     block_log_file.close();
-
-/////////////////////////////////////////////////////////////////
-    std::ofstream duration_log_file;
-    duration_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_duration.out");
-
-    duration_log_file << std::setw(25) << "Timeslice" <<
-	    std::setw(25) << "Compute Index" <<
-	    std::setw(25) << "Duration" << "\n";
-
-    SizedMap<uint64_t, TimesliceInfo*>::iterator timeslice_info = timeslice_info_log_.get_begin_iterator();
-    while (timeslice_info != timeslice_info_log_.get_end_iterator()){
-	duration_log_file << std::setw(25) << timeslice_info->first <<
-	    std::setw(25) << timeslice_info->second->compute_index <<
-	    std::setw(25) << timeslice_info->second->acked_duration << "\n";
-	timeslice_info++;
-    }
-    duration_log_file.flush();
-    duration_log_file.close();
 
 /////////////////////////////////////////////////////////////////
     std::ofstream blocked_duration_log_file;
