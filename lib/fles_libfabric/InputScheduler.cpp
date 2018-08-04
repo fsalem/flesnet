@@ -209,7 +209,7 @@ void InputScheduler::generate_log_files(){
     if (!enable_logging_) return;
 
     std::ofstream log_file;
-    log_file.open(std::to_string(scheduler_index_)+".input.proposed_actual_interval_info.out");
+    log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.proposed_actual_interval_info.out");
 
     log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "proposed time" <<
@@ -237,16 +237,19 @@ void InputScheduler::generate_log_files(){
 
 /////////////////////////////////////////////////////////////////
     std::ofstream block_log_file;
-    block_log_file.open(std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
+    block_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_delaying_times.out");
 
-    block_log_file << std::setw(25) << "Timeslice" <<
-	std::setw(25) << "duration" << "\n";
+    block_log_file << std::setw(25) << "Timeslice"
+	    << std::setw(25) << "duration"
+	    << std::setw(25) << "delay" << "\n";
 
     SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
     while (delaying_time != timeslice_info_log_.get_end_iterator()){
-	block_log_file << std::setw(25) << delaying_time->first <<
-	    std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
-		    delaying_time->second->transmit_time - delaying_time->second->expected_time).count()<< "\n";
+	block_log_file << std::setw(25) << delaying_time->first
+		<< std::setw(25) << delaying_time->second->acked_duration
+		<< std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
+		    delaying_time->second->transmit_time - delaying_time->second->expected_time).count()
+		<< "\n";
 	delaying_time++;
     }
     block_log_file.flush();
@@ -254,7 +257,7 @@ void InputScheduler::generate_log_files(){
 
 /////////////////////////////////////////////////////////////////
     std::ofstream duration_log_file;
-    duration_log_file.open(std::to_string(scheduler_index_)+".input.ts_duration.out");
+    duration_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_duration.out");
 
     duration_log_file << std::setw(25) << "Timeslice" <<
 	    std::setw(25) << "Compute Index" <<
@@ -272,7 +275,7 @@ void InputScheduler::generate_log_files(){
 
 /////////////////////////////////////////////////////////////////
     std::ofstream blocked_duration_log_file;
-    blocked_duration_log_file.open(std::to_string(scheduler_index_)+".input.ts_blocked_duration.out");
+    blocked_duration_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_blocked_duration.out");
 
     blocked_duration_log_file << std::setw(25) << "Timeslice" <<
 	std::setw(25) << "Compute Index" <<
