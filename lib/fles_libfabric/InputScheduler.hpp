@@ -95,7 +95,10 @@ private:
     void create_actual_interval_meta_data(InputIntervalInfo*);
 
     // Get the expected number of sent timeslices so far of a particular interval
-    uint64_t get_expected_sent_ts(uint64_t);
+    uint64_t get_expected_sent_ts_count(uint64_t);
+
+    // Get the expected sent timeslice so far
+    uint64_t get_expected_last_sent_ts(uint64_t);
 
     // Get the current round index of a particular interval
     uint64_t get_interval_current_round_index(uint64_t);
