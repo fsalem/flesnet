@@ -181,13 +181,17 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
     std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(last_interval_info->interval_duration * (interval_index - last_interval));
 
-    uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
+    uint32_t compute_count = get_last_compute_connection_count();
+
+    /*uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
     uint32_t round_count = std::ceil(interval_duration_*1000000.0/(new_round_duration*1.0));
     round_count = round_count == 0 ? 1 : round_count;
-
     uint64_t new_interval_duration = new_round_duration*round_count;
+*/
 
-    uint32_t compute_count = get_last_compute_connection_count();
+    uint64_t new_interval_duration = get_enhanced_interval_duration(interval_index);
+    uint32_t round_count = std::floor(interval_duration_/compute_count);
+    round_count = round_count == 0 ? 1 : round_count;
 
     IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*compute_count) - 1,
 						new_start_time, new_interval_duration);
@@ -195,7 +199,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
     // LOGGING
     uint64_t max_round_duration = get_max_round_duration_history();
-    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, max_round_duration != new_round_duration ? 1 : 0));
+    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, new_interval_duration != get_mean_interval_duration_history() ? 1 : 0));
 
     return new_interval_metadata;
 }
@@ -215,6 +219,24 @@ uint64_t DDScheduler::get_enhanced_round_duration(uint64_t interval_index) {
 	return enhanced_round_duration_;
     }
     return max_round_duration;
+
+}
+
+uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
+
+    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ < interval_index) // in speeding up phase
+    	return enhanced_interval_duration_;
+
+    uint64_t mean_interval_duration = get_mean_interval_duration_history();
+    double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
+
+
+    if (interval_dur_mean_difference/mean_interval_duration*100.0 <= speedup_difference_percentage_) {
+	enhanced_interval_duration_ = mean_interval_duration - (mean_interval_duration*speedup_percentage_/100);
+	speedup_interval_index_ = interval_index;
+	return enhanced_interval_duration_;
+    }
+    return mean_interval_duration;
 
 }
 
@@ -316,6 +338,44 @@ double DDScheduler::get_mean_round_duration_difference_distory() {
     mean /= history_size_;
 
     return mean < 0 ? 0 : mean;
+}
+
+double DDScheduler::get_mean_interval_duration_difference_distory() {
+    uint64_t last_completed_interval = actual_interval_meta_data_.get_last_key();
+
+    // +2 because there is no proposed duration for the first two intervals
+    if (last_completed_interval < history_size_+2)return 0;
+
+    double mean = 0;
+    uint64_t proposed_interval_dur, actual_interval_dur;
+    for (uint32_t i=0 ; i< history_size_ ; i++){
+	proposed_interval_dur = proposed_interval_meta_data_.get(last_completed_interval-i)->interval_duration;
+
+	actual_interval_dur = actual_interval_meta_data_.get(last_completed_interval-i)->interval_duration;
+
+	mean += actual_interval_dur - proposed_interval_dur;
+    }
+    mean /= history_size_;
+
+    return mean < 0 ? 0 : mean;
+}
+
+uint64_t DDScheduler::get_mean_interval_duration_history() {
+    if (actual_interval_meta_data_.empty()) return 0;
+
+    uint32_t required_size = history_size_, count = 0;
+    uint64_t sum_interval_duration = 0;
+
+    if (actual_interval_meta_data_.size() < required_size) required_size = actual_interval_meta_data_.size();
+
+    SizedMap<uint64_t, IntervalMetaData*>::iterator it = actual_interval_meta_data_.get_end_iterator();
+    do {
+    --it;
+    ++count;
+    sum_interval_duration += it->second->interval_duration;
+    }while (it != actual_interval_meta_data_.get_begin_iterator() && count < required_size);
+
+    return sum_interval_duration/count;
 }
 
 uint32_t DDScheduler::get_last_compute_connection_count(){

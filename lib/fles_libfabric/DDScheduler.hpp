@@ -109,6 +109,9 @@ private:
     // Minimize the max round duration if the variance is low
     uint64_t get_enhanced_round_duration(uint64_t interval_index);
 
+    // Minimize the enhanced interval duration if the variance is low
+    uint64_t get_enhanced_interval_duration(uint64_t interval_index);
+
     // Get statistics about start time of an interval average, minimal, or maximal
     std::chrono::system_clock::time_point get_start_time_statistics(uint64_t interval_index, bool average = true, bool min = false);
 
@@ -132,6 +135,12 @@ private:
 
     // Get mean difference between different round durations
     double get_mean_round_duration_difference_distory();
+
+    // Get mean difference between different interval durations
+    double get_mean_interval_duration_difference_distory();
+
+    // Get the median duration of last set of durations
+    uint64_t get_mean_interval_duration_history();
 
     uint32_t get_last_compute_connection_count();
 
@@ -177,9 +186,11 @@ private:
     // The interval number when speeding up is started
     uint64_t speedup_interval_index_ = 0;
 
-    // The minimum interval duration
-    uint32_t enhanced_round_duration_;
+    // The enhanced round duration
+    uint64_t enhanced_round_duration_ = 0;
 
+    // The enhanced interval duration
+    uint64_t enhanced_interval_duration_ = 0;
 
     // The log directory
     std::string log_directory_;
