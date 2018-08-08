@@ -108,7 +108,8 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    new_interval_info = new InputIntervalInfo(interval_index, ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_count_, 0, ConstVariables::MAX_TIMESLICE_PER_INTERVAL-1, std::chrono::system_clock::now(), 0);
+	    uint32_t round_count = std::floor(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_count_);
+	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1, std::chrono::system_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    // TODO wait for the proposing!!!
