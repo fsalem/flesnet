@@ -143,14 +143,15 @@ void DDScheduler::trigger_complete_interval(const uint64_t interval_index) {
 void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     // TODO optimize this part to be only one loop --> O(n) instead of m*O(n)
     std::chrono::system_clock::time_point average_start_time = get_start_time_statistics(interval_index);// get Average
-    uint64_t max_round_duration = get_max_round_duration(interval_index);
+    uint64_t median_interval_duration = get_median_interval_duration(interval_index);
+    //uint64_t max_round_duration = get_max_round_duration(interval_index);
     // TODO the round count and the start timeslice should be the same from each input scheduler, otherwise, the interval duration should be increased!
     uint32_t average_round_count = get_average_round_count(interval_index);
     uint64_t average_start_timeslice = get_average_start_timeslice(interval_index);
     uint64_t average_last_timeslice = get_average_last_timeslice(interval_index);
 
     actual_interval_meta_data_.add(interval_index,
-	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice, average_start_time, max_round_duration*average_round_count));
+	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice, average_start_time, median_interval_duration));
 
     // LOGGING
     uint64_t min_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(get_start_time_statistics(interval_index,0,1) - begin_time_).count();
@@ -273,6 +274,16 @@ uint64_t DDScheduler::get_max_round_duration(uint64_t interval_index) {
 	if (round_duration < tmp_duration)round_duration = tmp_duration;
     }
     return round_duration;
+}
+
+uint64_t DDScheduler::get_median_interval_duration(uint64_t interval_index) {
+    std::vector<uint64_t> durations(input_connection_count_);
+    for (uint32_t i = 0 ; i < input_connection_count_ ; i++){
+	durations[i] = input_scheduler_info_[i]->interval_info_.get(interval_index).interval_duration;
+    }
+    std::sort(durations.begin(), durations.end());
+    uint32_t mid_index = durations.size()/2;
+    return durations.size() % 2 == 0 ? (durations[mid_index-1]+durations[mid_index])/2 : durations[durations.size()/2];
 }
 
 uint32_t DDScheduler::get_average_round_count(uint64_t interval_index) {

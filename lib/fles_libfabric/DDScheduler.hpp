@@ -121,6 +121,9 @@ private:
     // Get max round duration of an interval
     uint64_t get_max_round_duration(uint64_t interval_index);
 
+    // Get the median actual interval duration
+    uint64_t get_median_interval_duration(uint64_t interval_index);
+
     // Get average round count of an interval
     uint32_t get_average_round_count(uint64_t interval_index);
 
