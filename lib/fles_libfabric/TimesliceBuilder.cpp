@@ -33,7 +33,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
 				   uint32_t scheduler_speedup_percentage,
 				   uint32_t scheduler_speedup_interval_count,
 				   std::string log_directory, bool enable_logging)
-    : ConnectionGroup(local_node_name, false), compute_index_(compute_index),
+    : ConnectionGroup(local_node_name), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
       ack_(timeslice_buffer_.get_desc_size_exp()),

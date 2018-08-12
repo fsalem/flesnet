@@ -34,7 +34,7 @@ class ConnectionGroup : public ConnectionGroupWorker
 {
 public:
     /// The ConnectionGroup default constructor.
-    ConnectionGroup(std::string local_node_name, bool is_input_node):IS_INPUT_NODE(is_input_node) // This flag is used to control the number of retrieved events from the EventQueue
+    ConnectionGroup(std::string local_node_name)
     {
         Provider::init(local_node_name);
         // std::cout << "ConnectionGroup constructor" << std::endl;
@@ -137,7 +137,7 @@ public:
     /// The Libfabric completion notification handler.
     int poll_completion()
     {
-        const int ne_max = IS_INPUT_NODE ? 3: conn_.size()*2;
+        const int ne_max = conn_.size()*3;
 
         struct fi_cq_entry wc[ne_max];
         int ne;
@@ -397,7 +397,5 @@ private:
     /// RDMA connection manager ID (for connection-oriented fabrics)
     struct fid_pep* pep_ = nullptr;
 
-    /// A flag to determine is it input node or compute node
-    const bool IS_INPUT_NODE;
 };
 }
