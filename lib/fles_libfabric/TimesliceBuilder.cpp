@@ -39,6 +39,10 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
       ack_(timeslice_buffer_.get_desc_size_exp()),
       signal_status_(signal_status), local_node_name_(local_node_name),
       drop_(drop), log_directory_(log_directory)
+      ///-----
+      , timeslice_scheduler_(new TimesliceScheduler(compute_index_,num_input_nodes_,
+	      (uint16_t)ceil(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/num_input_nodes)))
+	///-----/
 {
     listening_cq_ = nullptr;
     assert(timeslice_buffer_.get_num_input_nodes() == num_input_nodes);
@@ -48,7 +52,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    timeslice_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
+    timeslice_DD_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
 	    scheduler_history_size, scheduler_interval_duration,
 	    scheduler_speedup_difference_percentage,
 	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
@@ -255,7 +259,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
             eq_, pd_, cq_, av_, index, compute_index_, data_ptr,
             timeslice_buffer_.get_data_size_exp(), desc_ptr,
-            timeslice_buffer_.get_desc_size_exp()));
+            timeslice_buffer_.get_desc_size_exp(), timeslice_scheduler_));
         conn->setup_mr(pd_);
         conn->setup();
         conn_.at(index) = std::move(conn);
@@ -364,7 +368,10 @@ void TimesliceBuilder::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
 	assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::system_clock::now();
-        timeslice_scheduler_->set_begin_time(time_begin_);
+        timeslice_DD_scheduler_->set_begin_time(time_begin_);
+        ///-----
+        timeslice_scheduler_->set_compute_MPI_time(time_begin_);
+        ///-----/
 
         sync_buffer_positions();
         report_status();
@@ -389,7 +396,11 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        timeslice_scheduler_->generate_log_files();
+        timeslice_DD_scheduler_->generate_log_files();
+        ///-----
+        timeslice_scheduler_->build_duration_file();
+        timeslice_scheduler_->build_scheduled_time_file();
+        ///-----/
 
         build_time_file();
         summary();
@@ -458,7 +469,11 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
                                   timeslice_buffer_.get_data_ptr(index),
                                   timeslice_buffer_.get_data_size_exp(),
                                   timeslice_buffer_.get_desc_ptr(index),
-                                  timeslice_buffer_.get_desc_size_exp()));
+                                  timeslice_buffer_.get_desc_size_exp()
+                                  ///-----
+                                  ,timeslice_scheduler_
+                                  ///-----/
+                                  ));
     conn_.at(index) = std::move(conn);
 
     conn_.at(index)->on_connect_request(event, pd_, cq_);

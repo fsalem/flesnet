@@ -80,6 +80,9 @@ private:
     bool check_complete_timeslices(uint64_t ts_pos);
 
     void build_time_file();
+    ///-----
+    void build_time_interval_file();
+    ///----/
 
     fid_cq* listening_cq_;
     uint64_t compute_index_;
@@ -113,7 +116,10 @@ private:
 
     bool drop_;
 
-    DDScheduler* timeslice_scheduler_;
+    DDScheduler* timeslice_DD_scheduler_;
+    ///-----
+    TimesliceScheduler* timeslice_scheduler_;
+    ///-----/
 
     std::vector<double> completed_ts;
 
