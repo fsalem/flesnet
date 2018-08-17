@@ -990,15 +990,17 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
         ///-----
-        double duration = std::chrono::duration_cast<std::chrono::microseconds>(
-		std::chrono::system_clock::now() - conn_[cn]->get_sent_time(ts)).count();
-        conn_[cn]->add_sent_duration(ts, duration);
-        intervals_info_.get(get_interval_index(ts))->count_acked_ts++;
+        if (conn_[cn]->contains_sent_time(ts)){
+	    double duration = std::chrono::duration_cast<std::chrono::microseconds>(
+		    std::chrono::system_clock::now() - conn_[cn]->get_sent_time(ts)).count();
+	    conn_[cn]->add_sent_duration(ts, duration);
+	    if (intervals_info_.contains(get_interval_index(ts))) intervals_info_.get(get_interval_index(ts))->count_acked_ts++;
 
-        /// LOGGING
-        if (ConstVariables::ENABLE_LOGGING){
-            timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
-        }/// END LOGGING
+	    /// LOGGING
+	    if (ConstVariables::ENABLE_LOGGING){
+		timeslice_duration_log_.insert(std::pair<uint64_t, uint64_t>(ts, duration));
+	    }/// END LOGGING
+        }
 	///-----/
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
