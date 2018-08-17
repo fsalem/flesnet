@@ -499,7 +499,7 @@ void InputChannelSender::operator()()
             }*/
             scheduler_.timer();
             poll_completion();
-            //update_compute_schedulers();
+            update_compute_schedulers();
             data_source_.proceed();
         }
 
