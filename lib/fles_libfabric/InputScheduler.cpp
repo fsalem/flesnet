@@ -142,7 +142,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 		      << new_interval_info->end_ts
 		      << " should start after "
 		      << std::chrono::duration_cast<std::chrono::microseconds>(new_interval_info->proposed_start_time - std::chrono::system_clock::now()).count()
-		      << " us & take " << interval_info->proposed_duration << " us";
+		      << " us & take " << new_interval_info->proposed_duration << " us";
     }
 
     interval_info_.add(interval_index, new_interval_info);
