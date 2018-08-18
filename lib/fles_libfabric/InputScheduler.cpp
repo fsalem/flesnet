@@ -40,6 +40,18 @@ void InputScheduler::update_input_begin_time(std::chrono::system_clock::time_poi
 void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
     if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
 	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
+	if (false){
+	    L_(trace) << "[i " << scheduler_index_ << "] "
+		      << "interval"
+		      << meta_data.interval_index
+		      << "[TSs "
+		      << meta_data.start_timeslice
+		      << " to "
+		      << meta_data.last_timeslice
+		      << " is proposed and should start after "
+		      << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::system_clock::now()).count()
+		      << " us & take " << meta_data.interval_duration << " us";
+	}
     }
 }
 
@@ -118,6 +130,19 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 		    prev_interval->end_ts + (prev_interval->round_count*compute_count_),
 		    prev_interval->proposed_start_time + std::chrono::microseconds(prev_interval->proposed_duration), prev_interval->proposed_duration);
 	}
+    }
+
+    if (false){
+	L_(trace) << "[i " << scheduler_index_ << "] "
+		      << "interval"
+		      << interval_index
+		      << "[TSs "
+		      << new_interval_info->start_ts
+		      << " to "
+		      << new_interval_info->end_ts
+		      << " should start after "
+		      << std::chrono::duration_cast<std::chrono::microseconds>(new_interval_info->proposed_start_time - std::chrono::system_clock::now()).count()
+		      << " us & take " << interval_info->proposed_duration << " us";
     }
 
     interval_info_.add(interval_index, new_interval_info);

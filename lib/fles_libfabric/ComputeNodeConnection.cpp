@@ -280,6 +280,9 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	send_status_message_.proposed_interval_metadata.interval_index = recv_status_message_.required_interval_index;
 	send_status_message_.proposed_interval_metadata.start_time = interval_info.first;
 	send_status_message_.proposed_interval_metadata.interval_duration = interval_info.second;
+	send_status_message_.proposed_interval_metadata.start_timeslice = ConstVariables::MAX_TIMESLICE_PER_INTERVAL*send_status_message_.proposed_interval_metadata.interval_index;
+	send_status_message_.proposed_interval_metadata.last_timeslice = (ConstVariables::MAX_TIMESLICE_PER_INTERVAL*(send_status_message_.proposed_interval_metadata.interval_index+1)) - 1;
+	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/20;
 
 	data_acked_ = true;
 
@@ -292,6 +295,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 */
 
     }
+    ///-----/
 
     if (data_changed_ && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
@@ -331,7 +335,7 @@ void ComputeNodeConnection::on_complete_recv()
     	timeslice_DD_scheduler_->init_input_scheduler(index_,recv_status_message_.MPI_time);
     	///-----
     	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
-    	///-----
+    	///-----/
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
