@@ -61,7 +61,7 @@ const IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_i
 
 uint64_t InputScheduler::get_last_timeslice_to_send(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
-    uint64_t next_round = get_interval_current_round_index(current_interval->index)+1;
+    uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1;
     return current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1;
 }
 
