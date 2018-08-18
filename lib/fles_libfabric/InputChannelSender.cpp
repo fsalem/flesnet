@@ -234,7 +234,7 @@ void InputChannelSender::operator()()
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-        //send_timeslices();
+        send_timeslices();
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
