@@ -333,7 +333,8 @@ void InputScheduler::generate_log_files(){
 
     SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>>::iterator expected_actual_round_time_log = round_proposed_actual_start_time_log_.get_begin_iterator();
     while (expected_actual_round_time_log != round_proposed_actual_start_time_log_.get_end_iterator()){
-	expected_actual_round_time_log_file << std::setw(25) << ((expected_actual_round_time_log->first.first+1)*(expected_actual_round_time_log->first.second+1)) <<
+	uint64_t round_index = expected_actual_round_time_log->first.first* interval_info_.get(interval_info_.get_last_key())->round_count + expected_actual_round_time_log->first.second;
+	expected_actual_round_time_log_file << std::setw(25) << round_index <<
 	    std::setw(25) << (expected_actual_round_time_log->second.first/1000.0) <<
 	    std::setw(25) << (expected_actual_round_time_log->second.second/1000.0) << "\n";
 	expected_actual_round_time_log++;
