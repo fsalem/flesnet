@@ -240,7 +240,7 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
     std::pair<uint64_t,uint64_t> interval_round_pair = std::make_pair(interval_info->index, round_index);
     if (!round_proposed_actual_start_time_log_.contains(interval_round_pair)){
 	std::pair<uint64_t,uint64_t> expected_actual_pair = std::make_pair(
-		std::chrono::duration_cast<std::chrono::microseconds>(get_expected_round_sent_time(interval_info->start_ts, round_index) - begin_time_).count(),
+		std::chrono::duration_cast<std::chrono::microseconds>(get_expected_round_sent_time(interval_info->index, round_index) - begin_time_).count(),
 		std::chrono::duration_cast<std::chrono::microseconds>(timeslice_info->transmit_time - begin_time_).count());
 	round_proposed_actual_start_time_log_.add(interval_round_pair,expected_actual_pair);
     }
