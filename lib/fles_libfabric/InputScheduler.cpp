@@ -212,6 +212,11 @@ std::chrono::system_clock::time_point InputScheduler::get_expected_ts_sent_time(
     return current_interval->actual_start_time + std::chrono::microseconds((timeslice - current_interval->start_ts) * current_interval->duration_per_ts);
 }
 
+std::chrono::system_clock::time_point InputScheduler::get_expected_round_sent_time(uint64_t interval, uint64_t round) {
+    InputIntervalInfo* current_interval = interval_info_.get(interval);
+    return current_interval->actual_start_time + std::chrono::microseconds(round * current_interval->duration_per_round);
+}
+
 std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expected_round(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
@@ -230,6 +235,15 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
     timeslice_info->compute_index = compute_index;
     timeslice_info->transmit_time = std::chrono::system_clock::now();
     timeslice_info_log_.add(timeslice, timeslice_info);
+
+    uint64_t round_index = std::floor((timeslice-interval_info->start_ts+1)/interval_info->num_ts_per_round*1.0);
+    std::pair<uint64_t,uint64_t> interval_round_pair = std::make_pair(interval_info->index, round_index);
+    if (!round_proposed_actual_start_time_log_.contains(interval_round_pair)){
+	std::pair<uint64_t,uint64_t> expected_actual_pair = std::make_pair(
+		std::chrono::duration_cast<std::chrono::microseconds>(get_expected_round_sent_time(interval_info->start_ts, round_index) - begin_time_).count(),
+		std::chrono::duration_cast<std::chrono::microseconds>(timeslice_info->transmit_time - begin_time_).count());
+	round_proposed_actual_start_time_log_.add(interval_round_pair,expected_actual_pair);
+    }
 }
 
 void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
@@ -283,7 +297,7 @@ void InputScheduler::generate_log_files(){
 	block_log_file << std::setw(25) << delaying_time->first
 		<< std::setw(25) << delaying_time->second->compute_index
 		<< std::setw(25) << delaying_time->second->acked_duration
-		<< std::setw(25) << std::chrono::duration_cast<std::chrono::milliseconds>(
+		<< std::setw(25) << std::chrono::duration_cast<std::chrono::microseconds>(
 		    delaying_time->second->transmit_time - delaying_time->second->expected_time).count()
 		<< "\n";
 	delaying_time++;
@@ -308,6 +322,24 @@ void InputScheduler::generate_log_files(){
     }
     blocked_duration_log_file.flush();
     blocked_duration_log_file.close();
+
+    /////////////////////////////////////////////////////////////////
+    std::ofstream expected_actual_round_time_log_file;
+    expected_actual_round_time_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.expected_actual_round_start_time.out");
+
+    expected_actual_round_time_log_file << std::setw(25) << "Round" <<
+    std::setw(25) << "Expected Time" <<
+    std::setw(25) << "Actual Time" << "\n";
+
+    SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>>::iterator expected_actual_round_time_log = round_proposed_actual_start_time_log_.get_begin_iterator();
+    while (expected_actual_round_time_log != round_proposed_actual_start_time_log_.get_end_iterator()){
+	expected_actual_round_time_log_file << std::setw(25) << ((expected_actual_round_time_log->first.first+1)*(expected_actual_round_time_log->first.second+1)) <<
+	    std::setw(25) << (expected_actual_round_time_log->second.first/1000.0) <<
+	    std::setw(25) << (expected_actual_round_time_log->second.second/1000.0) << "\n";
+	expected_actual_round_time_log++;
+    }
+    expected_actual_round_time_log_file.flush();
+    expected_actual_round_time_log_file.close();
 }
 
 void InputScheduler::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){
