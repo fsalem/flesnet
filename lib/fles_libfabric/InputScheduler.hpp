@@ -121,7 +121,9 @@ private:
     // Retrieve the time of the expected round of a particular interval based on the actual start time and duration
     std::chrono::system_clock::time_point get_interval_time_to_expected_round(uint64_t);
 
-    std::chrono::system_clock::time_point get_expected_ts_sent_time(uint64_t, uint64_t);
+    std::chrono::system_clock::time_point get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice);
+
+    std::chrono::system_clock::time_point get_expected_round_sent_time(uint64_t interval, uint64_t round);
 
     // List of all interval infos
     SizedMap<uint64_t, InputIntervalInfo*> interval_info_;
@@ -151,6 +153,8 @@ private:
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
     SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_IB_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;
+    SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;
+
 
 
 };
