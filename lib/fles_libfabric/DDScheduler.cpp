@@ -182,7 +182,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
     std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(last_interval_info->interval_duration * (interval_index - last_interval));
 
-    uint32_t compute_count = get_last_compute_connection_count();
+    uint32_t compute_count = get_compute_connection_count();
 
     /*uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
     uint32_t round_count = std::ceil(interval_duration_*1000000.0/(new_round_duration*1.0));
