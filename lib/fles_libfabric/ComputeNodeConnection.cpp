@@ -282,7 +282,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	send_status_message_.proposed_interval_metadata.interval_duration = interval_info.second;
 	send_status_message_.proposed_interval_metadata.start_timeslice = ConstVariables::MAX_TIMESLICE_PER_INTERVAL*send_status_message_.proposed_interval_metadata.interval_index;
 	send_status_message_.proposed_interval_metadata.last_timeslice = (ConstVariables::MAX_TIMESLICE_PER_INTERVAL*(send_status_message_.proposed_interval_metadata.interval_index+1)) - 1;
-	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/timeslice_DD_scheduler_->get_last_compute_connection_count();
+	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/timeslice_DD_scheduler_->get_compute_connection_count();
 
 	data_acked_ = true;
 
