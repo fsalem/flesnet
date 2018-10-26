@@ -76,7 +76,7 @@ void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
     InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
     if (current_interval == nullptr)return;
     current_interval->count_acked_ts++;
-    if (is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
+    if (is_interval_sent_completed(current_interval->index) && is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
 	create_new_interval_info(current_interval->index+1);
     }
     if (is_interval_sent_ack_completed(current_interval->index)){
