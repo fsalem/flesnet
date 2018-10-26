@@ -389,7 +389,7 @@ uint64_t DDScheduler::get_mean_interval_duration_history() {
     return sum_interval_duration/count;
 }
 
-uint32_t DDScheduler::get_last_compute_connection_count(){
+uint32_t DDScheduler::get_compute_connection_count(){
     const IntervalMetaData* meta_data = actual_interval_meta_data_.get(actual_interval_meta_data_.get_last_key());
     return (meta_data->last_timeslice - meta_data->start_timeslice+1)/meta_data->round_count;
 }

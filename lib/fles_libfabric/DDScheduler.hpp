@@ -54,6 +54,9 @@ public:
     // Check what is the last completed interval
     uint64_t get_last_completed_interval();
 
+    // retrieve the number of compute connections from the last completed interval
+    uint32_t get_compute_connection_count();
+
     //Generate log files of the stored data
     void generate_log_files();
 
@@ -144,8 +147,6 @@ private:
 
     // Get the median duration of last set of durations
     uint64_t get_mean_interval_duration_history();
-
-    uint32_t get_last_compute_connection_count();
 
     // Proposed interval meta-data
     SizedMap<uint64_t, IntervalMetaData*> proposed_interval_meta_data_;
