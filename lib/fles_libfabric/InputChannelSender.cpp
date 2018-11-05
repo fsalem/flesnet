@@ -27,7 +27,7 @@ InputChannelSender::InputChannelSender(
       min_acked_data_(data_source.data_buffer().size() / 4)
       ///-----
       ,intervals_info_(ConstVariables::MAX_HISTORY_SIZE),
-      INTERVAL_LENGTH_(ceil(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_hostnames.size()))
+      INTERVAL_LENGTH_(floor(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_hostnames.size()))
       ///-----/
 {
 
@@ -221,6 +221,7 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
     L_(info) << "i" << interval_info->index << " min start time " << std::chrono::duration_cast<std::chrono::microseconds>(min_start_time - time_begin_).count() << " -> " << min_duration;
     interval_info->proposed_start_time = min_start_time;
     interval_info->proposed_duration = min_duration;
+    interval_info->round_count = std::floor((interval_info->end_ts-interval_info->start_ts+1)/conn_.size());
 
     if (false){
 	L_(trace) << "[i " << input_index_ << "] "
@@ -228,7 +229,8 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
 	      << interval_info->index
 	      << " should start after "
 	      << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->proposed_start_time - std::chrono::system_clock::now()).count()
-	      << " us & take " << interval_info->proposed_duration << " us";
+	      << " us & take " << interval_info->proposed_duration << " us"
+	      << " within " << interval_info->round_count << "rounds";
     }
 
     // LOGGING
@@ -239,7 +241,7 @@ void InputChannelSender::set_interval_proposed_info(InputIntervalInfo* interval_
 }
 
 InputIntervalInfo* InputChannelSender::create_interval_info(uint64_t interval_index){
-    InputIntervalInfo* interval_info = new InputIntervalInfo(INTERVAL_LENGTH_);
+    InputIntervalInfo* interval_info = new InputIntervalInfo(INTERVAL_LENGTH_*conn_.size());
     interval_info->index = interval_index;
     interval_info->start_ts = get_interval_start_ts(interval_index);
     interval_info->end_ts = get_interval_start_ts(interval_index+1) - 1;
@@ -488,9 +490,9 @@ void InputChannelSender::operator()()
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
-        //send_timeslices();
+        send_timeslices();
         ///-----
-        check_send_timeslices();
+        //check_send_timeslices();
         ///-----/
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
@@ -536,10 +538,10 @@ void InputChannelSender::operator()()
         }
 
         input_scheduler_->generate_log_files();
-        summary();
         ///-----
         build_scheduled_time_file();
         ///-----/
+        summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
     }

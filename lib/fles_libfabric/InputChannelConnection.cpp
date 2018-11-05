@@ -568,6 +568,7 @@ void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* inter
 		  << "MARK INTERVAL "
 		  << interval_info->index
 		  << " completed in " << interval_info->actual_duration
+		  << " within " << interval_info->round_count << " rounds"
 		  << " delayed for "
 		  << std::chrono::duration_cast<std::chrono::microseconds>(interval_info->actual_start_time - interval_info->proposed_start_time).count()
 		  << " and lasts for " << (interval_info->actual_duration - interval_info->proposed_duration) << " more" ;
@@ -576,6 +577,9 @@ void InputChannelConnection::ack_complete_interval_info(InputIntervalInfo* inter
 	send_status_message_.actual_interval_metadata.interval_index = interval_info->index;
 	send_status_message_.actual_interval_metadata.start_time = interval_info->actual_start_time;
 	send_status_message_.actual_interval_metadata.interval_duration = interval_info->actual_duration;
+	send_status_message_.actual_interval_metadata.round_count = interval_info->round_count;
+	send_status_message_.actual_interval_metadata.start_timeslice = interval_info->start_ts;
+	send_status_message_.actual_interval_metadata.last_timeslice = interval_info->end_ts;
 	send_status_message_.required_interval_index = interval_info->index + 2;
 	data_acked_ = true;
     }

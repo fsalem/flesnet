@@ -19,6 +19,7 @@ struct InputIntervalInfo {
     uint64_t proposed_duration;
     std::chrono::system_clock::time_point actual_start_time;
     uint64_t actual_duration;
+    bool interval_started = false;
 
     uint64_t count_sent_ts = ConstVariables::ZERO;
 
@@ -92,7 +93,7 @@ struct InputIntervalInfo {
     }
 
     bool is_ts_within_current_round(uint64_t ts){
-	return ts <= (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts && ts <= end_ts;
+	return ts <= (get_current_round_index() * num_ts_per_round) + num_ts_per_round + start_ts - 1 && ts <= end_ts;
     }
 
     bool is_interval_sent_completed(){
@@ -112,8 +113,8 @@ struct InputIntervalInfo {
     void init_statistical_variables(){
 	if (duration_per_ts == ConstVariables::ZERO || duration_per_round == ConstVariables::ZERO){
     	    duration_per_ts = proposed_duration / (end_ts - start_ts + 1);
-    	    duration_per_round = proposed_duration/INTERVAL_LENGTH_;
-    	    num_ts_per_round = (end_ts - start_ts + 1) /INTERVAL_LENGTH_;
+    	    duration_per_round = proposed_duration / round_count;
+    	    num_ts_per_round = (end_ts - start_ts + 1) / round_count;
     	}
     }
     ///-----/

@@ -57,6 +57,9 @@ public:
     // retrieve the number of compute connections from the last completed interval
     uint32_t get_compute_connection_count();
 
+    // retrieve the start timeslice of an interval
+    uint64_t get_start_timelice(uint32_t interval);
+
     //Generate log files of the stored data
     void generate_log_files();
 

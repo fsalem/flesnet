@@ -394,5 +394,18 @@ uint32_t DDScheduler::get_compute_connection_count(){
     return (meta_data->last_timeslice - meta_data->start_timeslice+1)/meta_data->round_count;
 }
 
+uint64_t DDScheduler::get_start_timelice(uint32_t interval_index){
+    uint64_t last_interval = actual_interval_meta_data_.get_last_key();
+    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
+    if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key() > last_interval) {
+       last_interval = proposed_interval_meta_data_.get_last_key();
+       last_interval_info = proposed_interval_meta_data_.get(last_interval);
+    }
+
+    uint64_t new_start_timeslice = (last_interval_info->last_timeslice+1) +
+           (interval_index - last_interval_info->interval_index - 1) * (last_interval_info->last_timeslice - last_interval_info->start_timeslice + 1);
+    return new_start_timeslice;
+}
+
 DDScheduler* DDScheduler::instance_ = nullptr;
 }
