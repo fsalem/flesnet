@@ -146,11 +146,11 @@ public:
 
         /// TODO TO BE REMOVED
         agg_CQ_count_++;
-        std::chrono::high_resolution_clock::time_point start =
-        std::chrono::high_resolution_clock::now(), end;
+        std::chrono::high_resolution_clock::time_point start, end;
         ///
         //if (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
         for (uint32_t i = 0 ; i< CQS_MAX_ ; i++){
+	start = std::chrono::high_resolution_clock::now();
         if (ne = fi_cq_read(cqs_[i], &wc, ne_max)) {
             /// TODO TO BE REMOVED
             end = std::chrono::high_resolution_clock::now();
