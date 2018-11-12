@@ -40,8 +40,8 @@ void InputScheduler::update_input_begin_time(std::chrono::system_clock::time_poi
 void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
     if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
 	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
-	if (false){
-	    L_(trace) << "[i " << scheduler_index_ << "] "
+	if (true){
+	    L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << meta_data.interval_index
 		      << "[TSs "
@@ -143,8 +143,8 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 	}
     }
 
-    if (false){
-	L_(trace) << "[i " << scheduler_index_ << "] "
+    if (true){
+	L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << interval_index
 		      << "[TSs "
