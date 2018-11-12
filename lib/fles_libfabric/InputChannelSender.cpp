@@ -444,7 +444,7 @@ void InputChannelSender::bootstrap_wo_connections()
             create_input_node_connection(i);
         // creates endpoint
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
-                            cq_, av_, fi_addrs[i]);
+                            cqs_[i%CQS_MAX_], av_, fi_addrs[i]);
         conn_.at(i) = (std::move(connection));
     }
     int i = 0;
@@ -800,7 +800,7 @@ void InputChannelSender::connect()
         std::unique_ptr<InputChannelConnection> connection =
             create_input_node_connection(i);
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
-                            cq_, av_, FI_ADDR_UNSPEC);
+                            cqs_[i%CQS_MAX_], av_, FI_ADDR_UNSPEC);
         conn_.at(i) = (std::move(connection));
     }
 }
@@ -861,7 +861,7 @@ void InputChannelSender::on_rejected(struct fi_eq_err_entry* event)
     // immediately initiate retry
     std::unique_ptr<InputChannelConnection> connection =
         create_input_node_connection(i);
-    connection->connect(compute_hostnames_[i], compute_services_[i], pd_, cq_,
+    connection->connect(compute_hostnames_[i], compute_services_[i], pd_, cqs_[i%CQS_MAX_],
                         av_, FI_ADDR_UNSPEC);
     conn_.at(i) = std::move(connection);
 }

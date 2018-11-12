@@ -49,6 +49,7 @@ public:
                       << fi_strerror(-res);
             throw LibfabricException("fi_eq_open failed");
         }
+        cqs_.resize(CQS_MAX_);
     }
 
     ConnectionGroup(const ConnectionGroup&) = delete;
@@ -149,7 +150,8 @@ public:
         std::chrono::high_resolution_clock::now(), end;
         ///
         //if (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
-        if (ne = fi_cq_read(cq_, &wc, ne_max)) {
+        for (uint32_t i = 0 ; i< CQS_MAX_ ; i++){
+        if (ne = fi_cq_read(cqs_[i], &wc, ne_max)) {
             /// TODO TO BE REMOVED
             end = std::chrono::high_resolution_clock::now();
             assert (end >= start);
@@ -160,9 +162,9 @@ public:
             if (ne == -FI_EAVAIL) { // error available
                 struct fi_cq_err_entry err;
                 char buffer[256];
-                ne = fi_cq_readerr(cq_, &err, 0);
+                ne = fi_cq_readerr(cqs_[i], &err, 0);
                 L_(fatal) << fi_strerror(err.err);
-                L_(fatal) << fi_cq_strerror(cq_, err.prov_errno, err.err_data,
+                L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
                                             buffer, 256);
                 throw LibfabricException("fi_cq_read failed (fi_cq_readerr)");
             }
@@ -194,12 +196,13 @@ public:
 		///
             }
         }
+        }
 
         return ne_total;
     }
 
     /// Retrieve the InfiniBand completion queue.
-    struct fid_cq* completion_queue() const { return cq_; }
+    struct fid_cq* completion_queue(uint32_t index) const { return cqs_[index]; }
 
     size_t size() const { return conn_.size(); }
 
@@ -293,6 +296,7 @@ protected:
             throw LibfabricException("fi_domain failed");
         }
 
+        for (uint32_t i = 0 ; i<CQS_MAX_ ; i++){
         struct fi_cq_attr cq_attr;
         memset(&cq_attr, 0, sizeof(cq_attr));
         cq_attr.size = num_cqe_;
@@ -302,11 +306,12 @@ protected:
         cq_attr.signaling_vector = Provider::vector++; // ??
         cq_attr.wait_cond = FI_CQ_COND_NONE;
         cq_attr.wait_set = nullptr;
-        res = fi_cq_open(pd_, &cq_attr, &cq_, nullptr);
-        if (!cq_) {
+        res = fi_cq_open(pd_, &cq_attr, &cqs_[i], nullptr);
+        if (!cqs_[i]) {
             L_(fatal) << "fi_cq_open failed: " << -res << "="
                       << fi_strerror(-res);
             throw LibfabricException("fi_cq_open failed");
+        }
         }
 
         if (Provider::getInst()->has_av()) {
@@ -346,7 +351,10 @@ protected:
     struct fid_domain* pd_ = nullptr;
 
     /// Libfabric completion queue
-    struct fid_cq* cq_ = nullptr;
+    /// TODO
+    //struct fid_cq* cq_ = nullptr;
+    std::vector<struct fid_cq*> cqs_;
+    uint32_t CQS_MAX_ = 20;
 
     /// Libfabric address vector.
     struct fid_av* av_ = nullptr;

@@ -257,7 +257,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
             timeslice_buffer_.get_desc_ptr(index);
 
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
-            eq_, pd_, cq_, av_, index, compute_index_, data_ptr,
+            eq_, pd_, cqs_[index%CQS_MAX_], av_, index, compute_index_, data_ptr,
             timeslice_buffer_.get_data_size_exp(), desc_ptr,
             timeslice_buffer_.get_desc_size_exp(), timeslice_scheduler_));
         conn->setup_mr(pd_);
@@ -476,7 +476,7 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
                                   ));
     conn_.at(index) = std::move(conn);
 
-    conn_.at(index)->on_connect_request(event, pd_, cq_);
+    conn_.at(index)->on_connect_request(event, pd_, cqs_[index%CQS_MAX_]);
 }
 
 /// Completion notification event dispatcher. Called by the event loop.
