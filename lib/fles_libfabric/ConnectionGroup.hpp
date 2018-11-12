@@ -149,9 +149,8 @@ public:
         std::chrono::high_resolution_clock::time_point start, end;
         ///
         //if (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
-        for (uint32_t i = 0 ; i< CQS_MAX_ ; i++){
 	start = std::chrono::high_resolution_clock::now();
-        if (ne = fi_cq_read(cqs_[i], &wc, ne_max)) {
+        if (ne = fi_cq_read(cqs_[cqs_index_], &wc, ne_max)) {
             /// TODO TO BE REMOVED
             end = std::chrono::high_resolution_clock::now();
             assert (end >= start);
@@ -162,9 +161,9 @@ public:
             if (ne == -FI_EAVAIL) { // error available
                 struct fi_cq_err_entry err;
                 char buffer[256];
-                ne = fi_cq_readerr(cqs_[i], &err, 0);
+                ne = fi_cq_readerr(cqs_[cqs_index_], &err, 0);
                 L_(fatal) << fi_strerror(err.err);
-                L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
+                L_(fatal) << fi_cq_strerror(cqs_[cqs_index_], err.prov_errno, err.err_data,
                                             buffer, 256);
                 throw LibfabricException("fi_cq_read failed (fi_cq_readerr)");
             }
@@ -196,7 +195,7 @@ public:
 		///
             }
         }
-        }
+        cqs_index_ = (cqs_index_+1) % CQS_MAX_;
 
         return ne_total;
     }
@@ -355,6 +354,7 @@ protected:
     //struct fid_cq* cq_ = nullptr;
     std::vector<struct fid_cq*> cqs_;
     uint32_t CQS_MAX_ = 20;
+    uint32_t cqs_index_ = 0;
 
     /// Libfabric address vector.
     struct fid_av* av_ = nullptr;
