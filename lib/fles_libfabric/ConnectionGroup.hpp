@@ -143,8 +143,20 @@ public:
         int ne;
         int ne_total = 0;
 
+        /// TODO TO BE REMOVED
+        agg_CQ_count_++;
+        std::chrono::high_resolution_clock::time_point start =
+        std::chrono::high_resolution_clock::now(), end;
+        ///
         //if (ne_total < conn_.size() && (ne = fi_cq_read(cq_, &wc, ne_max))) {
         if (ne = fi_cq_read(cq_, &wc, ne_max)) {
+            /// TODO TO BE REMOVED
+            end = std::chrono::high_resolution_clock::now();
+            assert (end >= start);
+            uint64_t diff = std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
+            //L_(info) << "poll_comp took " << diff << "us for " << ne;;
+            agg_CQ_time_ += diff;
+            ////
             if (ne == -FI_EAVAIL) { // error available
                 struct fi_cq_err_entry err;
                 char buffer[256];
@@ -161,7 +173,9 @@ public:
             }
 
             if (ne != -FI_EAGAIN){
-
+        	/// TODO TO BE REMOVED
+        	if (ne > 0)start = std::chrono::high_resolution_clock::now();
+        	///
 		ne_total += ne;
 		for (int i = 0; i < ne; ++i) {
 #pragma GCC diagnostic push
@@ -171,6 +185,13 @@ public:
 		    on_completion((uintptr_t)wc[i].op_context);
 #pragma GCC diagnostic pop
 		}
+		/// TODO TO BE REMOVED
+		if (ne > 0) {
+		    end = std::chrono::high_resolution_clock::now();
+		    assert (end >= start);
+		    agg_CQ_COMP_time_ += std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
+		}
+		///
             }
         }
 
@@ -209,6 +230,8 @@ public:
                  << " sent in " << runtime / 1000000. << " s (" << rate
                  << " MB/s)";
         L_(info) << "summary: Agg. bytes of sync messages " << human_readable_count(aggregate_sync_bytes_sent_);
+        L_(info) << "summary: Agg. CQ retrieving time " << agg_CQ_time_ / 1000000. << " s and processing time "
+        	 << agg_CQ_COMP_time_ / 1000000. << " s in " << agg_CQ_count_ << " calls";
     }
 
     /// The "main" function of an ConnectionGroup decendant.
@@ -358,6 +381,11 @@ protected:
 
     bool connection_oriented_ = false;
 
+    /// TODO TO BE REMOVED
+    uint64_t agg_CQ_time_ = 0;
+    uint64_t agg_CQ_count_ = 0;
+    uint64_t agg_CQ_COMP_time_ = 0;
+    ///
 private:
     /// Connection manager event dispatcher. Called by the CM event loop.
     void on_cm_event(uint32_t event_kind, struct fi_eq_cm_entry* event,
