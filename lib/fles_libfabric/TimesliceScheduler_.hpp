@@ -462,7 +462,7 @@ private:
 		// second stage of slowing down for network relaxation
 		if (slowdown_proposed_interval_+ (ConstVariables::SLOWDOWN_INTERVAL_PERIOD/2) >= interval_index &&
 		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
-		    slowdown_proposed_duration_+= ((slowdown_proposed_duration_/INTERVAL_LENGTH)*ConstVariables::SLOWDOWN_ROUND_FACTOR);
+		    slowdown_proposed_duration_+= (slowdown_proposed_duration_ * ConstVariables::SLOWDOWN_ROUND_FACTOR);
 		}
 
 		if (slowdown_proposed_duration_ <= median_interval_duration){
@@ -486,7 +486,7 @@ private:
 		    (stats_data.first/median_interval_duration*100) <= ConstVariables::SPEEDUP_GAP_PERCENTAGE){
 		enhancement_factor_log = 1;
 		//L_(info) << "[" << interval_index << "] interval_len = " << INTERVAL_LENGTH << ", factor = " << ConstVariables::SPEEDUP_ROUND_FACTOR << ", enahnced = " << enhanced_interval_duration << ", diff = " << ((enhanced_interval_duration/INTERVAL_LENGTH)*ConstVariables::SPEEDUP_ROUND_FACTOR);
-		enhanced_interval_duration -= ((enhanced_interval_duration/INTERVAL_LENGTH)*ConstVariables::SPEEDUP_ROUND_FACTOR);
+		enhanced_interval_duration -= (enhanced_interval_duration*ConstVariables::SPEEDUP_ROUND_FACTOR);
 		speedup_enabled_ = true;
 		speedup_proposed_duration_ = enhanced_interval_duration;
 		speedup_proposed_interval_ = interval_index;
@@ -501,7 +501,7 @@ private:
 		    (stats_data.first/median_interval_duration*100) > ConstVariables::SLOWDOWN_GAP_PERCENTAGE){
 
 		enhancement_factor_log = -1;
-		enhanced_interval_duration = speedup_proposed_duration_ + ((speedup_proposed_duration_/INTERVAL_LENGTH) * ConstVariables::SLOWDOWN_ROUND_FACTOR);
+		enhanced_interval_duration = speedup_proposed_duration_ + (speedup_proposed_duration_ * ConstVariables::SLOWDOWN_ROUND_FACTOR);
 
 		if (enhanced_interval_duration > median_interval_duration){
 		    enhancement_factor_log = -2;
