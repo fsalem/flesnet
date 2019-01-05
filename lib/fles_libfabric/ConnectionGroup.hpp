@@ -138,7 +138,7 @@ public:
     /// The Libfabric completion notification handler.
     int poll_completion()
     {
-        const int ne_max = conn_.size()*3;
+        const int ne_max = conn_.size() * 10;
 
         struct fi_cq_entry wc[ne_max];
         int ne;

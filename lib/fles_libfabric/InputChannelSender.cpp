@@ -495,7 +495,7 @@ void InputChannelSender::operator()()
         //check_send_timeslices();
         ///-----/
 
-        while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
+        while (sent_timeslices_ < max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
             	sent_timeslices_++;
             }*/
@@ -656,6 +656,9 @@ void InputChannelSender::build_scheduled_time_file(){
 
 /////////////////////////////////////////////////////////////////
     if (true) {
+	uint64_t avg = 0;
+	std::vector<uint64_t> vals;
+
 	std::ofstream duration_log_file;
 	duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
 
@@ -667,7 +670,10 @@ void InputChannelSender::build_scheduled_time_file(){
 	    duration_log_file << std::setw(25) << dur.first <<
 		    std::setw(25) << target_cn_index(dur.first) <<
 		    std::setw(25) << dur.second << "\n";
+	    avg+=dur.second;
+	    vals.push_back(dur.second);
 	}
+	L_(info) << "[TS DURATION] avg:" << (avg/vals.size()) << " mean:" << vals[vals.size()/2];
 	duration_log_file.flush();
 	duration_log_file.close();
     }
@@ -771,9 +777,9 @@ std::unique_ptr<InputChannelConnection>
 InputChannelSender::create_input_node_connection(uint_fast16_t index)
 {
     // @todo
-    // unsigned int max_send_wr = 8000; ???  IB hca
+    unsigned int max_send_wr = 8000;   // ???  IB hca
     // unsigned int max_send_wr = 495; // ??? libfabric for verbs
-    unsigned int max_send_wr = 256; // ??? libfabric for sockets
+    // unsigned int max_send_wr = 256; // ??? libfabric for sockets
 
     // limit pending write requests so that send queue and completion queue
     // do not overflow
@@ -972,6 +978,7 @@ void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
 ///-----
 uint64_t InputChannelSender::get_interval_index(uint64_t timeslice)
 {
+    if (intervals_info_.empty()) return 0;
     uint64_t interval_index = intervals_info_.get_last_key();
     InputIntervalInfo* interval_info = intervals_info_.get(interval_index);
     while (interval_index >= 0 && timeslice < interval_info->start_ts){
