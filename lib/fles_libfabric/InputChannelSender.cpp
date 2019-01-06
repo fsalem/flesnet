@@ -551,7 +551,7 @@ void InputChannelSender::build_scheduled_time_file(){
     if (!ConstVariables::ENABLE_LOGGING) return;
     if (true){
 	std::ofstream log_file;
-	log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info.out");
+	log_file.open(std::to_string(input_index_)+".input.proposed_actual_interval_info_old.out");
 
 	log_file << std::setw(25) << "Interval" <<
 		std::setw(25) << "proposed time" <<
@@ -578,7 +578,7 @@ void InputChannelSender::build_scheduled_time_file(){
 //////////////////////////////////////////////////////////////////////
     if (true){
 	std::ofstream times_log_file;
-	times_log_file.open(std::to_string(input_index_)+".input.proposed_all_start_times.out");
+	times_log_file.open(std::to_string(input_index_)+".input.proposed_all_start_times_old.out");
 
 	times_log_file << std::setw(25) << "Interval";
 	for (int i=0 ; i < conn_.size() ; i++){
@@ -603,7 +603,7 @@ void InputChannelSender::build_scheduled_time_file(){
 /////////////////////////////////////////////////////////////////
     if (true) {
 	std::ofstream block_log_file;
-	block_log_file.open(std::to_string(input_index_)+".input.scheduler_blocked_times.out");
+	block_log_file.open(std::to_string(input_index_)+".input.scheduler_blocked_times_old.out");
 
 	block_log_file << std::setw(25) << "Interval" <<
 	    std::setw(25) << "blocked duration to start" <<
@@ -633,7 +633,7 @@ void InputChannelSender::build_scheduled_time_file(){
 /////////////////////////////////////////////////////////////////
     if (true) {
 	std::ofstream overall_block_log_file;
-	overall_block_log_file.open(std::to_string(input_index_)+".input.overall_blocked_times.out");
+	overall_block_log_file.open(std::to_string(input_index_)+".input.overall_blocked_times_old.out");
 
 	overall_block_log_file << "0" << std::setw(40) <<
 		"\"overall running time\"" << std::setw(40) <<
@@ -660,7 +660,7 @@ void InputChannelSender::build_scheduled_time_file(){
 	std::vector<uint64_t> vals;
 
 	std::ofstream duration_log_file;
-	duration_log_file.open(std::to_string(input_index_)+".input.ts_duration.out");
+	duration_log_file.open(std::to_string(input_index_)+".input.ts_duration_old.out");
 
 	duration_log_file << std::setw(25) << "Timeslice" <<
 		std::setw(25) << "Compute Index" <<
@@ -681,7 +681,7 @@ void InputChannelSender::build_scheduled_time_file(){
 /////////////////////////////////////////////////////////////////
     if (false) {
 	std::ofstream round_log_file;
-	round_log_file.open(std::to_string(input_index_)+".input.interval_round_info.out");
+	round_log_file.open(std::to_string(input_index_)+".input.interval_round_info_old.out");
 
 	round_log_file << std::setw(25) << "Interval" <<
 		std::setw(25) << "Round" <<
