@@ -322,15 +322,19 @@ void InputScheduler::generate_log_files(){
 
     blocked_duration_log_file << std::setw(25) << "Timeslice" <<
 	std::setw(25) << "Compute Index" <<
-	std::setw(25) << "Duration" << "\n";
+	std::setw(25) << "IB" <<
+	std::setw(25) << "CB" <<
+	std::setw(25) << "MR" <<"\n";
 
-    SizedMap<uint64_t, uint64_t>::iterator timeslice_blocked_info = timeslice_IB_blocked_duration_log_.get_begin_iterator();
-    while (timeslice_blocked_info != timeslice_IB_blocked_duration_log_.get_end_iterator()){
-	blocked_duration_log_file << std::setw(25) << timeslice_blocked_info->first <<
-	std::setw(25) << (timeslice_blocked_info->first % compute_count_) <<
-	std::setw(25) << timeslice_blocked_info->second << "\n";
-    timeslice_blocked_info++;
+    uint64_t last_ts = interval_info_.get(interval_info_.get_last_key())->end_ts;
+    for (uint64_t ts = 0 ; ts <= last_ts ; ts++){
+	blocked_duration_log_file << std::setw(25) << ts <<
+	    std::setw(25) << (ts % compute_count_) <<
+	    std::setw(25) << (timeslice_IB_blocked_duration_log_.contains(ts) ? timeslice_IB_blocked_duration_log_.get(ts)/1000.0 : 0) <<
+	    std::setw(25) << (timeslice_CB_blocked_duration_log_.contains(ts) ? timeslice_CB_blocked_duration_log_.get(ts)/1000.0 : 0) <<
+	    std::setw(25) << (timeslice_MR_blocked_duration_log_.contains(ts) ? timeslice_MR_blocked_duration_log_.get(ts)/1000.0 : 0) << "\n";
     }
+
     blocked_duration_log_file.flush();
     blocked_duration_log_file.close();
 
@@ -367,6 +371,30 @@ void InputScheduler::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_comp
 	}
     }else{
 	timeslice_IB_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
+    }
+}
+
+void InputScheduler::log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed){
+    if (sent_completed){
+	if (timeslice_CB_blocked_start_log_.contains(timeslice)){
+	    timeslice_CB_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::system_clock::now() - timeslice_CB_blocked_start_log_.get(timeslice)).count());
+	    timeslice_CB_blocked_start_log_.remove(timeslice);
+	}
+    }else{
+	timeslice_CB_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
+    }
+}
+
+void InputScheduler::log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed){
+    if (sent_completed){
+	if (timeslice_MR_blocked_start_log_.contains(timeslice)){
+	    timeslice_MR_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::system_clock::now() - timeslice_MR_blocked_start_log_.get(timeslice)).count());
+	    timeslice_MR_blocked_start_log_.remove(timeslice);
+	}
+    }else{
+	timeslice_MR_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
     }
 }
 

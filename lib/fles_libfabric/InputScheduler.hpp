@@ -73,6 +73,10 @@ public:
 
     void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
 
+    void log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed=false);
+
+    void log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed=false);
+
 private:
 
     struct TimesliceInfo{
@@ -151,8 +155,17 @@ private:
 
     /// LOGGING
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
+
+    //Input Buffer blockage
     SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_IB_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;
+    //Compute Buffer blockage
+    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_CB_blocked_start_log_;
+    SizedMap<uint64_t, uint64_t> timeslice_CB_blocked_duration_log_;
+    //Max writes limitation blockage
+    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_MR_blocked_start_log_;
+    SizedMap<uint64_t, uint64_t> timeslice_MR_blocked_duration_log_;
+
     SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;
 
 
