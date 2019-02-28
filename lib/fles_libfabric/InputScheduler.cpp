@@ -67,16 +67,20 @@ uint64_t InputScheduler::get_last_timeslice_to_send(){
 
 void InputScheduler::increament_sent_timeslices(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+    // TODO: update it to be more precise (before sending the first timeslice ... not after)
     if (current_interval->count_sent_ts == 0)
 	current_interval->actual_start_time = std::chrono::system_clock::now();
     current_interval->count_sent_ts++;
+    if (is_interval_sent_completed(current_interval->index) && is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
+    	create_new_interval_info(current_interval->index+1);
+    }
 }
 
 void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
     InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
     if (current_interval == nullptr)return;
     current_interval->count_acked_ts++;
-    if (is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
+    if (is_ack_percentage_reached(current_interval->index) && is_interval_sent_completed(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
 	create_new_interval_info(current_interval->index+1);
     }
     if (is_interval_sent_ack_completed(current_interval->index)){
@@ -93,6 +97,10 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
 	(!is_ack_percentage_reached(interval) &&
 	    (current_interval->proposed_start_time + std::chrono::microseconds(current_interval->proposed_duration)) < std::chrono::system_clock::now()))
 	return std::chrono::system_clock::now();
+
+    // If the interval is new
+    if (current_interval->count_sent_ts == 0)
+	return current_interval->proposed_start_time;
 
     std::chrono::system_clock::time_point expected_round_time = get_interval_time_to_expected_round(interval);
     return expected_round_time < std::chrono::system_clock::now() ? std::chrono::system_clock::now() : expected_round_time;
@@ -163,6 +171,7 @@ uint64_t InputScheduler::get_expected_sent_ts_count(uint64_t interval){
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts;
 }
 
+// TODO Unused
 uint64_t InputScheduler::get_expected_last_sent_ts(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     if (current_interval->duration_per_ts == 0)return current_interval->end_ts;
@@ -171,6 +180,7 @@ uint64_t InputScheduler::get_expected_last_sent_ts(uint64_t interval){
     return current_interval->start_ts + get_expected_sent_ts_count(interval) - 1;
 }
 
+// TODO Unused partially
 uint64_t InputScheduler::get_interval_current_round_index(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return current_interval->count_sent_ts / current_interval->num_ts_per_round;
@@ -197,7 +207,7 @@ bool InputScheduler::is_interval_sent_completed(uint64_t interval){
 
 bool InputScheduler::is_interval_sent_ack_completed(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
-    return current_interval->count_sent_ts == (current_interval->end_ts-current_interval->start_ts+1) && current_interval->count_sent_ts == current_interval->count_acked_ts ? true: false;
+    return is_interval_sent_completed(interval) && current_interval->count_sent_ts == current_interval->count_acked_ts ? true: false;
 }
 
 bool InputScheduler::is_ack_percentage_reached(uint64_t interval){
@@ -218,7 +228,9 @@ std::chrono::system_clock::time_point InputScheduler::get_expected_round_sent_ti
 
 std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expected_round(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
-    return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
+    // TODO this line would congest the network/network card because the scheduler could be late and want to catch up.
+    //return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
+    return std::chrono::high_resolution_clock::now() + std::chrono::microseconds(current_interval->duration_per_round);
 }
 
 InputScheduler* InputScheduler::instance_ = nullptr;

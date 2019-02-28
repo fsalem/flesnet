@@ -192,16 +192,6 @@ private:
 
     ///
     InputScheduler* input_scheduler_ = nullptr;
-    ///-----
-    /// This list of sent timestamp of latest timeslices
-    SizedMap<uint64_t, std::chrono::system_clock::time_point> sent_time_list_;
-
-    /// This list of scheduled intervals <interval index, <proposed start time, interval duration>>
-    SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point, uint64_t>> proposed_interval_list_;
-
-    /// This map contains the spent time to send a receive acknowledgment of timeslices
-    SizedMap<uint64_t, double> sent_duration_list_;
-    ///-----/
 
 };
 }
