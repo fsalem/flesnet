@@ -407,19 +407,22 @@ private:
 
 	    SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point,uint64_t>>::iterator it = actual_interval_start_time_info_.get_end_iterator();
 	    uint64_t sum_durations = 0;
-
-	    uint32_t required_size = ConstVariables::MAX_MEDIAN_VALUES, count = 0;
+	    std::vector<uint64_t> values;
+	    uint32_t required_size = ConstVariables::MAX_MEDIAN_VALUES;
 	    if (actual_interval_start_time_info_.size() < required_size){
 		required_size = actual_interval_start_time_info_.size();
 	    }
 
 	    do{
 		--it;
-		++count;
+		values.push_back(it->second.second);
 		sum_durations += it->second.second;
-	    }while (it != actual_interval_start_time_info_.get_begin_iterator() && count < required_size);
+	    }while (it != actual_interval_start_time_info_.get_begin_iterator() && values.size() < required_size);
 
-	    return sum_durations/required_size;
+	    std::sort(values.begin(), values.end());
+	    if (values.size() % 2 == 0)return (values[values.size()/2] + values[(values.size()/2)-1])/2;
+	    return values[values.size()/2];
+	    //return sum_durations/values.size();
 
 	}
 	/// This method gets the sent time for a particular input node and timeslice
