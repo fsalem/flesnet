@@ -23,11 +23,6 @@ InputChannelConnection::InputChannelConnection(
     unsigned int max_pending_write_requests)
     : Connection(eq, connection_index, remote_connection_index),
       max_pending_write_requests_(max_pending_write_requests)
-      ///-----
-      ,sent_time_list_(ConstVariables::MAX_HISTORY_SIZE),
-      sent_duration_list_(ConstVariables::MAX_HISTORY_SIZE),
-      proposed_interval_list_(ConstVariables::MAX_HISTORY_SIZE)
-      ///-----/
 {
     assert(max_pending_write_requests_ > 0);
 

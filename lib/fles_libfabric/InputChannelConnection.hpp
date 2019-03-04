@@ -97,34 +97,6 @@ public:
 
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
-    ///-----
-    /// Add the time of sent a timeslice
-    void add_sent_time(uint64_t timeslice, std::chrono::system_clock::time_point time) { sent_time_list_.add(timeslice, time); }
-
-    /// Check whether a timeslice is sent
-    bool contains_sent_time(uint64_t timeslice) const { return sent_time_list_.contains(timeslice); }
-
-    /// get the time when a specific timeslice is sent
-    const std::chrono::system_clock::time_point get_sent_time(uint64_t timeslice) const { return sent_time_list_.get(timeslice); }
-
-    /// get the scheduled time when a specific timeslice is sent
-    std::pair<std::chrono::system_clock::time_point, uint64_t> get_proposed_interval_info(uint64_t interval_index) const;
-
-    /// Add the needed duration to transmit each timeslice and getting the ack back
-    void add_sent_duration(uint64_t timeslice, double duration);
-
-    /// Check whether a timeslice is acked
-    bool contains_sent_duration(uint64_t timeslice) const { return sent_duration_list_.contains(timeslice); }
-
-    /// Get the needed duration to transmit specific timeslice
-    double get_sent_duration(uint64_t timeslice) const { return sent_duration_list_.get(timeslice); }
-
-    /// Return the last acked timeslice
-    uint64_t get_last_acked_timeslice();
-
-    /// Update the status message with the completed interval information
-    void ack_complete_interval_info(InputIntervalInfo* interval_info);
-    ///-----/
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -136,10 +108,6 @@ private:
     /// This update the last scheduled timeslice, time, and duration
     void update_last_scheduled_info();
 
-    ///-----
-    /// Add the scheduled interval
-    void add_proposed_interval_info(uint64_t interval_index, std::chrono::system_clock::time_point time, uint64_t duration);
-    ///-----/
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
 
@@ -190,18 +158,8 @@ private:
 
     uint64_t last_sent_timeslice_ = ConstVariables::MINUS_ONE;
 
-    ///
+    //A singleton instance from the input scheduler
     InputScheduler* input_scheduler_ = nullptr;
-    ///-----
-    /// This list of sent timestamp of latest timeslices
-    SizedMap<uint64_t, std::chrono::system_clock::time_point> sent_time_list_;
-
-    /// This list of scheduled intervals <interval index, <proposed start time, interval duration>>
-    SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point, uint64_t>> proposed_interval_list_;
-
-    /// This map contains the spent time to send a receive acknowledgment of timeslices
-    SizedMap<uint64_t, double> sent_duration_list_;
-    ///-----/
 
 };
 }
