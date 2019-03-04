@@ -41,7 +41,7 @@ void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
     if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
 	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
 	if (false){
-	    L_(trace) << "[i " << scheduler_index_ << "] "
+	    L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << meta_data.interval_index
 		      << "[TSs "
@@ -143,14 +143,14 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }
 
     if (false){
-	L_(trace) << "[i " << scheduler_index_ << "] "
+	L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << interval_index
 		      << "[TSs "
 		      << new_interval_info->start_ts
 		      << " to "
 		      << new_interval_info->end_ts
-		      << " should start after "
+		      << "] should start after "
 		      << std::chrono::duration_cast<std::chrono::microseconds>(new_interval_info->proposed_start_time - std::chrono::system_clock::now()).count()
 		      << " us & take " << new_interval_info->proposed_duration << " us";
     }
@@ -171,7 +171,7 @@ void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interva
                 << actual_metadata->start_timeslice
                 << " to "
                 << actual_metadata->last_timeslice
-                << " is finished and delayed for "
+                << "] is finished and delayed for "
                 << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
                 << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds";
     }

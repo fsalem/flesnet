@@ -296,7 +296,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
     }
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
-
+	input_scheduler_->log_timeslice_IB_blocked(timeslice, true);
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
@@ -323,15 +323,17 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         if (!conn_[cn]->write_request_available()){
             L_(info) << "[" << input_index_ << "]"
         	    << "max # of writes to " << cn;
+            input_scheduler_->log_timeslice_MR_blocked(timeslice);
             return false;
         }
+        input_scheduler_->log_timeslice_MR_blocked(timeslice, true);
 
         // number of bytes to skip in advance (to avoid buffer wrap)
         uint64_t skip = conn_[cn]->skip_required(total_length);
         total_length += skip;
 
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
-
+            input_scheduler_->log_timeslice_CB_blocked(timeslice, true);
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
@@ -341,11 +343,13 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             	sent_desc_ = desc_offset + desc_length;
             	sent_data_ = data_end;
             }
-            input_scheduler_->log_timeslice_IB_blocked(timeslice,true);
             return true;
+        }else{
+            input_scheduler_->log_timeslice_CB_blocked(timeslice);
         }
+    }else{
+	input_scheduler_->log_timeslice_IB_blocked(timeslice);
     }
-    input_scheduler_->log_timeslice_IB_blocked(timeslice);
 
     return false;
 }
