@@ -61,6 +61,7 @@ const IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_i
 
 uint64_t InputScheduler::get_last_timeslice_to_send(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+    current_interval->rounds_counter++;
     uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
     return std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
@@ -102,7 +103,9 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
     if (current_interval->count_sent_ts == 0)
 	return current_interval->proposed_start_time;
 
-    std::chrono::system_clock::time_point expected_round_time = get_interval_time_to_expected_round(interval);
+    uint32_t expected_round = current_interval->count_sent_ts/current_interval->num_ts_per_round;
+
+    std::chrono::system_clock::time_point expected_round_time = get_expected_round_sent_time(interval, expected_round);//get_interval_time_to_expected_round(interval);
     return expected_round_time < std::chrono::system_clock::now() ? std::chrono::system_clock::now() : expected_round_time;
 
 }
@@ -160,6 +163,18 @@ void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interva
 		std::chrono::system_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration);
+    if (false){
+	L_(info) << "[i " << scheduler_index_ << "] "
+		<< "interval"
+                << actual_metadata->interval_index
+                << "[TSs "
+                << actual_metadata->start_timeslice
+                << " to "
+                << actual_metadata->last_timeslice
+                << " is finished and delayed for "
+                << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
+                << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds";
+    }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
 }
 
@@ -229,8 +244,8 @@ std::chrono::system_clock::time_point InputScheduler::get_expected_round_sent_ti
 std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expected_round(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     // TODO this line would congest the network/network card because the scheduler could be late and want to catch up.
-    //return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
-    return std::chrono::high_resolution_clock::now() + std::chrono::microseconds(current_interval->duration_per_round);
+    return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
+    //return std::chrono::high_resolution_clock::now() + std::chrono::microseconds(current_interval->duration_per_round);
 }
 
 InputScheduler* InputScheduler::instance_ = nullptr;
