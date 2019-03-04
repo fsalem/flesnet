@@ -156,8 +156,8 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     if (false){
 	L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
 		<< " [" << average_start_timeslice << ", " << average_last_timeslice
-		<< " took " << median_interval_duration
-		<< " us in " << average_round_count << "rounds";
+		<< "] took " << median_interval_duration
+		<< " us in " << average_round_count << " rounds";
     }
 
     // LOGGING
@@ -208,13 +208,13 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     if (false){
     	L_(info) << "[" << scheduler_index_ << "] interval " << new_interval_metadata->interval_index
     		<< " [" << new_interval_metadata->start_timeslice << ", " << new_interval_metadata->last_timeslice
-    		<< " should take " << new_interval_metadata->interval_duration
-    		<< " us in " << new_interval_metadata->round_count << "rounds";
+    		<< "] should take " << new_interval_metadata->interval_duration
+    		<< " us in " << new_interval_metadata->round_count << " rounds";
     }
 
     // LOGGING
     uint64_t max_round_duration = get_max_round_duration_history();
-    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, new_interval_duration != get_mean_interval_duration_history() ? 1 : 0));
+    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, new_interval_duration != get_median_interval_duration_history() ? 1 : 0));
 
     return new_interval_metadata;
 }
@@ -242,16 +242,16 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ < interval_index) // in speeding up phase
     	return enhanced_interval_duration_;
 
-    uint64_t mean_interval_duration = get_mean_interval_duration_history();
+    uint64_t median_interval_duration = get_median_interval_duration_history();
     double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
 
 
-    if (interval_dur_mean_difference/mean_interval_duration*100.0 <= speedup_difference_percentage_) {
-	enhanced_interval_duration_ = mean_interval_duration - (mean_interval_duration*speedup_percentage_/100);
+    if (interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
+	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
 	speedup_interval_index_ = interval_index;
 	return enhanced_interval_duration_;
     }
-    return mean_interval_duration;
+    return median_interval_duration;
 
 }
 
@@ -385,22 +385,21 @@ double DDScheduler::get_mean_interval_duration_difference_distory() {
     return mean < 0 ? 0 : mean;
 }
 
-uint64_t DDScheduler::get_mean_interval_duration_history() {
+uint64_t DDScheduler::get_median_interval_duration_history() {
     if (actual_interval_meta_data_.empty()) return 0;
 
-    uint32_t required_size = history_size_, count = 0;
-    uint64_t sum_interval_duration = 0;
+    uint32_t required_size = history_size_;
+    std::vector<uint64_t> durations;
 
     if (actual_interval_meta_data_.size() < required_size) required_size = actual_interval_meta_data_.size();
 
     SizedMap<uint64_t, IntervalMetaData*>::iterator it = actual_interval_meta_data_.get_end_iterator();
     do {
     --it;
-    ++count;
-    sum_interval_duration += it->second->interval_duration;
-    }while (it != actual_interval_meta_data_.get_begin_iterator() && count < required_size);
+    durations.push_back(it->second->interval_duration);
+    }while (it != actual_interval_meta_data_.get_begin_iterator() && durations.size() < required_size);
 
-    return sum_interval_duration/count;
+    return durations.size() % 2 == 0 ? (durations[durations.size()/2] + durations[(durations.size()/2)-1])/2 : durations[durations.size()/2] ;
 }
 
 uint32_t DDScheduler::get_last_compute_connection_count(){

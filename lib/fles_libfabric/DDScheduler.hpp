@@ -143,7 +143,7 @@ private:
     double get_mean_interval_duration_difference_distory();
 
     // Get the median duration of last set of durations
-    uint64_t get_mean_interval_duration_history();
+    uint64_t get_median_interval_duration_history();
 
     uint32_t get_last_compute_connection_count();
 
