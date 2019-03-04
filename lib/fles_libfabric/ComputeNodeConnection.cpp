@@ -259,18 +259,19 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
-    /*if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
+    if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
 	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+	    timeslice_DD_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
+	    timeslice_DD_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
-	const IntervalMetaData* meta_data = timeslice_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
+	const IntervalMetaData* meta_data = timeslice_DD_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
 	if (meta_data != nullptr){
 	    send_status_message_.proposed_interval_metadata = *meta_data;
 	    data_acked_ = true;
 	}
-    }*/
+    }
     ///-----
+    /*
     if (send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
 	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
@@ -285,7 +286,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/20;
 
 	data_acked_ = true;
-
+    */
 /*
  	/// LOGGING
         if (data_acked_){
@@ -293,8 +294,9 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
         }
         /// END LOGGING
 */
-
+/*
     }
+    */
     ///-----/
 
     if (data_changed_ && !send_status_message_.final) {

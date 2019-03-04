@@ -153,6 +153,13 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     actual_interval_meta_data_.add(interval_index,
 	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice, average_start_time, median_interval_duration));
 
+    if (false){
+	L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
+		<< " [" << average_start_timeslice << ", " << average_last_timeslice
+		<< " took " << median_interval_duration
+		<< " us in " << average_round_count << "rounds";
+    }
+
     // LOGGING
     uint64_t min_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(get_start_time_statistics(interval_index,0,1) - begin_time_).count();
     uint64_t max_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(get_start_time_statistics(interval_index,0,0) - begin_time_).count();
@@ -197,6 +204,13 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*compute_count) - 1,
 						new_start_time, new_interval_duration);
     proposed_interval_meta_data_.add(interval_index, new_interval_metadata);
+
+    if (false){
+    	L_(info) << "[" << scheduler_index_ << "] interval " << new_interval_metadata->interval_index
+    		<< " [" << new_interval_metadata->start_timeslice << ", " << new_interval_metadata->last_timeslice
+    		<< " should take " << new_interval_metadata->interval_duration
+    		<< " us in " << new_interval_metadata->round_count << "rounds";
+    }
 
     // LOGGING
     uint64_t max_round_duration = get_max_round_duration_history();
