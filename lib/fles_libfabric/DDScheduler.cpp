@@ -196,11 +196,12 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     round_count = round_count == 0 ? 1 : round_count;
 
     std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));
-    if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key()+1 == interval_index) {
+    // This is commented because it slows down the injection rate specially during the slow start and after the network congection
+    /*if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key()+1 == interval_index) {
 	last_proposed_interval_info = proposed_interval_meta_data_.get(proposed_interval_meta_data_.get_last_key());
 	std::chrono::system_clock::time_point last_proposed_end_time = last_proposed_interval_info->start_time + std::chrono::microseconds(last_proposed_interval_info->interval_duration);
 	if (last_proposed_end_time > new_start_time) new_start_time = last_proposed_end_time;
-    }
+    }*/
 
     IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*compute_count) - 1,
 						new_start_time, new_interval_duration);
