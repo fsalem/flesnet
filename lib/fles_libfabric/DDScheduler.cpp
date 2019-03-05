@@ -178,16 +178,10 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
 
 const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
     uint64_t last_interval = actual_interval_meta_data_.get_last_key();
-    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
-    if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key() > last_interval) {
-	last_interval = proposed_interval_meta_data_.get_last_key();
-	last_interval_info = proposed_interval_meta_data_.get(last_interval);
-    }
+    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval), *last_proposed_interval_info;
 
     uint64_t new_start_timeslice = (last_interval_info->last_timeslice+1) +
 	    (interval_index - last_interval_info->interval_index - 1) * (last_interval_info->last_timeslice - last_interval_info->start_timeslice + 1);
-
-    std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(last_interval_info->interval_duration * (interval_index - last_interval));
 
     uint32_t compute_count = get_last_compute_connection_count();
 
@@ -200,6 +194,13 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint64_t new_interval_duration = get_enhanced_interval_duration(interval_index);
     uint32_t round_count = std::floor(interval_duration_/compute_count);
     round_count = round_count == 0 ? 1 : round_count;
+
+    std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));
+    if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key()+1 == interval_index) {
+	last_proposed_interval_info = proposed_interval_meta_data_.get(proposed_interval_meta_data_.get_last_key());
+	std::chrono::system_clock::time_point last_proposed_end_time = last_proposed_interval_info->start_time + std::chrono::microseconds(last_proposed_interval_info->interval_duration);
+	if (last_proposed_end_time > new_start_time) new_start_time = last_proposed_end_time;
+    }
 
     IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*compute_count) - 1,
 						new_start_time, new_interval_duration);
@@ -246,7 +247,7 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
 
 
-    if (interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
+    if (interval_dur_mean_difference > 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
 	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
 	speedup_interval_index_ = interval_index;
 	return enhanced_interval_duration_;
@@ -382,7 +383,8 @@ double DDScheduler::get_mean_interval_duration_difference_distory() {
     }
     mean /= history_size_;
 
-    return mean < 0 ? 0 : mean;
+    // return any small fraction because negative values mean that actual duration was less than proposed one
+    return mean <= 0 ? 0.01 : mean;
 }
 
 uint64_t DDScheduler::get_median_interval_duration_history() {
