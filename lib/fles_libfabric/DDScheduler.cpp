@@ -261,7 +261,7 @@ std::chrono::system_clock::time_point DDScheduler::get_start_time_statistics(uin
     for (uint32_t i = 1; i<input_connection_count_ ; i++) {
 	tmp_time = input_scheduler_info_[i]->interval_info_.get(interval_index).start_time;
 	if (min_start_time > tmp_time) min_start_time = tmp_time;
-	if (max_start_time > tmp_time) max_start_time = tmp_time;
+	if (max_start_time < tmp_time) max_start_time = tmp_time;
     }
     if (average) return min_start_time + std::chrono::microseconds(std::chrono::duration_cast<std::chrono::microseconds>(max_start_time - min_start_time).count()/2);
     return min ? min_start_time : max_start_time;
@@ -398,6 +398,8 @@ uint64_t DDScheduler::get_median_interval_duration_history() {
     --it;
     durations.push_back(it->second->interval_duration);
     }while (it != actual_interval_meta_data_.get_begin_iterator() && durations.size() < required_size);
+
+    std::sort(durations.begin(), durations.end());
 
     return durations.size() % 2 == 0 ? (durations[durations.size()/2] + durations[(durations.size()/2)-1])/2 : durations[durations.size()/2] ;
 }
