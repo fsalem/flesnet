@@ -103,11 +103,19 @@ std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
     if (current_interval->count_sent_ts == 0)
 	return current_interval->proposed_start_time;
 
+    uint64_t expected_sent_ts = get_expected_sent_ts_count(interval);
+    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+
+    int64_t duration = current_interval->duration_per_round + ((current_interval->count_sent_ts - expected_sent_ts) * current_interval->duration_per_ts);
+    if (duration < 0) duration = 0;
+
+    return now + std::chrono::microseconds(duration);
+/*
     uint32_t expected_round = current_interval->count_sent_ts/current_interval->num_ts_per_round;
 
     std::chrono::system_clock::time_point expected_round_time = get_expected_round_sent_time(interval, expected_round);//get_interval_time_to_expected_round(interval);
     return expected_round_time < std::chrono::system_clock::now() ? std::chrono::system_clock::now() : expected_round_time;
-
+*/
 }
 
 // PRIVATE
