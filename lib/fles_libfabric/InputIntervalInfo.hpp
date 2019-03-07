@@ -15,9 +15,9 @@ struct InputIntervalInfo {
     uint32_t round_count;
     uint64_t start_ts;
     uint64_t end_ts;
-    std::chrono::system_clock::time_point proposed_start_time;
+    std::chrono::high_resolution_clock::time_point proposed_start_time;
     uint64_t proposed_duration;
-    std::chrono::system_clock::time_point actual_start_time;
+    std::chrono::high_resolution_clock::time_point actual_start_time;
     uint64_t actual_duration;
 
     uint64_t count_sent_ts = ConstVariables::ZERO;
@@ -31,15 +31,15 @@ struct InputIntervalInfo {
     ///-----/
 
     bool cb_blocked = false;
-    std::chrono::system_clock::time_point cb_blocked_start_time;
+    std::chrono::high_resolution_clock::time_point cb_blocked_start_time;
     uint64_t cb_blocked_duration = 0;
 
     bool ib_blocked = false;
-    std::chrono::system_clock::time_point ib_blocked_start_time;
+    std::chrono::high_resolution_clock::time_point ib_blocked_start_time;
     uint64_t ib_blocked_duration = 0;
 
     InputIntervalInfo(const uint64_t interval_index, const uint32_t rounds, const uint64_t start_ts, const uint64_t end_ts, // @suppress("Class members should be properly initialized")
-	    const std::chrono::system_clock::time_point start_time, const uint64_t duration)
+	    const std::chrono::high_resolution_clock::time_point start_time, const uint64_t duration)
 			:index(interval_index),round_count(rounds), start_ts(start_ts), end_ts(end_ts),
 			 proposed_start_time(start_time), proposed_duration(duration)
 			///-----
@@ -54,7 +54,7 @@ struct InputIntervalInfo {
     ///-----
     uint64_t get_expected_sent_ts(){
 	if (duration_per_ts == 0)return (end_ts-start_ts+1);
-	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - actual_start_time).count() / duration_per_ts;
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - actual_start_time).count() / duration_per_ts;
     }
 
 
@@ -67,7 +67,7 @@ struct InputIntervalInfo {
 
 	if (duration_per_ts == 0) return ConstVariables::ZERO;
 	// If the proposed finish time is reached, send as fast as possible.
-	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) < std::chrono::system_clock::now())return ConstVariables::ZERO;
+	if (!is_ack_percentage_reached() && (proposed_start_time + std::chrono::microseconds(proposed_duration)) < std::chrono::high_resolution_clock::now())return ConstVariables::ZERO;
 
 	uint64_t expected_sent_ts = get_expected_sent_ts();
 

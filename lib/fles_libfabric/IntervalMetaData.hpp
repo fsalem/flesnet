@@ -21,13 +21,13 @@ struct IntervalMetaData {
     uint64_t last_timeslice = ConstVariables::MINUS_ONE;
 
     // The start time for the interval [The actual time when a input node is the sender, the proposed time when a compute node is the sender]
-    std::chrono::system_clock::time_point start_time;
+    std::chrono::high_resolution_clock::time_point start_time;
     // duration for the whole interval
     uint64_t interval_duration;
 
     IntervalMetaData(){}
     IntervalMetaData(uint64_t index, uint32_t rounds, uint64_t start_ts, uint64_t last_ts,
-		    std::chrono::system_clock::time_point start_time,
+		    std::chrono::high_resolution_clock::time_point start_time,
 		    uint64_t duration):
 		    interval_index(index), round_count(rounds), start_timeslice(start_ts),
 		    last_timeslice(last_ts), start_time(start_time), interval_duration(duration){}

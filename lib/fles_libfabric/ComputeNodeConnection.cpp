@@ -277,7 +277,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
 	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
-	std::pair<std::chrono::system_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
 	send_status_message_.proposed_interval_metadata.interval_index = recv_status_message_.required_interval_index;
 	send_status_message_.proposed_interval_metadata.start_time = interval_info.first;
 	send_status_message_.proposed_interval_metadata.interval_duration = interval_info.second;
@@ -290,7 +290,7 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 /*
  	/// LOGGING
         if (data_acked_){
-            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::system_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::system_clock::now()));
+            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::high_resolution_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
         }
         /// END LOGGING
 */

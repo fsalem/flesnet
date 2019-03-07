@@ -29,7 +29,7 @@ void InputScheduler::update_input_scheduler_index(uint32_t scheduler_index){
     scheduler_index_ = scheduler_index;
 }
 
-void InputScheduler::update_input_begin_time(std::chrono::system_clock::time_point begin_time){
+void InputScheduler::update_input_begin_time(std::chrono::high_resolution_clock::time_point begin_time){
     begin_time_ = begin_time;
     if (interval_info_.empty()){
 	// create the first interval
@@ -49,7 +49,7 @@ void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
 		      << " to "
 		      << meta_data.last_timeslice
 		      << " is proposed and should start after "
-		      << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::system_clock::now()).count()
+		      << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
 		      << " us & take " << meta_data.interval_duration << " us";
 	}
     }
@@ -61,7 +61,8 @@ const IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_i
 
 uint64_t InputScheduler::get_last_timeslice_to_send(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
-    current_interval->rounds_counter++;
+    if (current_interval->rounds_counter == 0 && current_interval->count_sent_ts == 0)
+	current_interval->actual_start_time = std::chrono::high_resolution_clock::now();
     uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
     return std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
@@ -70,7 +71,7 @@ void InputScheduler::increament_sent_timeslices(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
     // TODO: update it to be more precise (before sending the first timeslice ... not after)
     if (current_interval->count_sent_ts == 0)
-	current_interval->actual_start_time = std::chrono::system_clock::now();
+	current_interval->actual_start_time = std::chrono::high_resolution_clock::now();
     current_interval->count_sent_ts++;
     if (is_interval_sent_completed(current_interval->index) && is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
     	create_new_interval_info(current_interval->index+1);
@@ -89,33 +90,45 @@ void InputScheduler::increament_acked_timeslices(uint64_t timeslice){
     }
 }
 
-std::chrono::system_clock::time_point InputScheduler::get_next_fire_time(){
+int64_t InputScheduler::get_next_fire_time(){
     uint64_t interval = interval_info_.get_last_key();
     InputIntervalInfo* current_interval = interval_info_.get(interval);
+    current_interval->rounds_counter++;
+
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
 
     // If  no proposed duration or the proposed finish time is reached, then send as fast as possible.
     if (current_interval->duration_per_ts == 0 ||
 	(!is_ack_percentage_reached(interval) &&
-	    (current_interval->proposed_start_time + std::chrono::microseconds(current_interval->proposed_duration)) < std::chrono::system_clock::now()))
-	return std::chrono::system_clock::now();
+	    (current_interval->proposed_start_time + std::chrono::microseconds(current_interval->proposed_duration)) < now))
+	return ConstVariables::ZERO;
 
     // If the interval is new
-    if (current_interval->count_sent_ts == 0)
-	return current_interval->proposed_start_time;
+    if (current_interval->count_sent_ts == 0) {
+	if (current_interval->proposed_start_time <= now) return ConstVariables::ZERO;
+	return std::chrono::duration_cast<std::chrono::microseconds>(current_interval->proposed_start_time - now).count();
+    }
 
     uint64_t expected_sent_ts = get_expected_sent_ts_count(interval);
-    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 
     int64_t duration = current_interval->duration_per_round + ((current_interval->count_sent_ts - expected_sent_ts) * current_interval->duration_per_ts);
     if (duration < 0) duration = 0;
 
-    return now + std::chrono::microseconds(duration);
+    return duration;
 /*
     uint32_t expected_round = current_interval->count_sent_ts/current_interval->num_ts_per_round;
 
-    std::chrono::system_clock::time_point expected_round_time = get_expected_round_sent_time(interval, expected_round);//get_interval_time_to_expected_round(interval);
-    return expected_round_time < std::chrono::system_clock::now() ? std::chrono::system_clock::now() : expected_round_time;
+    std::chrono::high_resolution_clock::time_point expected_round_time = get_expected_round_sent_time(interval, expected_round);//get_interval_time_to_expected_round(interval);
+    return expected_round_time < std::chrono::high_resolution_clock::now() ? std::chrono::high_resolution_clock::now() : expected_round_time;
 */
+}
+
+// Check whether a timeslice is within the current round
+bool InputScheduler::is_ts_within_current_round(uint64_t timeslice){
+    uint64_t interval = interval_info_.get_last_key();
+    InputIntervalInfo* current_interval = interval_info_.get(interval);
+    uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
+    return timeslice <= std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
 
 // PRIVATE
@@ -139,7 +152,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
 	    uint32_t round_count = std::floor(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_count_);
-	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1, std::chrono::system_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1, std::chrono::high_resolution_clock::now(), 0);
 
 	}else{// following last proposed meta-data
 	    // TODO wait for the proposing!!!
@@ -159,7 +172,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 		      << " to "
 		      << new_interval_info->end_ts
 		      << "] should start after "
-		      << std::chrono::duration_cast<std::chrono::microseconds>(new_interval_info->proposed_start_time - std::chrono::system_clock::now()).count()
+		      << std::chrono::duration_cast<std::chrono::microseconds>(new_interval_info->proposed_start_time - std::chrono::high_resolution_clock::now()).count()
 		      << " us & take " << new_interval_info->proposed_duration << " us";
     }
 
@@ -168,7 +181,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 
 void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interval_info){
     interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
-		std::chrono::system_clock::now() - interval_info->actual_start_time).count();
+		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration);
     if (false){
@@ -189,16 +202,16 @@ void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interva
 uint64_t InputScheduler::get_expected_sent_ts_count(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     if (current_interval->duration_per_ts == 0)return (current_interval->end_ts-current_interval->start_ts+1);
-    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     if (now < current_interval->actual_start_time) return 0;
-    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts;
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts;
 }
 
 // TODO Unused
 uint64_t InputScheduler::get_expected_last_sent_ts(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     if (current_interval->duration_per_ts == 0)return current_interval->end_ts;
-    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     if (now < current_interval->actual_start_time) return 0;
     return current_interval->start_ts + get_expected_sent_ts_count(interval) - 1;
 }
@@ -239,17 +252,17 @@ bool InputScheduler::is_ack_percentage_reached(uint64_t interval){
     return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.7 ? true: false;
 }
 
-std::chrono::system_clock::time_point InputScheduler::get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice){
+std::chrono::high_resolution_clock::time_point InputScheduler::get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return current_interval->actual_start_time + std::chrono::microseconds((timeslice - current_interval->start_ts) * current_interval->duration_per_ts);
 }
 
-std::chrono::system_clock::time_point InputScheduler::get_expected_round_sent_time(uint64_t interval, uint64_t round) {
+std::chrono::high_resolution_clock::time_point InputScheduler::get_expected_round_sent_time(uint64_t interval, uint64_t round) {
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return current_interval->actual_start_time + std::chrono::microseconds(round * current_interval->duration_per_round);
 }
 
-std::chrono::system_clock::time_point InputScheduler::get_interval_time_to_expected_round(uint64_t interval){
+std::chrono::high_resolution_clock::time_point InputScheduler::get_interval_time_to_expected_round(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     // TODO this line would congest the network/network card because the scheduler could be late and want to catch up.
     return current_interval->actual_start_time + std::chrono::microseconds(current_interval->duration_per_round*get_interval_expected_round_index(interval));
@@ -267,7 +280,7 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
     TimesliceInfo* timeslice_info = new TimesliceInfo();
     timeslice_info->expected_time = get_expected_ts_sent_time(interval_info->index, timeslice);
     timeslice_info->compute_index = compute_index;
-    timeslice_info->transmit_time = std::chrono::system_clock::now();
+    timeslice_info->transmit_time = std::chrono::high_resolution_clock::now();
     timeslice_info_log_.add(timeslice, timeslice_info);
 
     uint64_t round_index = std::floor((timeslice-interval_info->start_ts+1)/interval_info->num_ts_per_round*1.0);
@@ -284,7 +297,7 @@ void InputScheduler::log_timeslice_ack_time(uint64_t timeslice){
     if (!timeslice_info_log_.contains(timeslice))return;
     TimesliceInfo* timeslice_info = timeslice_info_log_.get(timeslice);
     timeslice_info->acked_duration = std::chrono::duration_cast<std::chrono::microseconds>(
-	    std::chrono::system_clock::now() - timeslice_info->transmit_time).count();
+	    std::chrono::high_resolution_clock::now() - timeslice_info->transmit_time).count();
 }
 
 void InputScheduler::generate_log_files(){
@@ -389,11 +402,11 @@ void InputScheduler::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_comp
     if (sent_completed){
 	if (timeslice_IB_blocked_start_log_.contains(timeslice)){
 	    timeslice_IB_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::system_clock::now() - timeslice_IB_blocked_start_log_.get(timeslice)).count());
+			std::chrono::high_resolution_clock::now() - timeslice_IB_blocked_start_log_.get(timeslice)).count());
 	    timeslice_IB_blocked_start_log_.remove(timeslice);
 	}
     }else{
-	timeslice_IB_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
+	timeslice_IB_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
 }
 
@@ -401,11 +414,11 @@ void InputScheduler::log_timeslice_CB_blocked(uint64_t timeslice, bool sent_comp
     if (sent_completed){
 	if (timeslice_CB_blocked_start_log_.contains(timeslice)){
 	    timeslice_CB_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::system_clock::now() - timeslice_CB_blocked_start_log_.get(timeslice)).count());
+			std::chrono::high_resolution_clock::now() - timeslice_CB_blocked_start_log_.get(timeslice)).count());
 	    timeslice_CB_blocked_start_log_.remove(timeslice);
 	}
     }else{
-	timeslice_CB_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
+	timeslice_CB_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
 }
 
@@ -413,11 +426,11 @@ void InputScheduler::log_timeslice_MR_blocked(uint64_t timeslice, bool sent_comp
     if (sent_completed){
 	if (timeslice_MR_blocked_start_log_.contains(timeslice)){
 	    timeslice_MR_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::system_clock::now() - timeslice_MR_blocked_start_log_.get(timeslice)).count());
+			std::chrono::high_resolution_clock::now() - timeslice_MR_blocked_start_log_.get(timeslice)).count());
 	    timeslice_MR_blocked_start_log_.remove(timeslice);
 	}
     }else{
-	timeslice_MR_blocked_start_log_.add(timeslice, std::chrono::system_clock::now());
+	timeslice_MR_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
 }
 

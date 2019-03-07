@@ -42,7 +42,7 @@ public:
     void update_input_scheduler_index(uint32_t);
 
     // Set the begin time to be used in logging and create the first interval if not there
-    void update_input_begin_time(std::chrono::system_clock::time_point);
+    void update_input_begin_time(std::chrono::high_resolution_clock::time_point);
 
     // Receive proposed interval meta-data from InputChannelConnections
     void add_proposed_meta_data(const IntervalMetaData);
@@ -60,7 +60,10 @@ public:
     void increament_acked_timeslices(uint64_t);
 
     // Get the time to start sending more timeslices
-    std::chrono::system_clock::time_point get_next_fire_time();
+    int64_t get_next_fire_time();
+
+    // Check whether a timeslice is within the current round
+    bool is_ts_within_current_round(uint64_t timeslice);
 
     // Log the transmission time of a timeslice
     void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
@@ -80,8 +83,8 @@ public:
 private:
 
     struct TimesliceInfo{
-	std::chrono::system_clock::time_point expected_time;
-	std::chrono::system_clock::time_point transmit_time;
+	std::chrono::high_resolution_clock::time_point expected_time;
+	std::chrono::high_resolution_clock::time_point transmit_time;
 	uint32_t compute_index;
 	uint64_t acked_duration;
     };
@@ -123,11 +126,11 @@ private:
     bool is_ack_percentage_reached(uint64_t);
 
     // Retrieve the time of the expected round of a particular interval based on the actual start time and duration
-    std::chrono::system_clock::time_point get_interval_time_to_expected_round(uint64_t);
+    std::chrono::high_resolution_clock::time_point get_interval_time_to_expected_round(uint64_t);
 
-    std::chrono::system_clock::time_point get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice);
+    std::chrono::high_resolution_clock::time_point get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice);
 
-    std::chrono::system_clock::time_point get_expected_round_sent_time(uint64_t interval, uint64_t round);
+    std::chrono::high_resolution_clock::time_point get_expected_round_sent_time(uint64_t interval, uint64_t round);
 
     // List of all interval infos
     SizedMap<uint64_t, InputIntervalInfo*> interval_info_;
@@ -145,7 +148,7 @@ private:
     uint32_t scheduler_index_;
 
     // Time at which the InputChannelSender started
-    std::chrono::system_clock::time_point begin_time_;
+    std::chrono::high_resolution_clock::time_point begin_time_;
 
     // The Log folder
     std::string log_directory_;
@@ -157,13 +160,13 @@ private:
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
 
     //Input Buffer blockage
-    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_IB_blocked_start_log_;
+    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_IB_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;
     //Compute Buffer blockage
-    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_CB_blocked_start_log_;
+    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_CB_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_CB_blocked_duration_log_;
     //Max writes limitation blockage
-    SizedMap<uint64_t, std::chrono::system_clock::time_point> timeslice_MR_blocked_start_log_;
+    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_MR_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_MR_blocked_duration_log_;
 
     SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;

@@ -35,14 +35,14 @@ DDScheduler* DDScheduler::get_instance(){
 }
 
 
-void DDScheduler::init_input_scheduler(uint32_t input_index, std::chrono::system_clock::time_point MPI_time){
+void DDScheduler::init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time){
     assert(input_scheduler_info_.size() == input_connection_count_);
     input_scheduler_info_[input_index]->MPI_Barrier_time = MPI_time;
     input_scheduler_info_[input_index]->clock_offset = std::chrono::duration_cast
     				<std::chrono::microseconds>(begin_time_ - MPI_time).count();
 }
 
-void DDScheduler::set_begin_time(std::chrono::system_clock::time_point begin_time) {
+void DDScheduler::set_begin_time(std::chrono::high_resolution_clock::time_point begin_time) {
     begin_time_ = begin_time;
 }
 
@@ -142,7 +142,7 @@ void DDScheduler::trigger_complete_interval(const uint64_t interval_index) {
 
 void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     // TODO optimize this part to be only one loop --> O(n) instead of m*O(n)
-    std::chrono::system_clock::time_point average_start_time = get_start_time_statistics(interval_index);// get Average
+    std::chrono::high_resolution_clock::time_point average_start_time = get_start_time_statistics(interval_index);// get Average
     uint64_t median_interval_duration = get_median_interval_duration(interval_index);
     //uint64_t max_round_duration = get_max_round_duration(interval_index);
     // TODO the round count and the start timeslice should be the same from each input scheduler, otherwise, the interval duration should be increased!
@@ -195,11 +195,11 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint32_t round_count = std::floor(interval_duration_/compute_count);
     round_count = round_count == 0 ? 1 : round_count;
 
-    std::chrono::system_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));
+    std::chrono::high_resolution_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));
     // This is commented because it slows down the injection rate specially during the slow start and after the network congection
     /*if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key()+1 == interval_index) {
 	last_proposed_interval_info = proposed_interval_meta_data_.get(proposed_interval_meta_data_.get_last_key());
-	std::chrono::system_clock::time_point last_proposed_end_time = last_proposed_interval_info->start_time + std::chrono::microseconds(last_proposed_interval_info->interval_duration);
+	std::chrono::high_resolution_clock::time_point last_proposed_end_time = last_proposed_interval_info->start_time + std::chrono::microseconds(last_proposed_interval_info->interval_duration);
 	if (last_proposed_end_time > new_start_time) new_start_time = last_proposed_end_time;
     }*/
 
@@ -257,8 +257,8 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
 
 }
 
-std::chrono::system_clock::time_point DDScheduler::get_start_time_statistics(uint64_t interval_index, bool average, bool min) {
-    std::chrono::system_clock::time_point min_start_time = input_scheduler_info_[0]->interval_info_.get(interval_index).start_time,
+std::chrono::high_resolution_clock::time_point DDScheduler::get_start_time_statistics(uint64_t interval_index, bool average, bool min) {
+    std::chrono::high_resolution_clock::time_point min_start_time = input_scheduler_info_[0]->interval_info_.get(interval_index).start_time,
 	    max_start_time = min_start_time, tmp_time;
     for (uint32_t i = 1; i<input_connection_count_ ; i++) {
 	tmp_time = input_scheduler_info_[i]->interval_info_.get(interval_index).start_time;

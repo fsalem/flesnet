@@ -162,7 +162,7 @@ public:
 
     /// LOGGING
     ///-----
-    std::map<uint64_t,std::chrono::system_clock::time_point> send_interval_times_log_;
+    std::map<uint64_t,std::chrono::high_resolution_clock::time_point> send_interval_times_log_;
     ///-----/
     uint64_t last_recv_ts_ = 0;
     /// END LOGGING

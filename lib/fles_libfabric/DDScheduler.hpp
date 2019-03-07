@@ -40,10 +40,10 @@ public:
     static DDScheduler* get_instance();
 
     // Set the input nodes count
-    void init_input_scheduler(uint32_t input_index, std::chrono::system_clock::time_point MPI_time);
+    void init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time);
 
     // Set the begin time to be used in logging
-    void set_begin_time(std::chrono::system_clock::time_point begin_time);
+    void set_begin_time(std::chrono::high_resolution_clock::time_point begin_time);
 
     // Receive actual interval meta-data from ComputeNodeConnection
     void add_actual_meta_data(const uint32_t input_index, IntervalMetaData meta_data);
@@ -61,7 +61,7 @@ private:
 
     struct InputSchedulerData {
         //uint32_t index_;
-        std::chrono::system_clock::time_point MPI_Barrier_time;
+        std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
         int64_t clock_offset = 0;
         /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
         SizedMap< uint64_t, IntervalMetaData> interval_info_;
@@ -113,7 +113,7 @@ private:
     uint64_t get_enhanced_interval_duration(uint64_t interval_index);
 
     // Get statistics about start time of an interval average, minimal, or maximal
-    std::chrono::system_clock::time_point get_start_time_statistics(uint64_t interval_index, bool average = true, bool min = false);
+    std::chrono::high_resolution_clock::time_point get_start_time_statistics(uint64_t interval_index, bool average = true, bool min = false);
 
     // Get statistics about duration of an interval average, minimal, or maximal
     uint64_t get_duration_statistics(uint64_t interval_index, bool average = true, bool min = false);
@@ -169,7 +169,7 @@ private:
     uint32_t scheduler_index_;
 
     // The MPI time of TimesliceBuilder start
-    std::chrono::system_clock::time_point begin_time_;
+    std::chrono::high_resolution_clock::time_point begin_time_;
 
     // The history size
     uint32_t history_size_;

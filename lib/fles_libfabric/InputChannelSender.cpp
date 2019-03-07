@@ -162,7 +162,7 @@ void InputChannelSender::send_timeslices()
 	conn_index = (conn_index+1) % conn_.size();
     }while(conn_index != (input_index_ % conn_.size()));
 
-    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), input_scheduler_->get_next_fire_time());
+    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -224,7 +224,7 @@ void InputChannelSender::operator()()
         data_source_.proceed();
         int rc = MPI_Barrier(MPI_COMM_WORLD);
         assert(rc == MPI_SUCCESS);
-        time_begin_ = std::chrono::system_clock::now();
+        time_begin_ = std::chrono::high_resolution_clock::now();
         input_scheduler_->update_input_begin_time(time_begin_);
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
@@ -268,7 +268,7 @@ void InputChannelSender::operator()()
             poll_completion();
             scheduler_.timer();
         }
-        time_end_ = std::chrono::system_clock::now();
+        time_end_ = std::chrono::high_resolution_clock::now();
 
         if (connection_oriented_) {
             disconnect();

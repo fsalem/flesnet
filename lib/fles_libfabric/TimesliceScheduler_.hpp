@@ -21,10 +21,10 @@ namespace tl_libfabric {
 
 struct InputSchedulerData {
     //uint32_t index_;
-    std::chrono::system_clock::time_point MPI_Barrier_time;
+    std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
     int64_t clock_offset;
     /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
-    SizedMap< uint64_t, std::pair< std::chrono::system_clock::time_point, uint64_t > > interval_info_;
+    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > > interval_info_;
     // TODO add a list of durations to simplify the median calculations
     uint64_t median_duration = ConstVariables::ZERO;
     uint64_t max_duration = ConstVariables::ZERO;
@@ -49,13 +49,13 @@ public:
 
 	/// set the MPI barrier time of TimesliceBuilder
 	void set_compute_MPI_time(
-			std::chrono::system_clock::time_point compute_MPI_time){
+			std::chrono::high_resolution_clock::time_point compute_MPI_time){
 		compute_MPI_time_ = compute_MPI_time;
 	}
 
 	/// Init compute info
 	void init_compute_time(uint64_t compute_index, uint32_t input_node_count,
-			std::chrono::system_clock::time_point compute_MPI_time){
+			std::chrono::high_resolution_clock::time_point compute_MPI_time){
 		compute_index_ = compute_index;
 		input_node_count_ = input_node_count;
 		compute_MPI_time_ = compute_MPI_time;
@@ -63,7 +63,7 @@ public:
 
 	/// This method initializes the required data from each input node such as when the MPI barrier is passed
 	void init_input_index_info(uint32_t input_index,
-			std::chrono::system_clock::time_point MPI_time){
+			std::chrono::high_resolution_clock::time_point MPI_time){
 
 		assert(sender_info_.size() == input_node_count_);
 		sender_info_[input_index].MPI_Barrier_time = MPI_time;
@@ -74,13 +74,13 @@ public:
 
 	/// This method adds the received information from an input node to the scheduler data
 	void add_input_interval_info(uint32_t input_index, uint64_t interval_index,
-			std::chrono::system_clock::time_point actual_start_time,
-			std::chrono::system_clock::time_point proposed_start_time,
+			std::chrono::high_resolution_clock::time_point actual_start_time,
+			std::chrono::high_resolution_clock::time_point proposed_start_time,
 			double interval_duration){
 
 	    if (!sender_info_[input_index].interval_info_.contains(interval_index)) {
 		    L_(info) << "i" << input_index << " finished " <<interval_index << " in " << interval_duration;
-		    sender_info_[input_index].interval_info_.add(interval_index, std::pair<std::chrono::system_clock::time_point,uint64_t>(actual_start_time + std::chrono::microseconds(sender_info_[input_index].clock_offset), interval_duration));
+		    sender_info_[input_index].interval_info_.add(interval_index, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>(actual_start_time + std::chrono::microseconds(sender_info_[input_index].clock_offset), interval_duration));
 
 		    if (!sum_median_interval_duration_.contains(interval_index)){
 			sum_median_interval_duration_.add(interval_index, ConstVariables::ZERO);
@@ -125,8 +125,8 @@ public:
 	}
 
 	/// This method retrieves the interval information that will be sent to input nodes
-	std::pair<std::chrono::system_clock::time_point, uint64_t> get_interval_info(uint64_t interval_index,uint32_t input_index){
-	    std::pair<std::chrono::system_clock::time_point, uint64_t> interval_info;
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_info(uint64_t interval_index,uint32_t input_index){
+	    std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info;
 	    if (proposed_interval_start_time_info_.contains(interval_index)){
 		interval_info = proposed_interval_start_time_info_.get(interval_index);
 	    }else{
@@ -323,7 +323,7 @@ private:
 	/// This calculates the needed duration to complete an interval from all input nodes
 	void calculate_interval_info(uint64_t interval_index){
 
-	    std::chrono::system_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
+	    std::chrono::high_resolution_clock::time_point min_start_time, max_start_time, median_start_time, tmp;
 	    std::vector<uint64_t> interval_durations;
 
 	    // get the earliest start time!
@@ -405,7 +405,7 @@ private:
 	uint64_t get_median_interval_duration(){
 	    if (actual_interval_start_time_info_.size() == 0)return 0;
 
-	    SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point,uint64_t>>::iterator it = actual_interval_start_time_info_.get_end_iterator();
+	    SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>>::iterator it = actual_interval_start_time_info_.get_end_iterator();
 	    uint64_t sum_durations = 0;
 	    std::vector<uint64_t> values;
 	    uint32_t required_size = ConstVariables::MAX_MEDIAN_VALUES;
@@ -426,10 +426,10 @@ private:
 
 	}
 	/// This method gets the sent time for a particular input node and timeslice
-	std::pair<std::chrono::system_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
+	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> get_interval_sent_time(uint64_t interval_index){
 
 	    uint64_t last_completed_interval = actual_interval_start_time_info_.get_last_key();
-	    std::pair<std::chrono::system_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
+	    std::pair<std::chrono::high_resolution_clock::time_point,uint64_t> interval_info = actual_interval_start_time_info_.get(last_completed_interval);
 	    uint64_t median_interval_duration = get_median_interval_duration();
 
 	    std::pair<double, double> stats_data = get_mean_variance();
@@ -530,7 +530,7 @@ private:
 
 	    proposed_median_enhanced_duration_log_.insert(std::pair<uint64_t,std::pair<uint64_t,uint64_t>>(interval_index,std::pair<uint64_t,uint64_t>(median_interval_duration, enhanced_interval_duration)));
 
-	    return std::pair<std::chrono::system_clock::time_point, uint64_t>(
+	    return std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>(
 		    interval_info.first + std::chrono::microseconds(median_interval_duration * (interval_index - last_completed_interval)),
 		    enhanced_interval_duration);
 
@@ -550,7 +550,7 @@ private:
 	    if (sender_info_[input_index].interval_info_.size() == 0)return ConstVariables::MINUS_ONE;
 
 	    // TODO SHOULD BE ENHANZED!!! BRUTEFORCE CODE!
-	    SizedMap< uint64_t, std::pair< std::chrono::system_clock::time_point, uint64_t > >::iterator
+	    SizedMap< uint64_t, std::pair< std::chrono::high_resolution_clock::time_point, uint64_t > >::iterator
 		    start_it = sender_info_[input_index].interval_info_.get_begin_iterator(),
 		    end_it = sender_info_[input_index].interval_info_.get_end_iterator();
 	    std::vector<uint64_t> durations;
@@ -577,7 +577,7 @@ private:
 	uint64_t compute_index_;
 
 	/// The local time of the compute node when the MPI barrier reached
-	std::chrono::system_clock::time_point compute_MPI_time_;
+	std::chrono::high_resolution_clock::time_point compute_MPI_time_;
 
 	/// The number of input nodes which the compute receives data from
 	uint32_t input_node_count_;
@@ -586,9 +586,9 @@ private:
 	std::vector<InputSchedulerData> sender_info_;
 
 	/// A history of the proposed start time for intervals <timeslice, <time, gap>>
-	SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point,uint64_t>> proposed_interval_start_time_info_;
+	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> proposed_interval_start_time_info_;
 
-	SizedMap<uint64_t, std::pair<std::chrono::system_clock::time_point,uint64_t>> actual_interval_start_time_info_;
+	SizedMap<uint64_t, std::pair<std::chrono::high_resolution_clock::time_point,uint64_t>> actual_interval_start_time_info_;
 
 	/// Count of the acked contributions from input nodes <timeslice, count>
 	SizedMap<uint64_t, uint32_t> acked_interval_count_;
