@@ -44,6 +44,7 @@ InputChannelConnection::InputChannelConnection(
 
     data_changed_ = true; // to send empty message at the beginning
     data_acked_ = false; // to send empty message at the beginning
+    input_scheduler_ = InputScheduler::get_instance();
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -516,8 +517,6 @@ void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
 }
 
 void InputChannelConnection::ack_complete_interval_info(){
-    if (input_scheduler_ == nullptr)input_scheduler_ = InputScheduler::get_instance();
-
     const IntervalMetaData* meta_data = input_scheduler_->get_actual_meta_data(
 	    send_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE ? send_status_message_.actual_interval_metadata.interval_index + 1 :0);
     if (meta_data != nullptr){
