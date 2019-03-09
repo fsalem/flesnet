@@ -90,6 +90,8 @@ void ComputeNodeConnection::post_recv_status_message()
 
 void ComputeNodeConnection::post_send_status_message()
 {
+    // stop sending more message after sending the final one
+    if (final_msg_sent_) return;
     if (false) {
         L_(trace) << "[c" << remote_index_ << "] "
                   << "[" << index_ << "] "
@@ -114,6 +116,7 @@ void ComputeNodeConnection::post_send_final_status_message()
     send_wr.context = (void*)(ID_SEND_FINALIZE | (index_ << 8));
 #pragma GCC diagnostic pop
     post_send_status_message();
+    final_msg_sent_ = true;
 }
 
 void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
@@ -331,6 +334,7 @@ void ComputeNodeConnection::on_complete_recv()
     	last_recv_ts_= cn_wp_.desc;
     	/// END LOGGING
     }
+    write_received_descriptors();
 
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;
@@ -399,5 +403,28 @@ void ComputeNodeConnection::send_ep_addr()
 bool ComputeNodeConnection::is_connection_finalized()
 {
     return send_status_message_.final;
+}
+
+void ComputeNodeConnection::write_received_descriptors()
+{
+    for (int i=0 ; i < recv_status_message_.descriptor_count ; i++) {
+        fles::TimesliceComponentDescriptor descriptor = recv_status_message_.tscdesc_msg[i];
+        if (sync_received_ts_.find(descriptor.ts_num) == sync_received_ts_.end()) {
+                uint64_t offset = (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
+                fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
+                L_(debug) << "[c" << remote_index_ << "] "
+                  << "[" << index_ << "] "
+                  << "TS descriptor of ts#" << descriptor.ts_num
+                  << " offset " << descriptor.offset
+                  << " local offset " << offset
+                  << " size " << descriptor.size
+                  << " num mts " << descriptor.num_microslices
+                  << " local address " << (acked_ts)
+                  << " tscdesc_ts " << descriptor.ts_desc;
+                // TODO empty this list regularly
+                sync_received_ts_.insert(descriptor.ts_num);
+                std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
+         }
+    }
 }
 }

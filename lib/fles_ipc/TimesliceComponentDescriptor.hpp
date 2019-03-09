@@ -16,6 +16,7 @@ namespace fles
  */
 struct TimesliceComponentDescriptor {
     uint64_t ts_num; ///< Timeslice index.
+    uint64_t ts_desc; ///< Timeslice index at Compute nodes
     uint64_t offset; ///< Start offset (in bytes) of corresponding data.
     uint64_t size;   ///< Size (in bytes) of corresponding data.
     uint64_t num_microslices; ///< Number of microslices.
@@ -26,6 +27,7 @@ struct TimesliceComponentDescriptor {
     void serialize(Archive& ar, const unsigned int /* version */)
     {
         ar& ts_num;
+        ar& ts_desc;
         ar& offset;
         ar& size;
         ar& num_microslices;

@@ -62,8 +62,11 @@ public:
     // Get the time to start sending more timeslices
     int64_t get_next_fire_time();
 
-    // Check whether a timeslice is within the current round
-    bool is_ts_within_current_round(uint64_t timeslice);
+    // Get the number of current compute node connections
+    uint32_t get_compute_connection_count();
+
+    // Check whether a timeslice is acked
+    bool is_timeslice_acked(uint64_t timeslice);
 
     // Log the transmission time of a timeslice
     void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
@@ -86,7 +89,7 @@ private:
 	std::chrono::high_resolution_clock::time_point expected_time;
 	std::chrono::high_resolution_clock::time_point transmit_time;
 	uint32_t compute_index;
-	uint64_t acked_duration;
+	uint64_t acked_duration = 0;
     };
 
     InputScheduler(uint32_t scheduler_index , uint32_t compute_conn_count,

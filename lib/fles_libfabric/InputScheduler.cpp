@@ -123,12 +123,14 @@ int64_t InputScheduler::get_next_fire_time(){
 */
 }
 
-// Check whether a timeslice is within the current round
-bool InputScheduler::is_ts_within_current_round(uint64_t timeslice){
-    uint64_t interval = interval_info_.get_last_key();
-    InputIntervalInfo* current_interval = interval_info_.get(interval);
-    uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
-    return timeslice <= std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
+uint32_t InputScheduler::get_compute_connection_count(){
+    return compute_count_;
+}
+
+bool InputScheduler::is_timeslice_acked(uint64_t timeslice){
+    if (!timeslice_info_log_.contains(timeslice))return false;
+    TimesliceInfo* timeslice_info = timeslice_info_log_.get(timeslice);
+    return timeslice_info->acked_duration == 0 ? false : true;
 }
 
 // PRIVATE

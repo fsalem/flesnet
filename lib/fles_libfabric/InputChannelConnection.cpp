@@ -81,7 +81,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
                                        uint64_t desc_length,
                                        uint64_t data_length, uint64_t skip)
 {
-    int num_sge2 = 0;
+    int num_sge2 = 0, put_count = 0;
     struct iovec sge2[4];
     void* desc2[4];
 
@@ -150,9 +150,11 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-        send_wr_ts.context = (void*)ID_WRITE_DATA;
+        send_wr_ts.context = (void*)(ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
 #pragma GCC diagnostic pop
-        post_send_rdma(&send_wr_ts, 0); // TODO FI_MORE to be added for optimizing the code
+        post_send_rdma(&send_wr_ts, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
+        ++put_count;
+        ++pending_write_requests_;
     }
 
     if (num_sge2) {
@@ -175,54 +177,34 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-            send_wr_tswrap.context = (void*)ID_WRITE_DATA_WRAP;
+            send_wr_tswrap.context = (void*)(ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
 #pragma GCC diagnostic pop
-            post_send_rdma(&send_wr_tswrap, 0); // TODO FI_MORE to be added for optimizing the code
+            post_send_rdma(&send_wr_tswrap, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
+            ++put_count;
+	    ++pending_write_requests_;
         }
     }
 
+    put_count_list_.add(timeslice, put_count);
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;
+    tscdesc.ts_desc = timeslice % input_scheduler_->get_compute_connection_count();
     tscdesc.offset = cn_wp_data;
     tscdesc.size =
         data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
     tscdesc.num_microslices = desc_length;
-    struct iovec sge3;
-    sge3.iov_base = &tscdesc;
-    sge3.iov_len = sizeof(tscdesc);
-    // sge3.lkey = 0;
-
-    rma_iov[0].addr = remote_info_.desc.addr +
-                      (cn_wp_.desc & cn_desc_buffer_mask) *
-                          sizeof(fles::TimesliceComponentDescriptor);
-    rma_iov[0].len = sizeof(tscdesc);
-    rma_iov[0].key = remote_info_.desc.rkey;
-
-    memset(&send_wr_tscdesc, 0, sizeof(send_wr_tscdesc));
-    send_wr_tscdesc.msg_iov = &sge3;
-    send_wr_tscdesc.desc = NULL;
-    send_wr_tscdesc.iov_count = 1;
-    // addr
-    send_wr_tscdesc.rma_iov = rma_iov;
-    send_wr_tscdesc.rma_iov_count = 1;
-    send_wr_tscdesc.addr = partner_addr_;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr_tscdesc.context =
-        (void*)(ID_WRITE_DESC | (timeslice << 24) | (index_ << 8));
-#pragma GCC diagnostic pop
 
     if (false) {
-        L_(info) << "[i" << remote_index_ << "] "
-                 << "[" << index_ << "] "
-                 << "POST SEND data (timeslice " << timeslice << ")";
+	L_(info) << "[i" << remote_index_ << "] "
+		 << "[" << index_ << "] "
+		 << "POST SEND data (timeslice " << timeslice << ")"
+		 << " tscdesc.ts_num " << tscdesc.ts_num
+		 << " tscdesc.ts_desc " << tscdesc.ts_desc
+		 << " tscdesc.offset " << tscdesc.offset;
     }
-
-    // send everything
+    pending_descriptors_.push_back(tscdesc);
     assert(pending_write_requests_ < max_pending_write_requests_);
-    ++pending_write_requests_;
-    post_send_rdma(&send_wr_tscdesc, FI_FENCE | FI_COMPLETION | FI_INJECT);
 }
 
 bool InputChannelConnection::write_request_available()
@@ -236,6 +218,18 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
     cn_wp_.data += data_size;
     cn_wp_.desc += desc_size;
     data_changed_ = true;
+}
+
+void InputChannelConnection::check_inc_write_pointers()
+{
+    while (!timeslice_data_address_.empty() && added_sent_descriptors_ < 10)
+    {
+        if (!input_scheduler_->is_timeslice_acked(pending_descriptors_[0].ts_num))break;
+        send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];
+        inc_write_pointers(timeslice_data_address_[0],1);
+        timeslice_data_address_.erase(timeslice_data_address_.begin());
+        pending_descriptors_.erase(pending_descriptors_.begin());
+    }
 }
 
 bool InputChannelConnection::try_sync_buffer_positions()
@@ -443,6 +437,16 @@ void InputChannelConnection::post_send_status_message()
 
     data_changed_ = false;
     data_acked_ = false;
+
+    added_sent_descriptors_ = 0;
+    check_inc_write_pointers();
+    send_status_message_.descriptor_count=added_sent_descriptors_;
+    if (!pending_descriptors_.empty()){
+	data_acked_ = true;
+    }
+    added_sent_descriptors_ = 0;
+
+    //L_(info) << "SIZE OF MSG = " << sizeof(send_status_message_) << ". added " << pending_descriptors_.size() << " each is " << sizeof(sizeof(fles::TimesliceComponentDescriptor));
 
     post_send_msg(&send_wr);
 }

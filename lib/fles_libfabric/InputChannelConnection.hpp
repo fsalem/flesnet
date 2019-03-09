@@ -9,6 +9,7 @@
 #include "InputChannelStatusMessage.hpp"
 #include "InputIntervalInfo.hpp"
 #include "InputScheduler.hpp"
+#include "TimesliceComponentDescriptor.hpp"
 
 #include <sys/uio.h>
 
@@ -43,6 +44,9 @@ public:
 
     /// Increment target write pointers after data has been sent.
     void inc_write_pointers(uint64_t data_size, uint64_t desc_size);
+
+    /// Increment target write pointers after data has been sent.
+    void check_inc_write_pointers();
 
     // Get number of bytes to skip in advance (to avoid buffer wrap)
     uint64_t skip_required(uint64_t data_size);
@@ -98,6 +102,12 @@ public:
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
 
+    void timeslice_acked(){ data_acked_ = true;}
+
+    void add_timeslice_data_address(uint64_t total_length) {timeslice_data_address_.push_back(total_length);}
+
+    /// Count the number of puts for each timeslice write
+    SizedMap<uint64_t, int> put_count_list_;
 private:
     /// Post a receive work request (WR) to the receive queue
     void post_recv_status_message();
@@ -160,6 +170,16 @@ private:
 
     //A singleton instance from the input scheduler
     InputScheduler* input_scheduler_ = nullptr;
+
+    /// List of descriptors to be sent in the next sync messages
+    std::vector<fles::TimesliceComponentDescriptor> pending_descriptors_;
+
+    /// Data addresses of the pending timeslices
+    std::vector<uint64_t> timeslice_data_address_;
+
+    /// count of added descriptors to the sync message
+    uint8_t added_sent_descriptors_ = 0;
+
 
 };
 }

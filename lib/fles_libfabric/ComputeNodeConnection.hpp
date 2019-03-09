@@ -168,6 +168,9 @@ public:
     /// END LOGGING
 
 private:
+    /// Write the received timeslice descriptors from the sync messages in the memory (to minimize RDMA Writes)
+    void write_received_descriptors();
+
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
     ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
 
@@ -213,6 +216,13 @@ private:
     ///-----/
 
     bool registered_input_MPI_time = false;
+
+    /// To prevent sending more messages (late messages) once the final message is sent out
+    bool final_msg_sent_ = false;
+
+    /// list of added descriptors in the memory
+    std::set<uint64_t> sync_received_ts_;
+
 
 };
 }

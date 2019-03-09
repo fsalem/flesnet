@@ -297,7 +297,10 @@ std::unique_ptr<std::vector<uint8_t>> Connection::get_private_data()
 void Connection::post_send_msg(struct fi_msg* wr)
 {
 
-    int err = fi_sendmsg(ep_, wr, FI_COMPLETION);
+    uint64_t flags = 0;
+    // ONLY receive back a completion event for messages if it is finalize message
+    if (wr->context == (void*)(ID_SEND_FINALIZE | (index_ << 8)) || true)flags = FI_COMPLETION;
+    int err = fi_sendmsg(ep_, wr, flags);
     if (err) {
         // dump_send_wr(wr);
         L_(fatal) << "previous send requests: " << total_send_requests_;

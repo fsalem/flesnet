@@ -337,7 +337,8 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
-            conn_[cn]->inc_write_pointers(total_length, 1);
+            //conn_[cn]->inc_write_pointers(total_length, 1);
+            conn_[cn]->add_timeslice_data_address(total_length);
 
             if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
             	sent_desc_ = desc_offset + desc_length;
@@ -559,13 +560,29 @@ void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
 void InputChannelSender::on_completion(uint64_t wr_id)
 {
     switch (wr_id & 0xFF) {
-    case ID_WRITE_DESC: {
+    case ID_WRITE_DESC :
+    case ID_WRITE_DATA :
+    case ID_WRITE_DATA_WRAP : {
         uint64_t ts = wr_id >> 24;
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
+        // TODO change to function
+        int count = conn_[cn]->put_count_list_.get(ts) - 1;
+        if (count == 0)conn_[cn]->put_count_list_.remove(ts);
+        else{
+            // TODO remove the if satement
+            if (sent_timeslices_ == max_timeslice_number_)
+        	L_(info) << "[i" << input_index_ << "] "
+			 << "write timeslice " << ts
+			 << " remaining " << count;
+            conn_[cn]->put_count_list_.update(ts, count);
+            break;
+	}
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
+
+        conn_[cn]->timeslice_acked();
 
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
