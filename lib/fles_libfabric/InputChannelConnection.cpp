@@ -190,7 +190,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;
-    tscdesc.ts_desc = timeslice % input_scheduler_->get_compute_connection_count();
+    tscdesc.ts_desc = timeslice / input_scheduler_->get_compute_connection_count();
     tscdesc.offset = cn_wp_data;
     tscdesc.size =
         data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
