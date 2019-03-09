@@ -242,6 +242,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 		data_changed_ = true;
 	}
     }
+    check_inc_write_pointers();
     if ((data_changed_ || data_acked_)) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
@@ -433,21 +434,19 @@ void InputChannelConnection::post_send_status_message()
                   << "[" << index_ << "] "
                   << "POST SEND status message (wp.data="
                   << send_status_message_.wp.data
-                  << " wp.desc=" << send_status_message_.wp.desc << ")";
+                  << " wp.desc=" << send_status_message_.wp.desc << ")"
+		  << " added descriptors=" << added_sent_descriptors_
+		  << " remaining=" << pending_descriptors_.size();
     }
 
     data_changed_ = false;
     data_acked_ = false;
 
-    added_sent_descriptors_ = 0;
-    check_inc_write_pointers();
     send_status_message_.descriptor_count=added_sent_descriptors_;
     if (!pending_descriptors_.empty()){
 	data_acked_ = true;
     }
     added_sent_descriptors_ = 0;
-
-    //L_(info) << "SIZE OF MSG = " << sizeof(send_status_message_) << ". added " << pending_descriptors_.size() << " each is " << sizeof(sizeof(fles::TimesliceComponentDescriptor));
 
     post_send_msg(&send_wr);
 }
