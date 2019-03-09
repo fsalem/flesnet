@@ -56,19 +56,19 @@ bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
                   << ", avail="
                   << cn_ack_.data +
                          (UINT64_C(1) << remote_info_.data_buffer_size_exp) -
-                         cn_wp_.data;
+                         cn_wp_.data - cn_wp_pending_.data;
         L_(trace) << "[" << index_ << "] "
                   << "SENDER desc space (entries) required=" << desc_size
                   << ", avail="
                   << cn_ack_.desc +
                          (UINT64_C(1) << remote_info_.desc_buffer_size_exp) -
-                         cn_wp_.desc;
+                         cn_wp_.desc - cn_wp_pending_.desc;
     }
 
-    if (cn_ack_.data - cn_wp_.data +
+    if (cn_ack_.data - cn_wp_.data - cn_wp_pending_.data +
                 (UINT64_C(1) << remote_info_.data_buffer_size_exp) <
             data_size ||
-        cn_ack_.desc - cn_wp_.desc +
+        cn_ack_.desc - cn_wp_.desc - cn_wp_pending_.desc +
                 (UINT64_C(1) << remote_info_.desc_buffer_size_exp) <
             desc_size) { // TODO: extend condition!
         return false;
@@ -228,6 +228,8 @@ void InputChannelConnection::check_inc_write_pointers()
         if (!input_scheduler_->is_timeslice_acked(pending_descriptors_[0].ts_num))break;
         send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];
         inc_write_pointers(timeslice_data_address_[0],1);
+        cn_wp_pending_.data -= timeslice_data_address_[0];
+	cn_wp_pending_.desc -= 1;
         timeslice_data_address_.erase(timeslice_data_address_.begin());
         pending_descriptors_.erase(pending_descriptors_.begin());
         data_acked_ = true;
@@ -521,5 +523,12 @@ void InputChannelConnection::ack_complete_interval_info(){
 	send_status_message_.required_interval_index = meta_data->interval_index + 2;
 	data_acked_ = true;
     }
+}
+
+void InputChannelConnection::add_timeslice_data_address(uint64_t data_size, uint64_t desc_size){
+    timeslice_data_address_.push_back(data_size);
+    cn_wp_pending_.data += data_size;
+    cn_wp_pending_.desc += desc_size;
+
 }
 }

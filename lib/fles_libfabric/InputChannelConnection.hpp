@@ -102,7 +102,7 @@ public:
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
 
-    void add_timeslice_data_address(uint64_t total_length) {timeslice_data_address_.push_back(total_length);}
+    void add_timeslice_data_address(uint64_t data_size, uint64_t desc_size);
 
     /// Count the number of puts for each timeslice write
     SizedMap<uint64_t, int> put_count_list_;
@@ -137,6 +137,9 @@ private:
 
     /// Local version of CN write pointers
     ComputeNodeBufferPosition cn_wp_ = ComputeNodeBufferPosition();
+
+    ///
+    ComputeNodeBufferPosition cn_wp_pending_ = ComputeNodeBufferPosition();
 
     /// Send buffer for input channel status (including CN write pointers)
     InputChannelStatusMessage send_status_message_ =

@@ -338,7 +338,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
                            data_length, skip);
 
             //conn_[cn]->inc_write_pointers(total_length, 1);
-            conn_[cn]->add_timeslice_data_address(total_length);
+            conn_[cn]->add_timeslice_data_address(total_length, 1);
 
             if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
             	sent_desc_ = desc_offset + desc_length;
