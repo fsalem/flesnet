@@ -102,8 +102,6 @@ public:
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
 
-    void timeslice_acked(){ data_acked_ = true;}
-
     void add_timeslice_data_address(uint64_t total_length) {timeslice_data_address_.push_back(total_length);}
 
     /// Count the number of puts for each timeslice write

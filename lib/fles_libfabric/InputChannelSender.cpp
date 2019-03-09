@@ -582,8 +582,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
 
-        conn_[cn]->timeslice_acked();
-
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
             // transmission has been reordered, store completion information

@@ -230,6 +230,7 @@ void InputChannelConnection::check_inc_write_pointers()
         inc_write_pointers(timeslice_data_address_[0],1);
         timeslice_data_address_.erase(timeslice_data_address_.begin());
         pending_descriptors_.erase(pending_descriptors_.begin());
+        data_acked_ = true;
     }
 }
 
@@ -435,7 +436,7 @@ void InputChannelConnection::post_send_status_message()
                   << "POST SEND status message (wp.data="
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")"
-		  << " added descriptors=" << added_sent_descriptors_
+		  << " added descriptors=" << std::to_string(added_sent_descriptors_)
 		  << " remaining=" << pending_descriptors_.size();
     }
 
@@ -443,9 +444,6 @@ void InputChannelConnection::post_send_status_message()
     data_acked_ = false;
 
     send_status_message_.descriptor_count=added_sent_descriptors_;
-    if (!pending_descriptors_.empty()){
-	data_acked_ = true;
-    }
     added_sent_descriptors_ = 0;
 
     post_send_msg(&send_wr);
