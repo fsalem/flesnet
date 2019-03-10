@@ -238,6 +238,7 @@ void InputChannelConnection::check_inc_write_pointers()
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
+    if (!send_buffer_available_) return false;
     if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
 	if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
 		send_status_message_.final = true;
@@ -246,7 +247,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 	}
     }
     check_inc_write_pointers();
-    if ((data_changed_ || data_acked_) && send_buffer_available_) { //
+    if ((data_changed_ || data_acked_)) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
