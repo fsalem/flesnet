@@ -638,6 +638,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     } break;
 
     case ID_SEND_STATUS: {
+	int cn = wr_id >> 8;
+	conn_[cn]->send_buffer_available_ = true;
     } break;
 
     default:

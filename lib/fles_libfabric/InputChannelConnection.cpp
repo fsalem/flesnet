@@ -246,7 +246,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 	}
     }
     check_inc_write_pointers();
-    if ((data_changed_ || data_acked_)) { //
+    if ((data_changed_ || data_acked_) && send_buffer_available_) { //
 	send_status_message_.wp = cn_wp_;
         post_send_status_message();
         return true;
@@ -444,8 +444,9 @@ void InputChannelConnection::post_send_status_message()
 
     data_changed_ = false;
     data_acked_ = false;
+    send_buffer_available_ = false;
 
-    send_status_message_.descriptor_count=added_sent_descriptors_;
+    send_status_message_.descriptor_count = added_sent_descriptors_;
     added_sent_descriptors_ = 0;
 
     post_send_msg(&send_wr);
