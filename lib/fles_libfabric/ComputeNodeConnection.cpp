@@ -105,6 +105,7 @@ void ComputeNodeConnection::post_send_status_message()
     }
     data_acked_ = false;
     data_changed_ = false;
+    send_buffer_available_ = false;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
@@ -262,6 +263,7 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
+    if (!send_buffer_available_)return false;
     if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
 	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
 	    timeslice_DD_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
@@ -353,7 +355,11 @@ void ComputeNodeConnection::on_complete_recv()
     post_recv_status_message();
 }
 
-void ComputeNodeConnection::on_complete_send() { pending_send_requests_--; }
+void ComputeNodeConnection::on_complete_send()
+{
+    pending_send_requests_--;
+    send_buffer_available_  = true;
+}
 
 void ComputeNodeConnection::on_complete_send_finalize() { done_ = true; }
 
