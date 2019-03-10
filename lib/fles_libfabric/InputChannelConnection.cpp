@@ -86,7 +86,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     struct iovec sge2[4];
     void* desc2[4];
 
-    uint64_t cn_wp_data = cn_wp_.data;
+    uint64_t cn_wp_data = cn_wp_.data + cn_wp_pending_.data;
     cn_wp_data += skip;
 
     uint64_t cn_data_buffer_mask =
