@@ -223,7 +223,7 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 
 void InputChannelConnection::check_inc_write_pointers()
 {
-    while (!timeslice_data_address_.empty() && added_sent_descriptors_ < 10)
+    while (!timeslice_data_address_.empty() && added_sent_descriptors_ < ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE)
     {
         if (!input_scheduler_->is_timeslice_acked(pending_descriptors_[0].ts_num))break;
         send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];

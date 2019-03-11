@@ -33,8 +33,7 @@ struct InputChannelStatusMessage {
     uint64_t required_interval_index = ConstVariables::MINUS_ONE;
 
     /// List of descriptors
-    // TODO make the size variable!
-    fles::TimesliceComponentDescriptor tscdesc_msg[10] = {0};
+    fles::TimesliceComponentDescriptor tscdesc_msg[ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE] = {0};
 
     /// Count of the descriptors in the list
     uint8_t descriptor_count = 0;

@@ -15,6 +15,8 @@ struct ConstVariables {
     const static uint32_t MAX_HISTORY_SIZE = 20000; // high for logging ... should be small ~100-200
     const static uint16_t MAX_TIMESLICE_PER_INTERVAL = 10000;
 
+    const static uint16_t MAX_DESCRIPTOR_ARRAY_SIZE = 10;
+
     ///-----
     const static bool ENABLE_LOGGING = 1;
     const static uint32_t MAX_MEDIAN_VALUES = 10;
