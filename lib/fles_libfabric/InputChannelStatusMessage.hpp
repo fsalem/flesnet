@@ -23,9 +23,6 @@ struct InputChannelStatusMessage {
     bool connect;
     InputNodeInfo info;
     unsigned char my_address[64]; // gni: 50?};
-    // Time of the MPI barrier
-    /// TODO seperate message for the following to minimize the message size!!
-    std::chrono::high_resolution_clock::time_point MPI_time;
 
     IntervalMetaData actual_interval_metadata;
 

@@ -86,7 +86,7 @@ public:
                  struct fid_domain* domain, struct fid_cq* cq,
                  struct fid_av* av, fi_addr_t fi_addr);
 
-    void set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) { send_status_message_.MPI_time = time_MPI; }
+    void set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) { send_status_message_.local_time = time_MPI; }
 
     void reconnect();
 

@@ -35,11 +35,15 @@ DDScheduler* DDScheduler::get_instance(){
 }
 
 
-void DDScheduler::init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time){
+void DDScheduler::init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point local_time, const uint64_t median_latency){
     assert(input_scheduler_info_.size() == input_connection_count_);
-    input_scheduler_info_[input_index]->MPI_Barrier_time = MPI_time;
-    input_scheduler_info_[input_index]->clock_offset = std::chrono::duration_cast
-    				<std::chrono::microseconds>(begin_time_ - MPI_time).count();
+    if (median_latency == ConstVariables::ZERO){
+	input_scheduler_info_[input_index]->clock_offset = std::chrono::duration_cast
+    				<std::chrono::microseconds>(begin_time_ - local_time).count();
+    } else{
+	input_scheduler_info_[input_index]->clock_offset = std::chrono::duration_cast
+				<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - local_time).count() - median_latency;
+    }
 }
 
 void DDScheduler::set_begin_time(std::chrono::high_resolution_clock::time_point begin_time) {

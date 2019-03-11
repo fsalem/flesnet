@@ -40,7 +40,7 @@ public:
     static DDScheduler* get_instance();
 
     // Set the input nodes count
-    void init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time);
+    void init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time, const uint64_t median_latency);
 
     // Set the begin time to be used in logging
     void set_begin_time(std::chrono::high_resolution_clock::time_point begin_time);
@@ -61,7 +61,7 @@ private:
 
     struct InputSchedulerData {
         //uint32_t index_;
-        std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
+        //std::chrono::high_resolution_clock::time_point MPI_Barrier_time;
         int64_t clock_offset = 0;
         /// <interval index, <actual_start_time,duration>>. Duration is the spent time from sending the contribution till getting the acknowledgement
         SizedMap< uint64_t, IntervalMetaData> interval_info_;

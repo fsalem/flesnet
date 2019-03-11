@@ -340,13 +340,14 @@ void ComputeNodeConnection::on_complete_recv()
 
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;
-    	timeslice_DD_scheduler_->init_input_scheduler(index_,recv_status_message_.MPI_time);
+    	timeslice_DD_scheduler_->init_input_scheduler(index_, recv_status_message_.local_time, ConstVariables::ZERO);
     	///-----
-    	timeslice_scheduler_->init_input_index_info(index_,recv_status_message_.MPI_time);
+    	timeslice_scheduler_->init_input_index_info(index_, recv_status_message_.local_time);
     	///-----/
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
+    	timeslice_DD_scheduler_->init_input_scheduler(index_, recv_status_message_.local_time, recv_status_message_.median_latency);
     	timeslice_DD_scheduler_->add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
     	///-----
     	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.actual_interval_metadata.interval_index, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.interval_duration);
