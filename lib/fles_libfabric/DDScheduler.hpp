@@ -40,7 +40,7 @@ public:
     static DDScheduler* get_instance();
 
     // Set the input nodes count
-    void init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time, const uint64_t median_latency = ConstVariables::ZERO, const uint64_t interval_index = ConstVariables::ZERO);
+    void update_clock_offset(uint32_t input_index, std::chrono::high_resolution_clock::time_point MPI_time, const uint64_t median_latency = ConstVariables::ZERO, const uint64_t interval_index = ConstVariables::ZERO);
 
     // Set the begin time to be used in logging
     void set_begin_time(std::chrono::high_resolution_clock::time_point begin_time);

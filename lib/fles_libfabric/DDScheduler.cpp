@@ -35,7 +35,7 @@ DDScheduler* DDScheduler::get_instance(){
 }
 
 
-void DDScheduler::init_input_scheduler(uint32_t input_index, std::chrono::high_resolution_clock::time_point local_time, const uint64_t median_latency, const uint64_t interval_index){
+void DDScheduler::update_clock_offset(uint32_t input_index, std::chrono::high_resolution_clock::time_point local_time, const uint64_t median_latency, const uint64_t interval_index){
     assert(input_scheduler_info_.size() == input_connection_count_);
     if (median_latency == ConstVariables::ZERO){
 	input_scheduler_info_[input_index]->clock_offset = std::chrono::duration_cast
