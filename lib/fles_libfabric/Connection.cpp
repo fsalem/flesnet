@@ -296,10 +296,8 @@ std::unique_ptr<std::vector<uint8_t>> Connection::get_private_data()
 
 void Connection::post_send_msg(struct fi_msg* wr)
 {
-
-    uint64_t flags = FI_INJECT_COMPLETE;
-    // ONLY receive back a completion event for messages if it is finalize message
-    //if (wr->context == (void*)(ID_SEND_FINALIZE | (index_ << 8)) || true)flags = FI_COMPLETION;
+    // We need only FI_INJECT_COMPLETE but this is not supported with GNI
+    uint64_t flags = FI_COMPLETION;
     int err = fi_sendmsg(ep_, wr, flags);
     if (err) {
         // dump_send_wr(wr);
