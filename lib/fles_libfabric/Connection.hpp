@@ -108,8 +108,6 @@ public:
 
     std::chrono::high_resolution_clock::time_point time_begin_;
 
-    /// To prevent reusing the buffer while injecting sync messages
-    bool send_buffer_available_ = true;
 protected:
     //    void dump_send_wr(struct ibv_send_wr* wr);
 
@@ -154,6 +152,9 @@ protected:
 
     /// check if new data is acked and should be sent
     bool data_acked_= false;
+
+    /// To prevent reusing the buffer while injecting sync messages
+    bool send_buffer_available_ = true;
 
 private:
     //    /// Low-level communication parameters.

@@ -32,6 +32,13 @@ struct InputChannelStatusMessage {
     /// The required interval info
     uint64_t required_interval_index = ConstVariables::MINUS_ONE;
 
+    /// Local time at which actual interval metadata is sent
+    std::chrono::high_resolution_clock::time_point local_time;
+
+    /// The median latency of SYNC messages
+    uint64_t median_latency = ConstVariables::ZERO;
+
+
     /// List of descriptors
     fles::TimesliceComponentDescriptor tscdesc_msg[ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE] = {0};
 

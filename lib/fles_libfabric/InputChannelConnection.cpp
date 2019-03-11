@@ -45,6 +45,7 @@ InputChannelConnection::InputChannelConnection(
     data_changed_ = true; // to send empty message at the beginning
     data_acked_ = false; // to send empty message at the beginning
     input_scheduler_ = InputScheduler::get_instance();
+    msg_latency_.resize(ConstVariables::MAX_MEDIAN_VALUES);
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -249,6 +250,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
     check_inc_write_pointers();
     if ((data_changed_ || data_acked_)) { //
 	send_status_message_.wp = cn_wp_;
+	send_status_message_.local_time = std::chrono::high_resolution_clock::now();
         post_send_status_message();
         return true;
     } else {
@@ -274,6 +276,13 @@ void InputChannelConnection::finalize(bool abort)
 }
 
 void InputChannelConnection::on_complete_write() { pending_write_requests_--; }
+
+void InputChannelConnection::on_complete_send()
+{
+    send_buffer_available_ = true;
+    msg_latency_[msg_latency_index_] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - msg_send_time_).count();
+    msg_latency_index_ = (msg_latency_index_+1) % msg_latency_.size();
+}
 
 void InputChannelConnection::on_complete_recv()
 {
@@ -450,6 +459,8 @@ void InputChannelConnection::post_send_status_message()
     send_status_message_.descriptor_count = added_sent_descriptors_;
     added_sent_descriptors_ = 0;
 
+    msg_send_time_ = std::chrono::high_resolution_clock::now();
+
     post_send_msg(&send_wr);
 }
 
@@ -523,8 +534,15 @@ void InputChannelConnection::ack_complete_interval_info(){
     if (meta_data != nullptr){
 	send_status_message_.actual_interval_metadata = *meta_data;
 	send_status_message_.required_interval_index = meta_data->interval_index + 2;
+	send_status_message_.median_latency = get_msg_median_latency();
 	data_acked_ = true;
     }
+}
+
+uint64_t InputChannelConnection::get_msg_median_latency(){
+    std::vector<uint64_t> temp_list(msg_latency_);
+    std::sort(temp_list.begin(), temp_list.end());
+    return temp_list[temp_list.size()/2];
 }
 
 void InputChannelConnection::add_timeslice_data_address(uint64_t data_size, uint64_t desc_size){

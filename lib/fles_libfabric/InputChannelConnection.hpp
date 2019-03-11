@@ -60,6 +60,9 @@ public:
     /// Handle Libfabric receive completion notification.
     void on_complete_recv();
 
+    /// Handle Libfabric send completion notification.
+    void on_complete_send();
+
     virtual void setup_mr(struct fid_domain* pd) override;
     virtual void setup() override;
 
@@ -115,6 +118,9 @@ private:
 
     /// This update the last scheduled timeslice, time, and duration
     void update_last_scheduled_info();
+
+    /// Get the median latency of the SYNC messages
+    uint64_t get_msg_median_latency();
 
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
@@ -180,6 +186,15 @@ private:
 
     /// count of added descriptors to the sync message
     uint8_t added_sent_descriptors_ = 0;
+
+    /// A ring buffer of SYNC message latency
+    std::vector<uint64_t> msg_latency_;
+
+    /// Time that a SYNC message is sent out
+    std::chrono::high_resolution_clock::time_point msg_send_time_;
+
+    /// current index to write in the latency ring buffer
+    uint16_t msg_latency_index_ = 0;
 
 
 };
