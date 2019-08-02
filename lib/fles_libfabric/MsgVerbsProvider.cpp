@@ -1,6 +1,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
-#include "VerbsProvider.hpp"
+#include "MsgVerbsProvider.hpp"
 
 #include <unistd.h>
 
@@ -20,7 +20,7 @@
 namespace tl_libfabric
 {
 
-VerbsProvider::~VerbsProvider()
+MsgVerbsProvider::~MsgVerbsProvider()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -29,7 +29,7 @@ VerbsProvider::~VerbsProvider()
 #pragma GCC diagnostic pop
 }
 
-struct fi_info* VerbsProvider::exists(std::string local_host_name)
+struct fi_info* MsgVerbsProvider::exists(std::string local_host_name)
 {
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "verbs");//fi_allocinfo();
     struct fi_info* info = nullptr;
@@ -57,7 +57,7 @@ struct fi_info* VerbsProvider::exists(std::string local_host_name)
     return nullptr;
 }
 
-VerbsProvider::VerbsProvider(struct fi_info* info) : info_(info)
+MsgVerbsProvider::MsgVerbsProvider(struct fi_info* info) : info_(info)
 {
     int res = fi_fabric(info_->fabric_attr, &fabric_, nullptr);
     if (res) {
@@ -66,7 +66,7 @@ VerbsProvider::VerbsProvider(struct fi_info* info) : info_(info)
     }
 }
 
-void VerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
+void MsgVerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
                            unsigned short port, unsigned int count, fid_eq* eq)
 {
     unsigned int count_ = count;
@@ -113,7 +113,7 @@ void VerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
     }
 }
 
-void VerbsProvider::connect(::fid_ep* ep, uint32_t /*max_send_wr*/,
+void MsgVerbsProvider::connect(::fid_ep* ep, uint32_t /*max_send_wr*/,
                             uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
                             uint32_t /*max_recv_sge*/,
                             uint32_t /*max_inline_data*/, const void* param,
