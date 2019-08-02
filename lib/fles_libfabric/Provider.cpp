@@ -31,7 +31,7 @@ std::unique_ptr<Provider> Provider::get_provider(std::string local_host_name)
         return std::unique_ptr<Provider>(new MsgVerbsProvider(info));
     }
 
-    info = RxmVerbsProvider::exists(local_host_name);
+    info = RxMVerbsProvider::exists(local_host_name);
     if (info != nullptr) {
 	std::cout << "found RxM Verbs" << std::endl;
 	return std::unique_ptr<Provider>(new RxMVerbsProvider(info));
