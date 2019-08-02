@@ -6,6 +6,7 @@
 #include "MsgSocketsProvider.hpp"
 #include "RDMSocketsProvider.hpp"
 #include "MsgVerbsProvider.hpp"
+#include "RxMVerbsProvider.hpp"
 
 #include <cassert>
 #include <cstring>
@@ -28,6 +29,12 @@ std::unique_ptr<Provider> Provider::get_provider(std::string local_host_name)
     if (info != nullptr) {
         std::cout << "found Verbs" << std::endl;
         return std::unique_ptr<Provider>(new MsgVerbsProvider(info));
+    }
+
+    info = RxmVerbsProvider::exists(local_host_name);
+    if (info != nullptr) {
+	std::cout << "found RxM Verbs" << std::endl;
+	return std::unique_ptr<Provider>(new RxMVerbsProvider(info));
     }
 
     info = MsgGNIProvider::exists(local_host_name);
