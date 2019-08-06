@@ -74,8 +74,8 @@ void ComputeNodeConnection::post_recv_status_message()
                   << "POST RECEIVE status message";
     }
     struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-    L_(info) << "post_send_final_status_message with ID = " << context->id << " and op" << context->op_context;
     context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    L_(info) << "post_recv_status_message with ID = " << context->id << " and op " << context->op_context;
     recv_wr.context = context;
 
     post_recv_msg(&recv_wr);

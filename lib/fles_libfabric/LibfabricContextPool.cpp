@@ -29,18 +29,28 @@ struct fi_custom_context* LibfabricContextPool::getContext() {
     if (available_.empty()){
 	context = new fi_custom_context();
 	context->id = context_counter_++;
+	L_(debug) << "getContext:: New context is created with ID " << context->id;
     }else{
 	context = &available_[0];
 	available_.erase(available_.begin());
     }
     pool_mutex_.unlock();
     in_use_.push_back(*context);
+    L_(debug) << "getContext:: context is in using with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
     return context;
 }
 
 void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
-    L_(debug) << "LibfabricContextPool: Context released with ID " << context->id;
-    available_.push_back(fi_custom_context{context->context, context->id, context->op_context});
+    uint32_t count = 0;
+    while (count < in_use_.size()){
+	if (context->id == in_use_[count]){
+	    available_.push_back(in_use_[count]);
+	    in_use_.erase(in_use_.begin()+count);
+	    break;
+	}
+	++count;
+    }
+    L_(debug) << "LibfabricContextPool: Context released with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();;
 }
 
 std::unique_ptr<LibfabricContextPool> LibfabricContextPool::context_pool_ = nullptr;
