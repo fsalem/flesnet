@@ -28,9 +28,8 @@ struct fi_custom_context* LibfabricContextPool::getContext() {
     struct fi_custom_context context;
     if (available_.empty()){
 	context.id = context_counter_++;
-
     }else{
-	struct fi_custom_context context = available_[0];
+	context = available_[0];
 	available_.erase(available_.begin());
     }
     pool_mutex_.unlock();
