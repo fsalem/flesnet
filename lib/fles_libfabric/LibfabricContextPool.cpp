@@ -23,19 +23,19 @@ LibfabricContextPool::~LibfabricContextPool(){
     L_(info) << "LibfabricContextPool deconstructor: Total number of created objects " << context_counter_;
 }
 
-std::unique_ptr<struct fi_custom_context> LibfabricContextPool::getContext() {
+std::unique_ptr<struct fi_custom_context>& LibfabricContextPool::getContext() {
     pool_mutex_.lock();
-    struct fi_custom_context* context;
+    std::unique_ptr<struct fi_custom_context> context;
     if (available_.empty()){
-	context = new fi_custom_context();
+	context = std::unique_ptr<struct fi_custom_context>(new fi_custom_context());
 	context->id = context_counter_++;
     }else{
-	context = available_[0].get();
+	context = available_[0];
 	available_.erase(available_.begin());
     }
     pool_mutex_.unlock();
-    in_use_.push_back(std::unique_ptr<struct fi_custom_context>(context));
-    return std::unique_ptr<struct fi_custom_context>(context);
+    in_use_.push_back(context);
+    return context;
 }
 
 void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {

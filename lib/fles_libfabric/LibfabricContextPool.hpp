@@ -28,7 +28,7 @@ public:
     LibfabricContextPool(const LibfabricContextPool&) = delete;
     LibfabricContextPool& operator=(const LibfabricContextPool&) = delete;
 
-    std::unique_ptr<struct fi_custom_context> getContext();
+    std::unique_ptr<struct fi_custom_context>& getContext();
 
     void releaseContext(struct fi_custom_context* context);
 
