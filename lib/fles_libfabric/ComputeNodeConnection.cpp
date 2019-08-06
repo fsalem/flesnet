@@ -73,10 +73,10 @@ void ComputeNodeConnection::post_recv_status_message()
                   << "[" << index_ << "] "
                   << "POST RECEIVE status message";
     }
-    std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
-    //L_(info) << "post_send_final_status_message with ID = " << context->id;
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    L_(info) << "post_send_final_status_message with ID = " << context->id << " and op" << context->op_context;
     context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
-    recv_wr.context = context.get();
+    recv_wr.context = context;
 
     post_recv_msg(&recv_wr);
 }
@@ -94,19 +94,20 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
     context->op_context = (ID_SEND_STATUS | (index_ << 8));
-    send_wr.context = context.get();
+    L_(info) << "post_send_status_message with ID = " << context->id << " and op" << context->op_context;
+    send_wr.context = context;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
 {
-    std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
-    L_(info) << "post_send_final_status_message with ID = " << context->id;
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
     context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
-    send_wr.context = context.get();
+    L_(info) << "post_send_final_status_message with ID = " << context->id << " and op " << context->op_context;
+    send_wr.context = context;
     post_send_status_message();
 }
 
@@ -312,9 +313,10 @@ void ComputeNodeConnection::send_ep_addr()
         fi_getname(&ep_->fid, &send_status_message_.my_address, &addr_len);
     assert(res == 0);
     send_wr.addr = partner_addr_;
-    std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
     context->op_context = (ID_SEND_STATUS | (index_ << 8));
-    send_wr.context = context.get();
+    L_(info) << "send_ep_addr with ID = " << context->id << " and op" << context->op_context;
+    send_wr.context = context;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
