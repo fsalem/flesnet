@@ -38,6 +38,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
+    is_input_ = false;
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -293,7 +294,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
                 // when connect message:
                 //            add address to av and set fi_addr_t from av on
                 //            conn-object
-                L_(debug) << "CONTEXT ID = " << ((struct fi_custom_context*)wc[i].op_context)->id;
+                L_(debug) << "CONTEXT ID = " << (static_cast<struct fi_custom_context*>(wc[i].op_context))->id;
                 assert(recv_connect_message.connect == true);
                 if (connected_senders_.find(recv_connect_message.info.index) !=
                     connected_senders_.end()) {
@@ -319,6 +320,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
             throw LibfabricException("fi_recvmsg failed");
         }
     }
+    LibfabricContextPool::getInst()->releaseContext((struct fi_custom_context*)recv_msg_wr.context);
 }
 
 /// The thread main function.

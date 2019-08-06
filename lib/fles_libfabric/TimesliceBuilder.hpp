@@ -6,7 +6,6 @@
 #include "ConnectionGroup.hpp"
 #include "RingBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "LibfabricContextPool.hpp"
 
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/mapped_region.hpp>

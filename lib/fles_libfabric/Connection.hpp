@@ -4,6 +4,8 @@
 #pragma once
 
 //#include "InfinibandException.hpp"
+#include "LibfabricContextPool.hpp"
+
 #include <memory>
 //#include <rdma/rdma_cma.h>
 #include <vector>

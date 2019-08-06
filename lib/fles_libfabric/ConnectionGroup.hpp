@@ -6,6 +6,7 @@
 #include "ConnectionGroupWorker.hpp"
 #include "LibfabricException.hpp"
 #include "Provider.hpp"
+#include "LibfabricContextPool.hpp"
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>
@@ -167,7 +168,13 @@ public:
 #pragma GCC diagnostic ignored "-Wold-style-cast"
                 // L_(trace) << "on_completion(wr_id=" <<
                 // (uintptr_t)wc[i].op_context << ")";
-                on_completion((uintptr_t)wc[i].op_context);
+        	if (is_input_)
+        	    on_completion((uintptr_t)wc[i].op_context);
+        	else{
+        	    struct fi_custom_context* context = (struct fi_custom_context*)wc[i].op_context;
+        	    on_completion((uintptr_t)context->context.internal[0]);
+        	    LibfabricContextPool::getInst()->releaseContext(context);
+        	}
 #pragma GCC diagnostic pop
             }
         }
@@ -341,6 +348,9 @@ protected:
     std::vector<fi_addr_t> fi_addrs = {};
 
     bool connection_oriented_ = false;
+
+    // TO BE REMOVED
+    bool is_input_ = true;
 
 private:
     /// Connection manager event dispatcher. Called by the CM event loop.
