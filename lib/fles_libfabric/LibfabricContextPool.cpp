@@ -25,20 +25,19 @@ LibfabricContextPool::~LibfabricContextPool(){
 
 struct fi_custom_context* LibfabricContextPool::getContext() {
     pool_mutex_.lock();
-    struct fi_custom_context* context;
     if (available_.empty()){
-	context = new fi_custom_context();
+	struct fi_custom_context* context = new fi_custom_context();
 	context->id = context_counter_++;
+	in_use_.push_back(*context);
 	L_(debug) << "getContext:: New context is created with ID " << context->id;
     }else{
-	context = &available_[0];
+	in_use_.push_back(available_[0]);
 	available_.erase(available_.begin());
     }
     pool_mutex_.unlock();
-    in_use_.push_back(*context);
-    L_(debug) << "getContext:: context is in using with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
+    L_(debug) << "getContext:: context is in using with ID " << in_use_[in_use_.size()-1].id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
     log();
-    return context;
+    return &in_use_[in_use_.size()-1];
 }
 
 void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
