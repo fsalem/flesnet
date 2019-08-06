@@ -75,10 +75,8 @@ void ComputeNodeConnection::post_recv_status_message()
     }
     std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
     //L_(info) << "post_send_final_status_message with ID = " << context->id;
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    context->context.internal[0] = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
     recv_wr.context = context.get();
-#pragma GCC diagnostic pop
 
     post_recv_msg(&recv_wr);
 }
@@ -97,23 +95,18 @@ void ComputeNodeConnection::post_send_status_message()
             "Max number of pending send requests exceeded");
     }
     std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    context->context.internal[0] = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
     send_wr.context = context.get();
-#pragma GCC diagnostic pop
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
     std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
     L_(info) << "post_send_final_status_message with ID = " << context->id;
-    context->context.internal[0] = (void*)(ID_SEND_FINALIZE | (index_ << 8));
+    context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
     send_wr.context = context.get();
-#pragma GCC diagnostic pop
     post_send_status_message();
 }
 
@@ -320,10 +313,8 @@ void ComputeNodeConnection::send_ep_addr()
     assert(res == 0);
     send_wr.addr = partner_addr_;
     std::unique_ptr<struct fi_custom_context> context = LibfabricContextPool::getInst()->getContext();
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    context->context.internal[0] = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
     send_wr.context = context.get();
-#pragma GCC diagnostic pop
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }

@@ -17,6 +17,7 @@ namespace tl_libfabric
 struct fi_custom_context{
 	struct fi_context context;
 	uint64_t id;
+	uint64_t op_context;
 };
 
 class LibfabricContextPool
