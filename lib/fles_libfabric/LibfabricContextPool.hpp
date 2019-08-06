@@ -44,5 +44,7 @@ private:
     std::mutex pool_mutex_;
 
     LibfabricContextPool();
+
+    void log();
 };
 }

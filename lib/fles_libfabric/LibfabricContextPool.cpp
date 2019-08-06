@@ -37,6 +37,7 @@ struct fi_custom_context* LibfabricContextPool::getContext() {
     pool_mutex_.unlock();
     in_use_.push_back(*context);
     L_(debug) << "getContext:: context is in using with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
+    log();
     return context;
 }
 
@@ -50,7 +51,17 @@ void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
 	}
 	++count;
     }
-    L_(debug) << "LibfabricContextPool: Context released with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();;
+    L_(debug) << "LibfabricContextPool: Context released with ID " << context->id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
+    log();
+}
+
+void LibfabricContextPool::log() {
+    for (int i=0 ; i < available_.size() ; i++){
+	L_(debug) << "Logging:: Available[" << i << "].id = " << available_[i].id;
+    }
+    for (int i=0 ; i < in_use_.size() ; i++){
+	L_(debug) << "Logging:: in_use_[" << i << "].id = " << in_use_[i].id;
+    }
 }
 
 std::unique_ptr<LibfabricContextPool> LibfabricContextPool::context_pool_ = nullptr;
