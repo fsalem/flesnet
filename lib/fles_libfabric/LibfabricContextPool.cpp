@@ -43,7 +43,7 @@ struct fi_custom_context* LibfabricContextPool::getContext() {
 void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
     uint32_t count = 0;
     while (count < in_use_.size()){
-	if (context->id == in_use_[count]){
+	if (context->id == in_use_[count].id){
 	    available_.push_back(in_use_[count]);
 	    in_use_.erase(in_use_.begin()+count);
 	    break;
