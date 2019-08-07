@@ -8,7 +8,7 @@
 #include <log.hpp>
 #include <memory>
 #include <rdma/fabric.h>
-#include <vector>
+#include <list>
 #include <string.h>
 #include <mutex>
 
@@ -30,14 +30,16 @@ public:
 
     struct fi_custom_context* getContext();
 
+    struct fi_custom_context* getInUseContext(uint64_t id);
+
     void releaseContext(struct fi_custom_context* context);
 
     static std::unique_ptr<LibfabricContextPool>& getInst();
 
 private:
     static std::unique_ptr<LibfabricContextPool> context_pool_;
-    std::vector<struct fi_custom_context> available_;
-    std::vector<struct fi_custom_context> in_use_;
+    std::list<struct fi_custom_context> available_;
+    std::list<struct fi_custom_context> in_use_;
 
     uint64_t context_counter_ = 0;
 

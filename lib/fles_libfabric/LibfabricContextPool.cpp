@@ -28,24 +28,29 @@ struct fi_custom_context* LibfabricContextPool::getContext() {
     if (available_.empty()){
 	struct fi_custom_context* context = new fi_custom_context();
 	context->id = context_counter_++;
-	in_use_.push_back(*context);
+	in_use_.push_front(*context);
 	L_(debug) << "getContext:: New context is created with ID " << context->id;
     }else{
-	in_use_.push_back(available_[0]);
-	available_.erase(available_.begin());
+	in_use_.push_front(available_.front());
+	available_.pop_front();
     }
     pool_mutex_.unlock();
-    L_(debug) << "getContext:: context is in using with ID " << in_use_[in_use_.size()-1].id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
+    L_(debug) << "getContext:: context is in using with ID " << in_use_.front().id << " --> available = " << available_.size() << ", in use = " << in_use_.size();
     log();
-    return &in_use_[in_use_.size()-1];
+    return &(*in_use_.begin());
 }
 
+struct fi_custom_context* LibfabricContextPool::getInUseContext(uint64_t id) {
+    for (auto it = in_use_.begin() ; it != in_use_.end() ; it++)
+    	if (id == it->id) return &(*it);
+    return nullptr;
+}
 void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
     uint32_t count = 0;
-    while (count < in_use_.size()){
-	if (context->id == in_use_[count].id){
-	    available_.push_back(in_use_[count]);
-	    in_use_.erase(in_use_.begin()+count);
+    for (auto it = in_use_.begin() ; it != in_use_.end() ; it++) {
+	if (context->id == it->id){
+	    available_.push_back(*it);
+	    in_use_.erase(it);
 	    break;
 	}
 	++count;
@@ -55,12 +60,14 @@ void LibfabricContextPool::releaseContext(struct fi_custom_context* context) {
 }
 
 void LibfabricContextPool::log() {
-    for (int i=0 ; i < available_.size() ; i++){
-	L_(debug) << "Logging:: Available[" << i << "].id = " << available_[i].id;
-    }
-    for (int i=0 ; i < in_use_.size() ; i++){
-	L_(debug) << "Logging:: in_use_[" << i << "].id = " << in_use_[i].id;
-    }
+    int i=0;
+    for (auto it = available_.begin() ; it != available_.end() ; it++,i++)
+	L_(debug) << "Logging:: Available[" << i << "].id = " << it->id;
+
+    i=0;
+    for (auto it = in_use_.begin() ; it != in_use_.end() ; it++,i++)
+	L_(debug) << "Logging:: in_use_[" << i << "].id = " << it->id;
+
 }
 
 std::unique_ptr<LibfabricContextPool> LibfabricContextPool::context_pool_ = nullptr;
