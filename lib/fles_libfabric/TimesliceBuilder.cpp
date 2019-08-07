@@ -38,7 +38,6 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    is_input_ = false;
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -319,7 +318,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
             throw LibfabricException("fi_recvmsg failed");
         }
     }
-    LibfabricContextPool::getInst()->releaseContext((struct fi_custom_context*)recv_msg_wr.context);
+    LibfabricContextPool::getInst()->releaseContext(static_cast<struct fi_custom_context*>(recv_msg_wr.context));
 }
 
 /// The thread main function.
