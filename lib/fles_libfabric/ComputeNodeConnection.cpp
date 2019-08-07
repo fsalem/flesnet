@@ -73,11 +73,6 @@ void ComputeNodeConnection::post_recv_status_message()
                   << "[" << index_ << "] "
                   << "POST RECEIVE status message";
     }
-    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
-    L_(info) << "post_recv_status_message with ID = " << context->id << " and op " << context->op_context;
-    recv_wr.context = context;
-
     post_recv_msg(&recv_wr);
 }
 
@@ -94,20 +89,18 @@ void ComputeNodeConnection::post_send_status_message()
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-    context->op_context = (ID_SEND_STATUS | (index_ << 8));
-    L_(info) << "post_send_status_message with ID = " << context->id << " and op" << context->op_context;
-    send_wr.context = context;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
 {
-    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+    struct fi_custom_context* context = static_cast<struct fi_custom_context*>(send_wr.context);
     context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
-    L_(info) << "post_send_final_status_message with ID = " << context->id << " and op " << context->op_context;
     send_wr.context = context;
+#pragma GCC diagnostic pop
     post_send_status_message();
 }
 
@@ -180,7 +173,9 @@ void ComputeNodeConnection::setup()
     recv_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    //recv_wr.context = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    recv_wr.context = context;
 #pragma GCC diagnostic pop
 
     send_sge.iov_base = &send_status_message_;
@@ -193,7 +188,9 @@ void ComputeNodeConnection::setup()
     send_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    //send_wr.context = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
 
     // post initial receive request
@@ -313,10 +310,6 @@ void ComputeNodeConnection::send_ep_addr()
         fi_getname(&ep_->fid, &send_status_message_.my_address, &addr_len);
     assert(res == 0);
     send_wr.addr = partner_addr_;
-    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-    context->op_context = (ID_SEND_STATUS | (index_ << 8));
-    L_(info) << "send_ep_addr with ID = " << context->id << " and op" << context->op_context;
-    send_wr.context = context;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }

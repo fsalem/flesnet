@@ -173,7 +173,7 @@ public:
         	else{
         	    struct fi_custom_context* context = static_cast<struct fi_custom_context*>(wc[i].op_context);
         	    on_completion((uintptr_t)context->op_context);
-        	    LibfabricContextPool::getInst()->releaseContext(context);
+        	    //LibfabricContextPool::getInst()->releaseContext(context);
         	}
 #pragma GCC diagnostic pop
             }

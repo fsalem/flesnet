@@ -30,8 +30,6 @@ public:
 
     struct fi_custom_context* getContext();
 
-    struct fi_custom_context* getInUseContext(uint64_t id);
-
     void releaseContext(struct fi_custom_context* context);
 
     static std::unique_ptr<LibfabricContextPool>& getInst();

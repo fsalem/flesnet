@@ -294,7 +294,6 @@ void TimesliceBuilder::bootstrap_wo_connections()
                 // when connect message:
                 //            add address to av and set fi_addr_t from av on
                 //            conn-object
-                L_(debug) << "CONTEXT ID = " << (static_cast<struct fi_custom_context*>(wc[i].op_context))->id;
                 assert(recv_connect_message.connect == true);
                 if (connected_senders_.find(recv_connect_message.info.index) !=
                     connected_senders_.end()) {
