@@ -208,7 +208,6 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
     context->op_context = (ID_WRITE_DESC | (timeslice << 24) | (index_ << 8));
-    recv_wr.context = context;
     send_wr_tscdesc.context = context;
 #pragma GCC diagnostic pop
 
