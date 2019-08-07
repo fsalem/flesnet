@@ -7,6 +7,7 @@
 #include "RDMSocketsProvider.hpp"
 #include "MsgVerbsProvider.hpp"
 #include "RxMVerbsProvider.hpp"
+#include "RDMOmniPathProvider.hpp"
 
 #include <cassert>
 #include <cstring>
@@ -25,7 +26,13 @@ namespace tl_libfabric
 std::unique_ptr<Provider> Provider::get_provider(std::string local_host_name)
 {
     // std::cout << "Provider::get_provider()" << std::endl;
-    struct fi_info* info = MsgVerbsProvider::exists(local_host_name);
+    struct fi_info* info = RDMOmniPathProvider::exists(local_host_name);
+    if (info != nullptr) {
+	std::cout << "found OmniPath" << std::endl;
+	return std::unique_ptr<Provider>(new RDMOmniPathProvider(info));
+    }
+
+    info = MsgVerbsProvider::exists(local_host_name);
     if (info != nullptr) {
         std::cout << "found Verbs" << std::endl;
         return std::unique_ptr<Provider>(new MsgVerbsProvider(info));
