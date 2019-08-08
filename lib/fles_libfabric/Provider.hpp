@@ -50,7 +50,7 @@ public:
 
     static struct fi_info* get_hints(enum fi_ep_type ep_type, std::string prov);
 
-    void dump_fi_info(const struct fi_info *info);
+    static void dump_fi_info(const struct fi_info *info);
 
     static uint64_t requested_key;
 
