@@ -8,6 +8,10 @@
 #include <vector>
 #include <string.h>
 
+#ifndef FT_FIVERSION
+#define FT_FIVERSION FI_VERSION(1,5)
+#endif
+
 namespace tl_libfabric
 {
 class Provider

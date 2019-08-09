@@ -48,7 +48,7 @@ struct fi_info* RDMSocketsProvider::exists(std::string local_host_name)
     hints->addr_format = FI_SOCKADDR_IN;
     hints->fabric_attr->prov_name = strdup("sockets");*/
 
-    int res = fi_getinfo(FI_VERSION(1, 1), local_host_name.c_str(), nullptr, 0,
+    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr, 0,
                          hints, &info);
 
     if (!res) {
@@ -107,14 +107,8 @@ void RDMSocketsProvider::set_hostnames_and_services(
 
         info = nullptr;
         hints = Provider::get_hints(FI_EP_RDM, "sockets");//fi_allocinfo();
-        /*hints->caps = FI_RMA | FI_MSG | FI_REMOTE_WRITE;
-        hints->ep_attr->type = FI_EP_RDM;
-        hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
-        hints->domain_attr->threading = FI_THREAD_SAFE;
-        hints->domain_attr->mr_mode = FI_MR_BASIC;
-        hints->fabric_attr->prov_name = strdup("sockets");*/
 
-        int res = fi_getinfo(FI_VERSION(1, 1), compute_hostnames[i].c_str(),
+        int res = fi_getinfo(FT_FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
         assert(res == 0);
         assert(info != NULL);

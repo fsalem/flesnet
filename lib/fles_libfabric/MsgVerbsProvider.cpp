@@ -34,16 +34,7 @@ struct fi_info* MsgVerbsProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "verbs");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    /*hints->caps =
-        FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
-    hints->mode = FI_LOCAL_MR;
-    hints->ep_attr->type = FI_EP_MSG;
-    hints->rx_attr->mode = FI_LOCAL_MR | FI_RX_CQ_DATA;
-    hints->domain_attr->threading = FI_THREAD_SAFE;
-    hints->addr_format = FI_SOCKADDR_IN;
-    hints->fabric_attr->prov_name = strdup("verbs");*/
-
-    int res = fi_getinfo(FI_VERSION(1, 1), local_host_name.c_str(), nullptr,
+    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr,
                          FI_SOURCE, hints, &info);
 
     if (!res) {
