@@ -34,7 +34,7 @@ struct fi_info* MsgGNIProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr, 0,
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
                          hints, &info);
 
     if (!res) {
@@ -67,7 +67,7 @@ void MsgGNIProvider::accept(struct fid_pep* pep,
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), port_s.c_str(),
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
                          FI_SOURCE, hints, &accept_info);
 
     if (res) {

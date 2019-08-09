@@ -34,7 +34,7 @@ struct fi_info* RxMVerbsProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr,
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
                          FI_SOURCE, hints, &info);
 
     if (!res) {
@@ -83,7 +83,7 @@ void RxMVerbsProvider::set_hostnames_and_services(
         struct fi_info* info = nullptr;
         struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
 
-        int res = fi_getinfo(FT_FIVERSION, compute_hostnames[i].c_str(),
+        int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
         assert(res == 0);
         assert(info != NULL);

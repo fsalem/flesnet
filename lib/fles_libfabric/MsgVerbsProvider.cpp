@@ -34,7 +34,7 @@ struct fi_info* MsgVerbsProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "verbs");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr,
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
                          FI_SOURCE, hints, &info);
 
     if (!res) {
@@ -66,7 +66,7 @@ void MsgVerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
     // @todo find local ib device
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), port_s.c_str(),
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
                          FI_SOURCE, info_, &accept_info);
     if (res) {
         L_(fatal) << "lookup " << hostname << " in accept failed: " << res

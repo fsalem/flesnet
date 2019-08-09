@@ -125,7 +125,7 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
     hints->dest_addrlen = 0;
     */
 
-    int err = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), service.c_str(),
+    int err = fi_getinfo(FIVERSION, hostname.c_str(), service.c_str(),
                          FI_SOURCE, hints, &info2);
     if (err) {
         L_(fatal) << "fi_getinfo failed in make_endpoint: " << err << "="

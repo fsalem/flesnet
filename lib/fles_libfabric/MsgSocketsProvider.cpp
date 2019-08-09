@@ -48,7 +48,7 @@ struct fi_info* MsgSocketsProvider::exists(std::string local_host_name)
     hints->addr_format = FI_SOCKADDR_IN;
     hints->fabric_attr->prov_name = strdup("sockets");*/
 
-    int res = fi_getinfo(FT_FIVERSION, local_host_name.c_str(), nullptr,
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
                          FI_SOURCE, hints, &info);
 
     if (!res) {
@@ -80,7 +80,7 @@ void MsgSocketsProvider::accept(struct fid_pep* pep,
     std::string port_s = std::to_string(port);
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), port_s.c_str(),
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
                          FI_SOURCE, info_, &accept_info);
 
     if (res) {
