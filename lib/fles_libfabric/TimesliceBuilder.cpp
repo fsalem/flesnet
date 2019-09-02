@@ -218,6 +218,9 @@ void TimesliceBuilder::bootstrap_wo_connections()
     make_endpoint_named(Provider::getInst()->get_info(), local_node_name_,
                         std::to_string(service_), &ep_);
 
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
+
     // setup connection objects
     for (size_t index = 0; index < conn_.size(); index++) {
         uint8_t* data_ptr = timeslice_buffer_.get_data_ptr(index);

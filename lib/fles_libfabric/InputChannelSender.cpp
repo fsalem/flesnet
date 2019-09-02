@@ -160,6 +160,9 @@ void InputChannelSender::bootstrap_with_connections()
 
 void InputChannelSender::bootstrap_wo_connections()
 {
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
+
     // domain, cq, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
