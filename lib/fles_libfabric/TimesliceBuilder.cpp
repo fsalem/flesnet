@@ -265,7 +265,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
         L_(fatal) << "fi_recvmsg failed: " << strerror(err);
         throw LibfabricException("fi_recvmsg failed");
     }
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    rc = MPI_Barrier(MPI_COMM_WORLD);
     assert(rc == MPI_SUCCESS);
 
     // wait for messages from InputChannelSenders
