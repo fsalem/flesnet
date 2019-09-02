@@ -167,7 +167,7 @@ void InputChannelSender::bootstrap_wo_connections()
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
 
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    rc = MPI_Barrier(MPI_COMM_WORLD);
     assert(rc == MPI_SUCCESS);
     // setup connections objects
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
