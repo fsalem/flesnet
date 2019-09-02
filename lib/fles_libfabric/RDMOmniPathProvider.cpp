@@ -37,7 +37,6 @@ struct fi_info* RDMOmniPathProvider::exists(std::string local_host_name)
 {
     struct fi_info* info = nullptr;
     struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "psm2");//fi_allocinfo();
-    hints->domain_attr->mr_mode = FI_MR_LOCAL;
 
     int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, FI_SOURCE,
                          hints, &info);
@@ -98,10 +97,9 @@ void RDMOmniPathProvider::set_hostnames_and_services(
 
         info = nullptr;
         hints = Provider::get_hints(FI_EP_RDM, "psm2");//fi_allocinfo();
-        hints->domain_attr->mr_mode = FI_MR_LOCAL;
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
-                             compute_services[i].c_str(), 0, hints, &info);
+                             compute_services[i].c_str(), FI_NUMERICHOST, hints, &info);
         assert(res == 0);
         assert(info != NULL);
         assert(info->dest_addr != NULL);

@@ -320,9 +320,9 @@ std::unique_ptr<InputChannelConnection>
 InputChannelSender::create_input_node_connection(uint_fast16_t index)
 {
     // @todo
-    // unsigned int max_send_wr = 8000; ???  IB hca
+     unsigned int max_send_wr = 8000;  // ???  IB hca
     // unsigned int max_send_wr = 495; // ??? libfabric for verbs
-    unsigned int max_send_wr = 256; // ??? libfabric for sockets
+    // unsigned int max_send_wr = 256; // ??? libfabric for sockets
 
     // limit pending write requests so that send queue and completion queue
     // do not overflow
