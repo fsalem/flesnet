@@ -43,7 +43,11 @@ struct fi_info* RDMOmniPathProvider::exists(std::string local_host_name)
 
     if (!res) {
         // fi_freeinfo(hints);
-        return info;
+	assert(info != nullptr);
+	while(info != nullptr) {
+	    if(strcmp("psm2",info->fabric_attr->prov_name) == 0) return info;
+	    info = info->next;
+	}
     }
 
     fi_freeinfo(info);
@@ -101,6 +105,12 @@ void RDMOmniPathProvider::set_hostnames_and_services(
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), FI_NUMERICHOST, hints, &info);
         assert(res == 0);
+        assert(info != nullptr);
+	while(info != nullptr) {
+	    if(strcmp("psm2",info->fabric_attr->prov_name) == 0) break;
+	    info = info->next;
+	}
+
         assert(info != NULL);
         assert(info->dest_addr != NULL);
         res = fi_av_insert(av, info->dest_addr, 1, &fi_addr, 0, NULL);
