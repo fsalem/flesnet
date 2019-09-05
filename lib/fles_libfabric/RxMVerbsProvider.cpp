@@ -1,6 +1,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
-#include "RDMGNIProvider.hpp"
+#include "RxMVerbsProvider.hpp"
 
 #include <unistd.h>
 
@@ -20,7 +20,7 @@
 namespace tl_libfabric
 {
 
-RDMGNIProvider::~RDMGNIProvider()
+RxMVerbsProvider::~RxMVerbsProvider()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -29,16 +29,15 @@ RDMGNIProvider::~RDMGNIProvider()
 #pragma GCC diagnostic pop
 }
 
-struct fi_info* RDMGNIProvider::exists(std::string local_host_name)
+struct fi_info* RxMVerbsProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
+    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
-                         hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
+                         FI_SOURCE, hints, &info);
 
     if (!res) {
-        // std::cout << info->src_addrlen << std::endl;
         // fi_freeinfo(hints);
         return info;
     }
@@ -49,7 +48,7 @@ struct fi_info* RDMGNIProvider::exists(std::string local_host_name)
     return nullptr;
 }
 
-RDMGNIProvider::RDMGNIProvider(struct fi_info* info) : info_(info)
+RxMVerbsProvider::RxMVerbsProvider(struct fi_info* info) : info_(info)
 {
     int res = fi_fabric(info_->fabric_attr, &fabric_, nullptr);
     if (res) {
@@ -58,23 +57,23 @@ RDMGNIProvider::RDMGNIProvider(struct fi_info* info) : info_(info)
     }
 }
 
-void RDMGNIProvider::accept(struct fid_pep* /*pep*/,
-                         const std::string& /*hostname*/,
-                         unsigned short /*port*/, unsigned int /*count*/,
-                         fid_eq* /*eq*/)
+void RxMVerbsProvider::accept(struct fid_pep* /*pep*/,
+        const std::string& /*hostname*/,
+        unsigned short /*port*/, unsigned int /*count*/,
+        fid_eq* /*eq*/)
 {
-    // there is no accept for GNI
+// there is no accept for RxM verbs
 }
 
-void RDMGNIProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
-                          uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
-                          uint32_t /*max_recv_sge*/,
-                          uint32_t /*max_inline_data*/, const void* /*param*/,
-                          size_t /*param_len*/, void* /*addr*/)
+void RxMVerbsProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
+        uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
+        uint32_t /*max_recv_sge*/,
+        uint32_t /*max_inline_data*/, const void* /*param*/,
+        size_t /*param_len*/, void* /*addr*/)
 {
 }
 
-void RDMGNIProvider::set_hostnames_and_services(
+void RxMVerbsProvider::set_hostnames_and_services(
     struct fid_av* av, const std::vector<std::string>& compute_hostnames,
     const std::vector<std::string>& compute_services,
     std::vector<fi_addr_t>& fi_addrs)
@@ -82,7 +81,7 @@ void RDMGNIProvider::set_hostnames_and_services(
     for (size_t i = 0; i < compute_hostnames.size(); i++) {
         fi_addr_t fi_addr;
         struct fi_info* info = nullptr;
-        struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
+        struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
