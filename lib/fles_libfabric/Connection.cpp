@@ -70,8 +70,8 @@ void Connection::connect(const std::string& hostname,
     hints->src_addrlen = 0;*/
 
     int err = fi_getinfo(
-        FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),
-        service == "" ? nullptr : service.c_str(), 0, hints, &info2);
+        FIVERSION, hostname == "" ? nullptr : hostname.c_str(),
+        service == "" ? nullptr : service.c_str(), FI_NUMERICHOST, hints, &info2);
     if (err) {
         L_(fatal) << "fi_getinfo failed in connect: " << hostname << " "
                   << service << "[" << err << "=" << fi_strerror(-err) << "]";
@@ -224,30 +224,9 @@ void Connection::make_endpoint(struct fi_info* info,
                                struct fid_av* av)
 {
 
-    struct fi_info* info2 = nullptr;
-    struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
+    struct fi_info* info2 = info;
 
-    hints->rx_attr->size = max_recv_wr_;
-    hints->rx_attr->iov_limit = max_recv_sge_;
-    hints->tx_attr->size = max_send_wr_;
-    hints->tx_attr->iov_limit = max_send_sge_;
-    hints->tx_attr->inject_size = max_inline_data_;
-
-    /*hints->src_addr = nullptr;
-    hints->src_addrlen = 0;*/
-
-    int err = fi_getinfo(
-        FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),
-        service == "" ? nullptr : service.c_str(), 0, hints, &info2);
-    if (err) {
-        L_(fatal) << "fi_getinfo failed in make_endpoint: " << err << "="
-                  << fi_strerror(-err);
-        throw LibfabricException("fi_getinfo failed in make_endpoint");
-    }
-
-    fi_freeinfo(hints);
-
-    err = fi_endpoint(pd, info2, &ep_, this);
+    int err = fi_endpoint(pd, info2, &ep_, this);
     if (err) {
         L_(fatal) << "fi_endpoint failed: " << err << "=" << fi_strerror(-err);
         throw LibfabricException("fi_endpoint failed");

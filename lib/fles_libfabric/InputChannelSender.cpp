@@ -175,12 +175,13 @@ void InputChannelSender::bootstrap_with_connections()
 
 void InputChannelSender::bootstrap_wo_connections()
 {
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+     assert(rc == MPI_SUCCESS);
+
     // domain, cq, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
 
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     // setup connections objects
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
@@ -377,12 +378,13 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index)
 
 void InputChannelSender::connect()
 {
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
+
     if (!pd_) // pd, cq2, av
         init_context(Provider::getInst()->get_info(), compute_hostnames_,
                      compute_services_);
 
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
         std::unique_ptr<InputChannelConnection> connection =
