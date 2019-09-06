@@ -569,12 +569,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
 
-	// TODO remove the if satement
-	if (sent_timeslices_ == max_timeslice_number_)
-	    L_(info) << "[i" << input_index_ << "] "
-		     << "write timeslice " << ts
-		     << " remaining " << count;
-
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
 
