@@ -6,6 +6,7 @@
 #include "ConnectionGroupWorker.hpp"
 #include "LibfabricException.hpp"
 #include "Provider.hpp"
+#include "LibfabricContextPool.hpp"
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>
@@ -179,7 +180,12 @@ public:
 		    for (int i = 0; i < ne; ++i) {
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wold-style-cast"
-			on_completion((uintptr_t)wc[i].op_context);
+			struct fi_custom_context* context = static_cast<struct fi_custom_context*>(wc[i].op_context);
+			on_completion((uintptr_t)context->op_context);
+			if (((uintptr_t)context->op_context & 0xFF) == ID_WRITE_DESC ||
+				((uintptr_t)context->op_context & 0xFF) == ID_WRITE_DATA ||
+				((uintptr_t)context->op_context & 0xFF) == ID_WRITE_DATA_WRAP)
+			    LibfabricContextPool::getInst()->releaseContext(context);
     #pragma GCC diagnostic pop
 		    }
 		    if (ne > 0) {
@@ -288,6 +294,7 @@ protected:
             throw LibfabricException("fi_domain failed");
         }
 
+        L_(debug) << "creating CQs ...";
         for (uint16_t i = 0 ; i< MAX_CQ_INSTANCE ; i++){
 	    struct fi_cq_attr cq_attr;
 	    memset(&cq_attr, 0, sizeof(cq_attr));
@@ -305,6 +312,7 @@ protected:
 		throw LibfabricException("fi_cq_open failed");
 	    }
         }
+        L_(debug) << "creating AV ...";
         if (Provider::getInst()->has_av()) {
             struct fi_av_attr av_attr;
 

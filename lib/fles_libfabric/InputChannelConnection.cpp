@@ -131,6 +131,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     struct fi_msg_rma send_wr_tscdesc;
     struct fi_rma_iov rma_iov[1];
 
+    // TODO UPDATE TO BE EXACTLY ONE COMPLETION EVENT !!!
     uint64_t remote_addr =
         remote_info_.data.addr + (cn_wp_data & cn_data_buffer_mask);
     for (int i = 0; i < num_sge; i++) {
@@ -152,7 +153,9 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-        send_wr_ts.context = (void*)(ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
+        struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+        context->op_context = (void*)(ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
+        send_wr_ts.context = context;
 #pragma GCC diagnostic pop
         post_send_rdma(&send_wr_ts, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
         ++put_count;
@@ -179,7 +182,9 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-            send_wr_tswrap.context = (void*)(ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
+            struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+            context->op_context = (void*)(ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
+            send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
             post_send_rdma(&send_wr_tswrap, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
             ++put_count;
@@ -357,7 +362,9 @@ void InputChannelConnection::setup()
     recv_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    recv_wr.context = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    recv_wr.context = context;
 #pragma GCC diagnostic pop
 
     memset(&send_wr_iovec, 0, sizeof(struct iovec));
@@ -370,7 +377,9 @@ void InputChannelConnection::setup()
     send_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
 
     // post initial receive request

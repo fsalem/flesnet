@@ -286,7 +286,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
     recv_msg_wr.desc = recv_wr_descs;
     recv_msg_wr.iov_count = 1;
     recv_msg_wr.addr = FI_ADDR_UNSPEC;
-    recv_msg_wr.context = 0;
+    recv_msg_wr.context = LibfabricContextPool::getInst()->getContext();
     recv_msg_wr.data = 0;
 
     err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
@@ -350,6 +350,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
             throw LibfabricException("fi_recvmsg failed");
         }
     }
+    LibfabricContextPool::getInst()->releaseContext(static_cast<struct fi_custom_context*>(recv_msg_wr.context));
 }
 
 /// The thread main function.

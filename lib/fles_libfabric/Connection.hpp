@@ -6,6 +6,7 @@
 #include "ConstVariables.hpp"
 #include "SizedMap.hpp"
 #include "RequestIdentifier.hpp"
+#include "LibfabricContextPool.hpp"
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>

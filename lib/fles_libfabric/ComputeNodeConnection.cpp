@@ -114,7 +114,9 @@ void ComputeNodeConnection::post_send_final_status_message()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_FINALIZE | (index_ << 8));
+    struct fi_custom_context* context = static_cast<struct fi_custom_context*>(send_wr.context);
+    context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
     post_send_status_message();
     final_msg_sent_ = true;
@@ -189,7 +191,9 @@ void ComputeNodeConnection::setup()
     recv_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    recv_wr.context = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    recv_wr.context = context;
 #pragma GCC diagnostic pop
 
     send_sge.iov_base = &send_status_message_;
@@ -202,7 +206,9 @@ void ComputeNodeConnection::setup()
     send_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
 
     // post initial receive request
