@@ -7,6 +7,7 @@
 #include "LibfabricException.hpp"
 #include "Provider.hpp"
 #include "LibfabricContextPool.hpp"
+#include "RequestIdentifier.hpp"
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>

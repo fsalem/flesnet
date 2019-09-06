@@ -3,7 +3,6 @@
 
 #include "InputChannelSender.hpp"
 #include "MicrosliceDescriptor.hpp"
-#include "RequestIdentifier.hpp"
 #include "Utility.hpp"
 #include <cassert>
 #include <chrono>
