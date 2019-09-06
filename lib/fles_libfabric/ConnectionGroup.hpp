@@ -182,6 +182,7 @@ public:
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wold-style-cast"
 			struct fi_custom_context* context = static_cast<struct fi_custom_context*>(wc[i].op_context);
+			assert (context != nullptr);
 			on_completion((uintptr_t)context->op_context);
 			if (((uintptr_t)context->op_context & 0xFF) == ID_WRITE_DESC ||
 				((uintptr_t)context->op_context & 0xFF) == ID_WRITE_DATA ||

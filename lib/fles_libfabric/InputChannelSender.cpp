@@ -175,7 +175,7 @@ void InputChannelSender::bootstrap_with_connections()
 void InputChannelSender::bootstrap_wo_connections()
 {
     int rc = MPI_Barrier(MPI_COMM_WORLD);
-     assert(rc == MPI_SUCCESS);
+    assert(rc == MPI_SUCCESS);
 
     // domain, cq, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
@@ -321,8 +321,8 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         int cn = target_cn_index(timeslice);
 
         if (!conn_[cn]->write_request_available()){
-            L_(info) << "[" << input_index_ << "]"
-        	    << "max # of writes to " << cn;
+            //L_(info) << "[" << input_index_ << "]"
+        	//    << "max # of writes to " << cn;
             input_scheduler_->log_timeslice_MR_blocked(timeslice);
             return false;
         }
@@ -359,7 +359,7 @@ std::unique_ptr<InputChannelConnection>
 InputChannelSender::create_input_node_connection(uint_fast16_t index)
 {
     // @todo
-    // unsigned int max_send_wr = 8000; ???  IB hca
+    // unsigned int max_send_wr = 8000; // ???  IB hca
     // unsigned int max_send_wr = 495; // ??? libfabric for verbs
     unsigned int max_send_wr = 256; // ??? libfabric for sockets
 
