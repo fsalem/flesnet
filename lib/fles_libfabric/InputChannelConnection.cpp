@@ -154,7 +154,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
         struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-        context->op_context = (void*)(ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
+        context->op_context = (ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
         send_wr_ts.context = context;
 #pragma GCC diagnostic pop
         post_send_rdma(&send_wr_ts, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
@@ -183,7 +183,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
             struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
-            context->op_context = (void*)(ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
+            context->op_context = (ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
             send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
             post_send_rdma(&send_wr_tswrap, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
