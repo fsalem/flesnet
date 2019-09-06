@@ -157,9 +157,13 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         context->op_context = (ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
         send_wr_ts.context = context;
 #pragma GCC diagnostic pop
-        post_send_rdma(&send_wr_ts, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
-        ++put_count;
-        ++pending_write_requests_;
+        if (i+1 < num_sge || num_sge2 > 0){
+            post_send_rdma(&send_wr_ts, FI_MORE);
+        }else{
+            post_send_rdma(&send_wr_ts, FI_COMPLETION);
+            ++put_count;
+            ++pending_write_requests_;
+        }
     }
 
     if (num_sge2) {
@@ -186,9 +190,13 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             context->op_context = (ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
             send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
-            post_send_rdma(&send_wr_tswrap, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
-            ++put_count;
-	    ++pending_write_requests_;
+            if (i+1 < num_sge2){
+        	post_send_rdma(&send_wr_tswrap, FI_MORE);
+            }else{
+        	post_send_rdma(&send_wr_tswrap, FI_COMPLETION);
+		++put_count;
+		++pending_write_requests_;
+            }
         }
     }
 
