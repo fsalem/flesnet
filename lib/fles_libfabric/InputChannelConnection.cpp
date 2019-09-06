@@ -83,7 +83,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
                                        uint64_t desc_length,
                                        uint64_t data_length, uint64_t skip)
 {
-    int num_sge2 = 0, put_count = 0;
+    int num_sge2 = 0;
     struct iovec sge2[4];
     void* desc2[4];
 
@@ -161,7 +161,6 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             post_send_rdma(&send_wr_ts, FI_MORE);
         }else{
             post_send_rdma(&send_wr_ts, FI_COMPLETION);
-            ++put_count;
             ++pending_write_requests_;
         }
     }
@@ -194,13 +193,11 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         	post_send_rdma(&send_wr_tswrap, FI_MORE);
             }else{
         	post_send_rdma(&send_wr_tswrap, FI_COMPLETION);
-		++put_count;
 		++pending_write_requests_;
             }
         }
     }
 
-    put_count_list_.add(timeslice, put_count);
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;

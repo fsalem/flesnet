@@ -568,18 +568,13 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
-        // TODO change to function
-        int count = conn_[cn]->put_count_list_.get(ts) - 1;
-        if (count == 0)conn_[cn]->put_count_list_.remove(ts);
-        else{
-            // TODO remove the if satement
-            if (sent_timeslices_ == max_timeslice_number_)
-        	L_(info) << "[i" << input_index_ << "] "
-			 << "write timeslice " << ts
-			 << " remaining " << count;
-            conn_[cn]->put_count_list_.update(ts, count);
-            break;
-	}
+
+	// TODO remove the if satement
+	if (sent_timeslices_ == max_timeslice_number_)
+	    L_(info) << "[i" << input_index_ << "] "
+		     << "write timeslice " << ts
+		     << " remaining " << count;
+
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
 
