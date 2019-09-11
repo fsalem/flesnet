@@ -379,7 +379,7 @@ double DDScheduler::get_mean_interval_duration_difference_distory() {
     if (last_completed_interval < history_size_+2)return 0;
 
     double mean = 0;
-    uint64_t proposed_interval_dur, actual_interval_dur;
+    int64_t proposed_interval_dur, actual_interval_dur;
     for (uint32_t i=0 ; i< history_size_ ; i++){
 	proposed_interval_dur = proposed_interval_meta_data_.get(last_completed_interval-i)->interval_duration;
 

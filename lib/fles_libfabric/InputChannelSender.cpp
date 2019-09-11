@@ -161,7 +161,8 @@ void InputChannelSender::send_timeslices()
 	conn_index = (conn_index+1) % conn_.size();
     }while(conn_index != (input_index_ % conn_.size()));
 
-    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
+    if (sent_timeslices_ <= max_timeslice_number_+1)
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
 }
 
 void InputChannelSender::bootstrap_with_connections()
