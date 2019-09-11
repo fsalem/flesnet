@@ -128,7 +128,9 @@ uint32_t InputScheduler::get_compute_connection_count(){
 }
 
 bool InputScheduler::is_timeslice_acked(uint64_t timeslice){
-    if (!timeslice_info_log_.contains(timeslice))return false;
+    // If timeslice transmit time is not logged, assume it is acked
+    if (!timeslice_info_log_.contains(timeslice))
+	return true;
     TimesliceInfo* timeslice_info = timeslice_info_log_.get(timeslice);
     return timeslice_info->acked_duration == 0 ? false : true;
 }
