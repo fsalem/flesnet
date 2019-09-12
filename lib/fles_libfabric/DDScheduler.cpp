@@ -220,8 +220,9 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     }
 
     // LOGGING
-    uint64_t max_round_duration = get_max_round_duration_history();
-    interval_info_logger_.add(interval_index, new IntervalDataLog(max_round_duration*round_count, new_interval_duration, round_count, new_interval_duration != get_median_interval_duration_history() ? 1 : 0));
+    uint64_t median_duration = get_max_round_duration_history();
+    interval_info_logger_.add(interval_index, new IntervalDataLog(median_duration, new_interval_duration,
+				round_count, new_interval_duration != median_duration ? 1 : 0));
 
     return new_interval_metadata;
 }
