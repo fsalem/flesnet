@@ -247,7 +247,7 @@ uint64_t DDScheduler::get_enhanced_round_duration(uint64_t interval_index) {
 
 uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
 
-    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ > interval_index) // in speeding up phase
+    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ >= interval_index) // in speeding up phase
     	return enhanced_interval_duration_;
 
     uint64_t median_interval_duration = get_median_interval_duration_history();

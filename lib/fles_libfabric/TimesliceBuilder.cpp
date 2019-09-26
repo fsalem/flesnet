@@ -399,8 +399,8 @@ void TimesliceBuilder::operator()()
 
         timeslice_DD_scheduler_->generate_log_files();
         ///-----
-        timeslice_scheduler_->build_duration_file();
-        timeslice_scheduler_->build_scheduled_time_file();
+        //timeslice_scheduler_->build_duration_file();
+        //timeslice_scheduler_->build_scheduled_time_file();
         ///-----/
 
         build_time_file();
