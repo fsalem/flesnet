@@ -18,15 +18,11 @@ ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
     uint_fast16_t remote_connection_index,
     InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
-    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp
-    ,TimesliceScheduler* timeslice_scheduler)
+    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp)
     : Connection(eq, connection_index, remote_connection_index),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
       desc_buffer_size_exp_(desc_buffer_size_exp)
-      ///-----
-      ,timeslice_scheduler_(timeslice_scheduler)
-      ///-----/
 {
     // send and receive only single StatusMessage struct
     max_send_wr_ = 2; // one additional wr to avoid race (recv before
@@ -50,13 +46,10 @@ ComputeNodeConnection::ComputeNodeConnection(
     uint_fast16_t remote_connection_index,
     /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
     uint32_t data_buffer_size_exp, fles::TimesliceComponentDescriptor* desc_ptr,
-    uint32_t desc_buffer_size_exp, TimesliceScheduler* timeslice_scheduler)
+    uint32_t desc_buffer_size_exp)
     : Connection(eq, connection_index, remote_connection_index),
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
       desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp)
-      ///-----
-      ,timeslice_scheduler_(timeslice_scheduler)
-      ///-----/
 {
 
     // send and receive only single StatusMessage struct
@@ -281,34 +274,6 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 	    data_acked_ = true;
 	}
     }
-    ///-----
-    /*
-    if (send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
-	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
-    {
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
-	send_status_message_.proposed_interval_metadata.interval_index = recv_status_message_.required_interval_index;
-	send_status_message_.proposed_interval_metadata.start_time = interval_info.first;
-	send_status_message_.proposed_interval_metadata.interval_duration = interval_info.second;
-	send_status_message_.proposed_interval_metadata.start_timeslice = ConstVariables::MAX_TIMESLICE_PER_INTERVAL*send_status_message_.proposed_interval_metadata.interval_index;
-	send_status_message_.proposed_interval_metadata.last_timeslice = (ConstVariables::MAX_TIMESLICE_PER_INTERVAL*(send_status_message_.proposed_interval_metadata.interval_index+1)) - 1;
-	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/20;
-
-	data_acked_ = true;
-    */
-/*
- 	/// LOGGING
-        if (data_acked_){
-            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::high_resolution_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
-        }
-        /// END LOGGING
-*/
-/*
-    }
-    */
-    ///-----/
 
     if (data_changed_ && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
@@ -347,17 +312,11 @@ void ComputeNodeConnection::on_complete_recv()
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;
     	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time);
-    	///-----
-    	timeslice_scheduler_->init_input_index_info(index_, recv_status_message_.local_time);
-    	///-----/
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
     	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency, recv_status_message_.actual_interval_metadata.interval_index);
     	timeslice_DD_scheduler_->add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
-    	///-----
-    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.actual_interval_metadata.interval_index, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.interval_duration);
-    	///-----/
     }
     post_recv_status_message();
 }

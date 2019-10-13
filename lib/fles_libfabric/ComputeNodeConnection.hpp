@@ -11,7 +11,6 @@
 #include "DDScheduler.hpp"
 #include <boost/format.hpp>
 ///-----
-#include "TimesliceScheduler_.hpp"
 #include <map>
 ///-----/
 
@@ -33,11 +32,7 @@ public:
                           InputNodeInfo remote_info, uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
-                          uint32_t desc_buffer_size_exp
-                          ///-----
-                          ,TimesliceScheduler* timeslice_scheduler
-                          ///-----/
-                          );
+                          uint32_t desc_buffer_size_exp);
 
     ComputeNodeConnection(struct fid_eq* eq, struct fid_domain* pd,
                           struct fid_cq* cq, struct fid_av* av,
@@ -46,11 +41,7 @@ public:
                           /*InputNodeInfo remote_info, */ uint8_t* data_ptr,
                           uint32_t data_buffer_size_exp,
                           fles::TimesliceComponentDescriptor* desc_ptr,
-                          uint32_t desc_buffer_size_exp
-                          ///-----
-                          ,TimesliceScheduler* timeslice_scheduler
-                          ///-----/
-                          );
+                          uint32_t desc_buffer_size_exp);
 
     ComputeNodeConnection(const ComputeNodeConnection&) = delete;
     void operator=(const ComputeNodeConnection&) = delete;
@@ -211,9 +202,6 @@ private:
     fi_addr_t partner_addr_;
 
     DDScheduler* timeslice_DD_scheduler_;
-    ///-----
-    TimesliceScheduler* timeslice_scheduler_;
-    ///-----/
 
     bool registered_input_MPI_time = false;
 

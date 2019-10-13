@@ -131,7 +131,6 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     struct fi_msg_rma send_wr_tscdesc;
     struct fi_rma_iov rma_iov[1];
 
-    // TODO UPDATE TO BE EXACTLY ONE COMPLETION EVENT !!!
     uint64_t remote_addr =
         remote_info_.data.addr + (cn_wp_data & cn_data_buffer_mask);
     for (int i = 0; i < num_sge; i++) {
@@ -158,7 +157,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.context = context;
 #pragma GCC diagnostic pop
         if (i+1 < num_sge || num_sge2 > 0){
-            post_send_rdma(&send_wr_ts, FI_MORE);
+            post_send_rdma(&send_wr_ts, 0);// TODO FI_MORE
         }else{
             post_send_rdma(&send_wr_ts, FI_COMPLETION);
             ++pending_write_requests_;
@@ -190,7 +189,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
             if (i+1 < num_sge2){
-        	post_send_rdma(&send_wr_tswrap, FI_MORE);
+        	post_send_rdma(&send_wr_tswrap, 0); // TODO FI_MORE
             }else{
         	post_send_rdma(&send_wr_tswrap, FI_COMPLETION);
 		++pending_write_requests_;
@@ -216,7 +215,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 		 << " tscdesc.offset " << tscdesc.offset;
     }
     pending_descriptors_.push_back(tscdesc);
-    //assert(pending_write_requests_ < max_pending_write_requests_);
+    assert(pending_write_requests_ < max_pending_write_requests_);
 }
 
 bool InputChannelConnection::write_request_available()

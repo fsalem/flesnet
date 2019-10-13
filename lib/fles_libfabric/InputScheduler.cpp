@@ -61,15 +61,12 @@ const IntervalMetaData* InputScheduler::get_actual_meta_data(uint64_t interval_i
 
 uint64_t InputScheduler::get_last_timeslice_to_send(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
-    if (current_interval->rounds_counter == 0 && current_interval->count_sent_ts == 0)
-	current_interval->actual_start_time = std::chrono::high_resolution_clock::now();
     uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
     return std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
 
 void InputScheduler::increament_sent_timeslices(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
-    // TODO: update it to be more precise (before sending the first timeslice ... not after)
     if (current_interval->count_sent_ts == 0)
 	current_interval->actual_start_time = std::chrono::high_resolution_clock::now();
     current_interval->count_sent_ts++;
@@ -253,7 +250,7 @@ bool InputScheduler::is_interval_sent_ack_completed(uint64_t interval){
 bool InputScheduler::is_ack_percentage_reached(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     // TODO change the percentage to be configurable
-    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.7 ? true: false;
+    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.9 ? true: false;
 }
 
 std::chrono::high_resolution_clock::time_point InputScheduler::get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice){
