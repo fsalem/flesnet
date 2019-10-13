@@ -250,7 +250,7 @@ bool InputScheduler::is_interval_sent_ack_completed(uint64_t interval){
 bool InputScheduler::is_ack_percentage_reached(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     // TODO change the percentage to be configurable
-    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.9 ? true: false;
+    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.95 ? true: false;
 }
 
 std::chrono::high_resolution_clock::time_point InputScheduler::get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice){
