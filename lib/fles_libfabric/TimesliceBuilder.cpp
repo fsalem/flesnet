@@ -473,7 +473,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     switch (wr_id & 0xFF) {
     case ID_SEND_STATUS:
         if (false) {
-            L_(trace) << "[c" << compute_index_ << "] "
+            L_(info) << "[c" << compute_index_ << "] "
                       << "[" << in << "] "
                       << "COMPLETE SEND status message";
         }

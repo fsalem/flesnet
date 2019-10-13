@@ -316,7 +316,6 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
                       << ", microslices " << desc_offset << ".."
                       << (desc_offset + desc_length - 1) << ", data bytes "
                       << data_offset << ".." << (data_offset + data_length - 1);
-            L_(trace) << get_state_string();
         }
 
         int cn = target_cn_index(timeslice);
@@ -577,7 +576,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
         input_scheduler_->log_timeslice_ack_time(ts);
         if (false) {
-            L_(trace) << "[i" << input_index_ << "] "
+            L_(info) << "[i" << input_index_ << "] "
                       << "write timeslice " << ts
                       << " complete, now: acked_data_=" << acked_data_
                       << " acked_desc_=" << acked_desc_;
