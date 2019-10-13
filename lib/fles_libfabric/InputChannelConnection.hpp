@@ -107,6 +107,10 @@ public:
 
     void add_timeslice_data_address(uint64_t data_size, uint64_t desc_size);
 
+    const uint64_t cn_ack_desc() {return cn_ack_.desc;}
+
+    const uint64_t cn_wp_desc() {return cn_wp_.desc;}
+
 private:
     /// Post a receive work request (WR) to the receive queue
     void post_recv_status_message();

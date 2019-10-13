@@ -359,10 +359,10 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 std::unique_ptr<InputChannelConnection>
 InputChannelSender::create_input_node_connection(uint_fast16_t index)
 {
-    // @todo
-    // unsigned int max_send_wr = 8000; // ???  IB hca
+    // TODO: What is the best value?
+    unsigned int max_send_wr = 8000; // ???  IB hca
     // unsigned int max_send_wr = 495; // ??? libfabric for verbs
-    unsigned int max_send_wr = 256; // ??? libfabric for sockets
+    // unsigned int max_send_wr = 256; // ??? libfabric for sockets
 
     // limit pending write requests so that send queue and completion queue
     // do not overflow
@@ -386,12 +386,17 @@ void InputChannelSender::connect()
                      compute_services_);
 
     conn_.resize(compute_hostnames_.size());
-    for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
+    uint32_t count = 0;
+    unsigned int i = input_index_%compute_hostnames_.size();
+    while (count < compute_hostnames_.size()) {
         std::unique_ptr<InputChannelConnection> connection =
             create_input_node_connection(i);
         connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
                             completion_queue(i), av_, FI_ADDR_UNSPEC);
+        //conn_.push_back(std::move(connection));
         conn_.at(i) = (std::move(connection));
+        ++count;
+        i = (i+1) % compute_hostnames_.size();
     }
 }
 
@@ -571,30 +576,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         conn_[cn]->on_complete_write();
 
         input_scheduler_->log_timeslice_ack_time(ts);
-        input_scheduler_->increament_acked_timeslices(ts);
-
-        uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
-        if (ts != acked_ts) {
-            // transmission has been reordered, store completion information
-            ack_.at(ts) = ts;
-        } else {
-            // completion is for earliest pending timeslice, update indices
-            do {
-                ++acked_ts;
-            } while (ack_.at(acked_ts) > ts);
-
-            acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
-	    acked_data_ =
-		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
-		data_source_.desc_buffer().at(acked_desc_ - 1).size;
-	    if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
-		acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
-		cached_acked_data_ = acked_data_;
-		cached_acked_desc_ = acked_desc_;
-		data_source_.set_read_index(
-		    {cached_acked_desc_, cached_acked_data_});
-	    }
-        }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "
                       << "write timeslice " << ts
@@ -605,7 +586,40 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS: {
         int cn = wr_id >> 8;
+        uint64_t last_desc = conn_[cn]->cn_ack_desc();
+        int64_t ts = (((int64_t)(conn_[cn]->cn_ack_desc()))*conn_.size()) + cn;
+
         conn_[cn]->on_complete_recv();
+
+        int64_t acked_timeslice = (((int64_t)(conn_[cn]->cn_ack_desc())-1)*conn_.size()) + cn;
+        //acked_timeslices_ += (conn_[cn]->cn_ack_.desc - last_desc);
+        do{
+	    if (conn_[cn]->cn_ack_desc() == 0 || ts > acked_timeslice) break;
+	    uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
+	    input_scheduler_->increament_acked_timeslices(ts);
+	    if (ts != acked_ts) {
+	    // transmission has been reordered, store completion information
+		ack_.at(ts) = ts;
+	    } else {
+	    // completion is for earliest pending timeslice, update indices
+		do {
+		    ++acked_ts;
+		} while (ack_.at(acked_ts) > ts);
+
+		acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
+		acked_data_ =
+		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
+		data_source_.desc_buffer().at(acked_desc_ - 1).size;
+		if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
+			acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
+		    cached_acked_data_ = acked_data_;
+		    cached_acked_desc_ = acked_desc_;
+		    data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
+		}
+	    }
+	    ts += conn_.size();
+	}while(ts <= acked_timeslice);
+
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);
             conn_[cn]->set_remote_info();
