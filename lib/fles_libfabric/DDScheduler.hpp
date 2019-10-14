@@ -174,8 +174,8 @@ private:
     // The history size
     uint32_t history_size_;
 
-    // The minimum interval duration
-    uint32_t interval_duration_;
+    // The initial timeslices of each interval
+    uint32_t interval_length_;
 
     // The max variance percentage between proposed and actual duration to speedup
     uint32_t speedup_difference_percentage_;

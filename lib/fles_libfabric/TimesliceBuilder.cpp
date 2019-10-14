@@ -28,7 +28,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
                                    volatile sig_atomic_t* signal_status,
                                    bool drop, std::string local_node_name,
 				   uint32_t scheduler_history_size,
-				   uint32_t scheduler_interval_duration,
+				   uint32_t scheduler_interval_length,
 				   uint32_t scheduler_speedup_difference_percentage,
 				   uint32_t scheduler_speedup_percentage,
 				   uint32_t scheduler_speedup_interval_count,
@@ -49,7 +49,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
         connection_oriented_ = false;
     }
     timeslice_DD_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
-	    scheduler_history_size, scheduler_interval_duration,
+	    scheduler_history_size, scheduler_interval_length,
 	    scheduler_speedup_difference_percentage,
 	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
 	    log_directory, enable_logging);

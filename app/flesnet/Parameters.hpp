@@ -115,8 +115,8 @@ public:
     /// Retrieve the history size of intervals that the scheduler would decide based on
     uint32_t scheduler_history_size() const { return scheduler_history_size_; }
 
-    /// Retrieve the minimum duration of each interval
-    uint32_t scheduler_interval_duration() const { return scheduler_interval_duration_; }
+    /// Retrieve the initial timeslices of each interval
+    uint32_t scheduler_interval_length() const { return scheduler_interval_length_; }
 
     /// Retrieve the maximum difference percentage between the proposed and the actual duration
     /// to apply the scheduler_speedup_percentage_
@@ -218,8 +218,8 @@ private:
     /// This history size of intervals that the scheduler would decide based on
     uint32_t scheduler_history_size_;
 
-    /// The minimum duration of each interval of the scheduler
-    uint32_t scheduler_interval_duration_;
+    /// The intial TSs of each interval of the scheduler
+    uint32_t scheduler_interval_length_;
 
     /// The maximum difference percentage between the proposed and the actual duration
     /// to apply the scheduler_speedup_percentage_

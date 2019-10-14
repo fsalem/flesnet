@@ -16,14 +16,14 @@ namespace tl_libfabric
 DDScheduler* DDScheduler::get_instance(uint32_t scheduler_index,
 	uint32_t input_scheduler_count,
 	uint32_t history_size,
-	uint32_t interval_duration,
+	uint32_t interval_length,
 	uint32_t speedup_difference_percentage,
 	uint32_t speedup_percentage,
 	uint32_t speedup_interval_count,
 	std::string log_directory, bool enable_logging){
     if (instance_ == nullptr){
     	instance_ = new DDScheduler(scheduler_index, input_scheduler_count,
-    		history_size, interval_duration, speedup_difference_percentage,
+    		history_size, interval_length, speedup_difference_percentage,
 		speedup_percentage, speedup_interval_count,
 		log_directory, enable_logging);
     }
@@ -118,13 +118,13 @@ void DDScheduler::generate_log_files(){
 DDScheduler::DDScheduler(uint32_t scheduler_index,
 	uint32_t input_connection_count,
 	uint32_t history_size,
-	uint32_t interval_duration,
+	uint32_t interval_length,
 	uint32_t speedup_difference_percentage,
 	uint32_t speedup_percentage,
 	uint32_t speedup_interval_count,
 	std::string log_directory, bool enable_logging):
 	scheduler_index_(scheduler_index), input_connection_count_(input_connection_count),
-    history_size_(history_size), interval_duration_(interval_duration),
+    history_size_(history_size), interval_length_(interval_length),
     speedup_difference_percentage_(speedup_difference_percentage),
     speedup_percentage_(speedup_percentage), speedup_interval_count_(speedup_interval_count),
     log_directory_(log_directory), enable_logging_(enable_logging){
@@ -191,13 +191,13 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint32_t compute_count = get_last_compute_connection_count();
 
     /*uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
-    uint32_t round_count = std::ceil(interval_duration_*1000000.0/(new_round_duration*1.0));
+    uint32_t round_count = std::ceil(interval_length_*1000000.0/(new_round_duration*1.0));
     round_count = round_count == 0 ? 1 : round_count;
     uint64_t new_interval_duration = new_round_duration*round_count;
 */
 
     uint64_t new_interval_duration = get_enhanced_interval_duration(interval_index);
-    uint32_t round_count = std::floor(interval_duration_/compute_count);
+    uint32_t round_count = floor(interval_length_/compute_count);
     round_count = round_count == 0 ? 1 : round_count;
 
     std::chrono::high_resolution_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));

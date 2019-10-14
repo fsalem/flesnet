@@ -36,7 +36,7 @@ public:
                      volatile sig_atomic_t* signal_status,
 		     bool drop, std::string local_node_name,
 		     uint32_t scheduler_history_size,
-		     uint32_t scheduler_interval_duration,
+		     uint32_t scheduler_interval_length,
 		     uint32_t scheduler_speedup_difference_percentage,
 		     uint32_t scheduler_speedup_percentage,
 		     uint32_t scheduler_speedup_interval_count,
