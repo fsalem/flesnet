@@ -157,6 +157,7 @@ Application::Application(Parameters const& par,
                     index, *(data_sources_.at(c).get()), par.compute_nodes(),
                     compute_services, par.timeslice_size(), par.overlap_size(),
                     par.max_timeslice_number(), par.input_nodes().at(index),
+		    par_.scheduler_interval_length(),
 		    par.log_directory(), par.enable_logging()));
             input_channel_senders_.push_back(std::move(sender));
 #else

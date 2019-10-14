@@ -29,8 +29,8 @@ class InputScheduler
 public:
 
     // Initialize and get singleton instance
-    static InputScheduler* get_instance(uint32_t scheduler_index , uint32_t compute_conn_count,
-    	std::string log_directory, bool enable_logging);
+    static InputScheduler* get_instance(uint32_t scheduler_index, uint32_t compute_conn_count,
+	    uint32_t interval_length, std::string log_directory, bool enable_logging);
 
     // Get singleton instance
     static InputScheduler* get_instance();
@@ -92,8 +92,8 @@ private:
 	uint64_t acked_duration = 0;
     };
 
-    InputScheduler(uint32_t scheduler_index , uint32_t compute_conn_count,
-	    	std::string log_directory, bool enable_logging);
+    InputScheduler(uint32_t scheduler_index, uint32_t compute_conn_count,
+	    uint32_t interval_length, std::string log_directory, bool enable_logging);
 
     // The singleton instance for this class
     static InputScheduler* instance_;
@@ -152,6 +152,9 @@ private:
 
     // Time at which the InputChannelSender started
     std::chrono::high_resolution_clock::time_point begin_time_;
+
+    // Number of intial timeslices per interval
+    uint32_t interval_length_;
 
     // The Log folder
     std::string log_directory_;

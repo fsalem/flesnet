@@ -17,7 +17,8 @@ InputChannelSender::InputChannelSender(
     const std::vector<std::string> compute_hostnames,
     const std::vector<std::string> compute_services, uint32_t timeslice_size,
     uint32_t overlap_size, uint32_t max_timeslice_number,
-    std::string input_node_name, std::string log_directory, bool enable_logging)
+    std::string input_node_name, uint32_t scheduler_interval_length,
+    std::string log_directory, bool enable_logging)
     : ConnectionGroup(input_node_name), input_index_(input_index),
       data_source_(data_source), compute_hostnames_(compute_hostnames),
       compute_services_(compute_services), timeslice_size_(timeslice_size),
@@ -41,7 +42,7 @@ InputChannelSender::InputChannelSender(
         connection_oriented_ = false;
     }
 
-    input_scheduler_ = InputScheduler::get_instance(input_index, compute_hostnames.size(), log_directory, enable_logging);
+    input_scheduler_ = InputScheduler::get_instance(input_index, compute_hostnames.size(), scheduler_interval_length, log_directory, enable_logging);
 }
 
 InputChannelSender::~InputChannelSender()

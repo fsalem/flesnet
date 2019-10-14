@@ -9,10 +9,11 @@
 namespace tl_libfabric
 {
 // PUBLIC
-InputScheduler* InputScheduler::get_instance(uint32_t scheduler_index , uint32_t compute_conn_count,
-	std::string log_directory, bool enable_logging){
+InputScheduler* InputScheduler::get_instance(uint32_t scheduler_index, uint32_t compute_conn_count,
+					    uint32_t interval_length,
+					    std::string log_directory, bool enable_logging){
     if (instance_ == nullptr){
-	instance_ = new InputScheduler(scheduler_index, compute_conn_count, log_directory, enable_logging);
+	instance_ = new InputScheduler(scheduler_index, compute_conn_count, interval_length, log_directory, enable_logging);
     }
     return instance_;
 }
@@ -134,10 +135,11 @@ bool InputScheduler::is_timeslice_acked(uint64_t timeslice){
 
 // PRIVATE
 
-InputScheduler::InputScheduler(uint32_t scheduler_index , uint32_t compute_conn_count,
-    	std::string log_directory, bool enable_logging):
+InputScheduler::InputScheduler(uint32_t scheduler_index, uint32_t compute_conn_count,
+	uint32_t interval_length, std::string log_directory, bool enable_logging):
     		scheduler_index_(scheduler_index), compute_count_(compute_conn_count),
-		log_directory_(log_directory), enable_logging_(enable_logging) {
+		interval_length_(interval_length), log_directory_(log_directory),
+		enable_logging_(enable_logging) {
 }
 
 void InputScheduler::create_new_interval_info(uint64_t interval_index){
@@ -152,7 +154,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
     }else{
 	if (interval_info_.empty()){// first interval
 	    // TODO check the initial INTERVAL_LENGTH_ & COMPUTE_COUNT_;
-	    uint32_t round_count = std::floor(ConstVariables::MAX_TIMESLICE_PER_INTERVAL/compute_count_);
+	    uint32_t round_count = floor(interval_length_/compute_count_);
 	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1, std::chrono::high_resolution_clock::now(), 0);
 
 	}else{// following last proposed meta-data
@@ -284,7 +286,7 @@ void InputScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t co
     timeslice_info->transmit_time = std::chrono::high_resolution_clock::now();
     timeslice_info_log_.add(timeslice, timeslice_info);
 
-    uint64_t round_index = std::floor((timeslice-interval_info->start_ts+1)/interval_info->num_ts_per_round*1.0);
+    uint64_t round_index = floor((timeslice-interval_info->start_ts+1)/interval_info->num_ts_per_round*1.0);
     std::pair<uint64_t,uint64_t> interval_round_pair = std::make_pair(interval_info->index, round_index);
     if (!round_proposed_actual_start_time_log_.contains(interval_round_pair)){
 	std::pair<uint64_t,uint64_t> expected_actual_pair = std::make_pair(
