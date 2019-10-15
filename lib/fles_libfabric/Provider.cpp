@@ -80,7 +80,7 @@ struct fi_info* Provider::get_hints(enum fi_ep_type ep_type, std::string prov)
     hints->mode = FI_LOCAL_MR | FI_CONTEXT;
     hints->ep_attr->type = ep_type;
     hints->domain_attr->threading = FI_THREAD_COMPLETION;
-    hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
+    hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
     hints->domain_attr->mr_mode = FI_MR_BASIC;
     hints->fabric_attr->prov_name = strdup(prov.c_str());
 
