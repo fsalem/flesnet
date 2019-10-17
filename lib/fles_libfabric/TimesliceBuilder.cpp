@@ -369,7 +369,6 @@ void TimesliceBuilder::operator()()
 
         sync_buffer_positions();
         report_status();
-        process_pending_complete_timeslices();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
@@ -378,6 +377,7 @@ void TimesliceBuilder::operator()()
             if (connected_ != 0) {
                 poll_cm_events();
             }
+            process_pending_complete_timeslices();
             scheduler_.timer();
             if (*signal_status_ != 0) {
                 *signal_status_ = 0;
@@ -597,12 +597,10 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 
 void TimesliceBuilder::process_pending_complete_timeslices()
 {
-    //L_(info) << "Start a new round of process_pending_complete_timeslices";
     double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
     uint64_t last_processed_ts = ConstVariables::MINUS_ONE;
     for (uint64_t ts_pos : pending_complete_ts_){
 	// check whether all contributions are received!
-	//L_(info) << "ts_pos = " << ts_pos;
 	if (!check_complete_timeslices(ts_pos)) break;
 	if (!drop_) {
 	    const fles::TimesliceComponentDescriptor& acked_ts = timeslice_buffer_.get_desc(0, ts_pos);
@@ -622,10 +620,6 @@ void TimesliceBuilder::process_pending_complete_timeslices()
 	std::set<uint64_t>::iterator last_processed_it = pending_complete_ts_.find(last_processed_ts);
 	pending_complete_ts_.erase(pending_complete_ts_.begin(), ++last_processed_it);
     }
-
-    //L_(info) << "End of process_pending_complete_timeslices";
-    scheduler_.add(std::bind(&TimesliceBuilder::process_pending_complete_timeslices, this),
-	    std::chrono::system_clock::now() + std::chrono::milliseconds(0));
 }
 
 }
