@@ -215,7 +215,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 		 << " tscdesc.offset " << tscdesc.offset;
     }
     pending_descriptors_.push_back(tscdesc);
-    assert(pending_write_requests_ < max_pending_write_requests_);
+    assert(pending_write_requests_ <= max_pending_write_requests_);
 }
 
 bool InputChannelConnection::write_request_available()

@@ -229,7 +229,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
 uint64_t DDScheduler::get_enhanced_round_duration(uint64_t interval_index) {
 
-    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ < interval_index) // in speeding up phase
+    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ >= interval_index) // in speeding up phase
     	return enhanced_round_duration_;
 
     uint64_t max_round_duration = get_max_round_duration_history();
