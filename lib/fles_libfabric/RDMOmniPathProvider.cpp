@@ -104,6 +104,8 @@ void RDMOmniPathProvider::set_hostnames_and_services(
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), FI_NUMERICHOST, hints, &info);
+        if (res)
+            L_(fatal) << "fi_getinfo failed in set_hostnames_and_services[" << compute_hostnames[i] << "," << compute_services[i] << "]: " << res << "=" << fi_strerror(-res);
         assert(res == 0);
         assert(info != nullptr);
 	while(info != nullptr) {
