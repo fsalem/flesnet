@@ -158,7 +158,7 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     actual_interval_meta_data_.add(interval_index,
 	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice, average_start_time, median_interval_duration));
 
-    if (false){
+    if (true){
 	L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
 		<< " [" << average_start_timeslice << ", " << average_last_timeslice
 		<< "] took " << median_interval_duration
@@ -212,7 +212,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 						new_start_time, new_interval_duration);
     proposed_interval_meta_data_.add(interval_index, new_interval_metadata);
 
-    if (false){
+    if (true){
     	L_(info) << "[" << scheduler_index_ << "] interval " << new_interval_metadata->interval_index
     		<< " [" << new_interval_metadata->start_timeslice << ", " << new_interval_metadata->last_timeslice
     		<< "] should take " << new_interval_metadata->interval_duration

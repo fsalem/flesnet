@@ -151,13 +151,6 @@ public:
 
     bool is_connection_finalized();
 
-    /// LOGGING
-    ///-----
-    std::map<uint64_t,std::chrono::high_resolution_clock::time_point> send_interval_times_log_;
-    ///-----/
-    uint64_t last_recv_ts_ = 0;
-    /// END LOGGING
-
 private:
     /// Write the received timeslice descriptors from the sync messages in the memory (to minimize RDMA Writes)
     void write_received_descriptors();

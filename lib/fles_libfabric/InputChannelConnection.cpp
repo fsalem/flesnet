@@ -157,9 +157,9 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.context = context;
 #pragma GCC diagnostic pop
         if (i+1 < num_sge || num_sge2 > 0){
-            post_send_rdma(&send_wr_ts, 0);// TODO FI_MORE
+            post_send_rdma(&send_wr_ts, FI_MORE);
         }else{
-            post_send_rdma(&send_wr_ts, FI_COMPLETION);
+            post_send_rdma(&send_wr_ts, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
             ++pending_write_requests_;
         }
     }
@@ -189,9 +189,9 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
             if (i+1 < num_sge2){
-        	post_send_rdma(&send_wr_tswrap, 0); // TODO FI_MORE
+        	post_send_rdma(&send_wr_tswrap, FI_MORE);
             }else{
-        	post_send_rdma(&send_wr_tswrap, FI_COMPLETION);
+        	post_send_rdma(&send_wr_tswrap, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
 		++pending_write_requests_;
             }
         }
@@ -270,7 +270,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 uint64_t InputChannelConnection::skip_required(uint64_t data_size)
 {
     uint64_t databuf_size = UINT64_C(1) << remote_info_.data_buffer_size_exp;
-    uint64_t databuf_wp = cn_wp_.data & (databuf_size - 1);
+    uint64_t databuf_wp = (cn_wp_.data + cn_wp_pending_.data) & (databuf_size - 1);
     if (databuf_wp + data_size <= databuf_size)
         return 0;
     else

@@ -41,7 +41,7 @@ void InputScheduler::update_input_begin_time(std::chrono::high_resolution_clock:
 void InputScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
     if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
 	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
-	if (false){
+	if (true){
 	    L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << meta_data.interval_index
@@ -166,7 +166,7 @@ void InputScheduler::create_new_interval_info(uint64_t interval_index){
 	}
     }
 
-    if (false){
+    if (true){
 	L_(info) << "[i " << scheduler_index_ << "] "
 		      << "interval"
 		      << interval_index
@@ -187,7 +187,7 @@ void InputScheduler::create_actual_interval_meta_data(InputIntervalInfo* interva
 		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration);
-    if (false){
+    if (true){
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
                 << actual_metadata->interval_index

@@ -303,9 +303,6 @@ void ComputeNodeConnection::on_complete_recv()
     // to handle receiving sync messages out of sent order!
     if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){
     	cn_wp_ = recv_status_message_.wp;
-    	/// LOGGING
-    	last_recv_ts_= cn_wp_.desc;
-    	/// END LOGGING
     }
     write_received_descriptors();
 
