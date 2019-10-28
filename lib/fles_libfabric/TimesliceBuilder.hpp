@@ -7,6 +7,7 @@
 #include "RingBuffer.hpp"
 #include "TimesliceBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
+#include "TimesliceManager.hpp"
 
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/mapped_region.hpp>
@@ -100,7 +101,6 @@ private:
 
     uint32_t timeslice_size_;
 
-    size_t red_lantern_ = 0;
     uint64_t completely_written_ = 0;
     uint64_t acked_ = 0;
 
@@ -114,6 +114,8 @@ private:
     bool drop_;
 
     DDScheduler* timeslice_DD_scheduler_;
+
+    TimesliceManager* timeslice_manager_;
 
     std::vector<double> completed_ts;
 

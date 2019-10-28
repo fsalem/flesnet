@@ -53,6 +53,9 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
 	    scheduler_speedup_difference_percentage,
 	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
 	    log_directory, enable_logging);
+
+    timeslice_manager_ = TimesliceManager::get_instance(compute_index, num_input_nodes,
+	    log_directory, enable_logging);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -391,6 +394,7 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_completion();
 
         timeslice_DD_scheduler_->generate_log_files();
+        timeslice_manager_->generate_log_files();
 
         build_time_file();
         summary();
@@ -400,21 +404,6 @@ void TimesliceBuilder::operator()()
 }
 
 void TimesliceBuilder::build_time_file(){
-
-    if (true){
-	std::ofstream log_file;
-	log_file.open(log_directory_+"/"+std::to_string(compute_index_)+".compute.arrival_diff.out");
-
-	log_file << std::setw(25) << "Timeslice" << std::setw(25) << "Diff" << "\n";
-	std::map<uint64_t,double>::iterator it = first_last_arrival_diff_.begin();
-	while(it != first_last_arrival_diff_.end()){
-	    log_file << std::setw(25) << it->first << std::setw(25) << it->second << "\n";
-	    ++it;
-	}
-
-	log_file.flush();
-	log_file.close();
-    }
 
     if (true){
     	std::ofstream log_file;
@@ -505,47 +494,11 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         break;
 
     case ID_RECEIVE_STATUS: {
-	const uint64_t old_recv = conn_[in]->last_recv_ts_;
-
         conn_[in]->on_complete_recv();
+        timeslice_manager_->log_contribution_arrival(in, conn_[in]->cn_wp().desc);
 
-        const uint64_t new_recv = conn_[in]->last_recv_ts_;
-
-	// LOGGING
-        if (true){
-	    uint64_t remote_ts_num;
-	    std::map<uint64_t, uint32_t>::iterator it;
-	    for (uint64_t desc=old_recv+1 ; desc <= new_recv ; desc++){
-		remote_ts_num = desc*conn_.size() + compute_index_;
-		if (!first_arrival_time_.count(remote_ts_num)){
-		    first_arrival_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(remote_ts_num, std::chrono::high_resolution_clock::now()));
-		    arrival_count_.insert(std::pair<uint64_t, uint32_t>(remote_ts_num,1));
-		}else{
-		    it = arrival_count_.find(remote_ts_num);
-		    if ((it->second + 1) != conn_.size()){
-			++it->second;
-		    }else{
-			first_last_arrival_diff_.insert(std::pair<uint64_t, double>(remote_ts_num,
-				std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - first_arrival_time_.find(remote_ts_num)->second).count()));
-			first_arrival_time_.erase(remote_ts_num);
-			arrival_count_.erase(remote_ts_num);
-		    }
-		}
-	    }
-        }// END OF LOGGING
-
-        if (connected_ == conn_.size() && in == red_lantern_) {
-            auto new_red_lantern = std::min_element(
-                std::begin(conn_), std::end(conn_),
-                [](const std::unique_ptr<ComputeNodeConnection>& v1,
-                   const std::unique_ptr<ComputeNodeConnection>& v2) {
-                    return v1->cn_wp().desc < v2->cn_wp().desc;
-                });
-
-            uint64_t new_completely_written = (*new_red_lantern)->cn_wp().desc;
-            red_lantern_ = std::distance(std::begin(conn_), new_red_lantern);
-
-//            int last_completed_ts_size = completed_ts.size();
+        if (connected_ == conn_.size()) {
+            uint64_t new_completely_written = timeslice_manager_->get_last_ordered_completed_timeslice();
             for (uint64_t tpos = completely_written_;
                  tpos < new_completely_written; ++tpos) {
         	pending_complete_ts_.insert(tpos);
