@@ -375,12 +375,12 @@ void TimesliceBuilder::operator()()
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
+                process_completed_timeslices();
                 poll_ts_completion();
             }
             if (connected_ != 0) {
                 poll_cm_events();
             }
-            process_pending_complete_timeslices();
             scheduler_.timer();
             if (*signal_status_ != 0) {
                 *signal_status_ = 0;
@@ -496,15 +496,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     case ID_RECEIVE_STATUS: {
         conn_[in]->on_complete_recv();
         timeslice_manager_->log_contribution_arrival(in, conn_[in]->cn_wp().desc);
-
-        if (connected_ == conn_.size()) {
-            uint64_t new_completely_written = timeslice_manager_->get_last_ordered_completed_timeslice();
-            for (uint64_t tpos = completely_written_;
-                 tpos < new_completely_written; ++tpos) {
-        	pending_complete_ts_.insert(tpos);
-            }
-            completely_written_ = new_completely_written;
-        }
     }
         break;
 
@@ -522,8 +513,11 @@ void TimesliceBuilder::poll_ts_completion()
         do
             ++acked_;
         while (ack_.at(acked_) > c.ts_pos);
-        for (auto& connection : conn_)
+        for (auto& connection : conn_){
+            // check timed out timeslice
+            if (acked_ > connection->cn_wp().desc)continue;
             connection->inc_ack_pointers(acked_);
+        }
     } else
         ack_.at(c.ts_pos) = c.ts_pos;
 }
@@ -548,14 +542,21 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
     return all_received;
 }
 
-void TimesliceBuilder::process_pending_complete_timeslices()
-{
-    double time = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_begin_).count())/1000.0;
-    uint64_t last_processed_ts = ConstVariables::MINUS_ONE;
-    for (uint64_t ts_pos : pending_complete_ts_){
-	// check whether all contributions are received!
-	if (!check_complete_timeslices(ts_pos)) break;
-	if (!drop_) {
+void TimesliceBuilder::process_completed_timeslices(){
+    if (connected_ != conn_.size()) return;
+
+    timeslice_manager_->log_timeout_timeslice();
+    uint64_t new_completely_written = timeslice_manager_->get_last_ordered_completed_timeslice();
+    if (new_completely_written == ConstVariables::MINUS_ONE || new_completely_written < completely_written_)return;
+    for (uint64_t ts_pos = completely_written_; ts_pos <= new_completely_written; ++ts_pos) {
+
+	bool timed_out = timeslice_manager_->is_timeslice_timed_out(ts_pos);
+	// check whether all contributions are received if it is not timed out!
+	if (!timed_out && !check_complete_timeslices(ts_pos)){
+	    timed_out = true;
+	    L_(fatal) << "ts: " << ts_pos << " is not completely received yet ...";
+	}
+	if (!drop_ && !timed_out) {
 	    const fles::TimesliceComponentDescriptor& acked_ts = timeslice_buffer_.get_desc(0, ts_pos);
 	    uint64_t ts_index = acked_ts.ts_num;
 	    timeslice_buffer_.send_work_item(
@@ -566,13 +567,9 @@ void TimesliceBuilder::process_pending_complete_timeslices()
 	} else {
 	    timeslice_buffer_.send_completion({ts_pos});
 	}
-	last_processed_ts = ts_pos;
-	completed_ts.push_back(time);
     }
-    if (last_processed_ts != ConstVariables::MINUS_ONE){
-	std::set<uint64_t>::iterator last_processed_it = pending_complete_ts_.find(last_processed_ts);
-	pending_complete_ts_.erase(pending_complete_ts_.begin(), ++last_processed_it);
-    }
+    completely_written_ = new_completely_written+1;
+
 }
 
 }

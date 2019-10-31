@@ -40,6 +40,12 @@ public:
     // Get last ordered completed timeslice
     uint64_t get_last_ordered_completed_timeslice();
 
+    // Check timeslices that should time out
+    void log_timeout_timeslice();
+
+    // Check whether a timeslice is timed out
+    bool is_timeslice_timed_out(uint64_t timeslice);
+
     //Generate log files of the stored data
     void generate_log_files();
 
@@ -56,6 +62,7 @@ private:
     // The first arrival time of each timeslice
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_first_arrival_time_;
 
+    // Counts the number of received contributions of each timeslice
     SizedMap<uint64_t, uint32_t> timeslice_arrived_count_;
 
     // The singleton instance for this class
@@ -67,6 +74,9 @@ private:
     // The number of input connections
     uint32_t input_connection_count_;
 
+    // Timeout limit in seconds
+    double timeout_;
+
     // The log directory
     std::string log_directory_;
 
@@ -75,6 +85,9 @@ private:
     // LOGGING
     // Time to complete each timeslice
     SizedMap<uint64_t, double> timeslice_completion_duration_;
+
+    // The timed out Timeslices <Timeslice_id, duration since first arrival>
+    SizedMap<uint64_t, double> timeslice_timed_out_;
 
 };
 }

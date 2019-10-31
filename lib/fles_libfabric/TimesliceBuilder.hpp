@@ -74,8 +74,8 @@ private:
     void make_endpoint_named(struct fi_info* info, const std::string& hostname,
                              const std::string& service, struct fid_ep** ep);
 
-    /// Check if a complete timeslice should be received but status messages are received early.
-    void process_pending_complete_timeslices();
+    /// Process completed timeslices and send them to the analyzer
+    void process_completed_timeslices();
 
     /// Check if a timeslice is received completely
     bool check_complete_timeslices(uint64_t ts_pos);
@@ -116,10 +116,6 @@ private:
     DDScheduler* timeslice_DD_scheduler_;
 
     TimesliceManager* timeslice_manager_;
-
-    std::vector<double> completed_ts;
-
-    std::set<uint64_t> pending_complete_ts_;
 
     // LOGGING
     std::map<uint64_t, double> first_last_arrival_diff_;
