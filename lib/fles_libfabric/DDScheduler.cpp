@@ -257,6 +257,10 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     if (interval_dur_mean_difference > 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
 	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
 	speedup_interval_index_ = interval_index;
+	if (true)
+	    L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
+		    << " starting speeding up for " << speedup_interval_count_ << " intervals[median: " << median_interval_duration << ", enhanced: " << enhanced_interval_duration_ << "]";
+
 	return enhanced_interval_duration_;
     }
     return median_interval_duration;
