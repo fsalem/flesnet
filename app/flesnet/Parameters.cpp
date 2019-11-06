@@ -232,7 +232,7 @@ void Parameters::parse_options(int argc, char* argv[])
 	       "Drop timeslice processing");
     config_add("scheduler-history-size", po::value<uint32_t>(&scheduler_history_size_)->default_value(100),
 	       "The scheduler history size");
-    config_add("scheduler-interval-length", po::value<uint32_t>(&scheduler_interval_length_)->default_value(0),
+    config_add("scheduler-interval-length", po::value<uint32_t>(&scheduler_interval_length_)->default_value(10000),
     	       "The initial scheduler interval Timeslices");
     config_add("scheduler-speedup-difference-percentage",
 	    po::value<uint32_t>(&scheduler_speedup_difference_percentage_)->default_value(0),
