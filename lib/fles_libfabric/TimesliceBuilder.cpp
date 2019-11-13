@@ -495,7 +495,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_RECEIVE_STATUS: {
         conn_[in]->on_complete_recv();
-        timeslice_manager_->log_contribution_arrival(in, conn_[in]->cn_wp().desc);
     }
         break;
 
@@ -528,16 +527,32 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
     for (uint32_t indx = 0 ; indx < conn_.size() ; indx++){
 	const fles::TimesliceComponentDescriptor& acked_ts =
 		timeslice_buffer_.get_desc(indx, ts_pos);
-	/*L_(info) << "[process_pending_complete_timeslices] desc = " << ts_pos
+	L_(debug) << "[process_pending_complete_timeslices] desc = " << ts_pos
 		    << ", acked_ts.size = " << acked_ts.size
 		    << ", acked_ts.offset = " << acked_ts.offset
 		    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
-		    << ", acked_ts.ts_num = " << acked_ts.ts_num;*/
+		    << ", acked_ts.ts_num = " << acked_ts.ts_num
+		    << ", (acked_ts.offset + acked_ts.size) = " << (acked_ts.offset + acked_ts.size)
+		    << ", conn_[indx]->cn_ack().data = " << conn_[indx]->cn_ack().data;
 	if (acked_ts.num_microslices == ConstVariables::ZERO || acked_ts.size == ConstVariables::ZERO
 		|| (acked_ts.offset + acked_ts.size) < conn_[indx]->cn_ack().data){
 	    all_received = false;
 	    break;
 	}
+    }
+    // TODO REMOVE
+    if (!all_received){
+	for (uint32_t indx = 0 ; indx < conn_.size() ; indx++){
+		const fles::TimesliceComponentDescriptor& acked_ts =
+			timeslice_buffer_.get_desc(indx, ts_pos);
+		L_(info) << "[process_pending_complete_timeslices] desc = " << ts_pos
+			    << ", acked_ts.size = " << acked_ts.size
+			    << ", acked_ts.offset = " << acked_ts.offset
+			    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
+			    << ", acked_ts.ts_num = " << acked_ts.ts_num
+			    << ", (acked_ts.offset + acked_ts.size) = " << (acked_ts.offset + acked_ts.size)
+			    << ", conn_[indx]->cn_ack().data = " << conn_[indx]->cn_ack().data;
+	    }
     }
     return all_received;
 }

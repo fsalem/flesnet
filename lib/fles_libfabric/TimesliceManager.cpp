@@ -29,50 +29,35 @@ TimesliceManager::TimesliceManager(uint32_t compute_index,
 		log_directory_(log_directory),
 		enable_logging_(enable_logging){
     assert( input_connection_count > 0);
-    for (uint32_t input_conn = 0 ; input_conn < input_connection_count ; ++input_conn){
-	last_received_timeslice_.add(input_conn, ConstVariables::MINUS_ONE);
-    }
     timeout_ = ConstVariables::TIMEOUT;
 }
 
 
 void TimesliceManager::update_input_connection_count(uint32_t input_connection_count) {
     assert (input_connection_count > 0);
-
-    // initially filling the gap
-    for (uint32_t input_conn = input_connection_count_ ; input_conn < input_connection_count ; ++input_conn){
-	last_received_timeslice_.add(input_conn, ConstVariables::MINUS_ONE);
-    }
     input_connection_count_ = input_connection_count;
 }
 
 void TimesliceManager::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
     assert (connection_id < input_connection_count_);
-    uint64_t last_received_ts = last_received_timeslice_.get(connection_id);
-    assert (last_received_ts == ConstVariables::MINUS_ONE || last_received_ts <= timeslice);
-    if (timeslice == 0 || (last_received_ts != ConstVariables::MINUS_ONE && last_received_ts+1 == timeslice)) return;
 
-    //L_(info) << "Conn_" << connection_id << " logs up to timeslice " << timeslice << " and last received " <<  last_received_ts;
-    for (uint64_t ts = (last_received_ts == ConstVariables::MINUS_ONE ? 0 : last_received_ts+1) ; ts < timeslice ; ++ts){
-	if (timeslice_timed_out_.contains(ts))continue;
-	if (!timeslice_first_arrival_time_.contains(ts)){
-	    timeslice_first_arrival_time_.add(ts, std::chrono::high_resolution_clock::now());
-	}
-
-	uint32_t arrived_count = 1;
-	if (timeslice_arrived_count_.contains(ts)){
-	    arrived_count = timeslice_arrived_count_.get(ts) + 1;
-	    timeslice_arrived_count_.update(ts, arrived_count);
-	} else {
-	    timeslice_arrived_count_.add(ts, arrived_count);
-	}
-
-	assert (arrived_count <= input_connection_count_);
-	if (arrived_count == input_connection_count_){
-	    trigger_timeslice_completion(ts);
-	}
+    if (timeslice_timed_out_.contains(timeslice) || timeslice_completion_duration_.contains(timeslice))return;
+    if (!timeslice_first_arrival_time_.contains(timeslice)){
+	timeslice_first_arrival_time_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
-    last_received_timeslice_.update(connection_id, timeslice-1);
+
+    uint32_t arrived_count = 1;
+    if (timeslice_arrived_count_.contains(timeslice)){
+	arrived_count = timeslice_arrived_count_.get(timeslice) + 1;
+	timeslice_arrived_count_.update(timeslice, arrived_count);
+    } else {
+	timeslice_arrived_count_.add(timeslice, arrived_count);
+    }
+
+    assert (arrived_count <= input_connection_count_);
+    if (arrived_count == input_connection_count_){
+	trigger_timeslice_completion(timeslice);
+    }
 }
 
 void TimesliceManager::log_timeout_timeslice(){
@@ -95,14 +80,7 @@ void TimesliceManager::log_timeout_timeslice(){
 }
 
 uint64_t TimesliceManager::get_last_ordered_completed_timeslice(){
-    if (timeslice_first_arrival_time_.empty()){
-	uint64_t last_completed = (timeslice_completion_duration_.empty() ? ConstVariables::MINUS_ONE: timeslice_completion_duration_.get_last_key()),
-		 last_timeout =  (timeslice_timed_out_.empty() ? ConstVariables::MINUS_ONE : timeslice_timed_out_.get_last_key());
-	if (last_completed == ConstVariables::MINUS_ONE || last_timeout == ConstVariables::MINUS_ONE)
-	    return std::min(last_completed, last_timeout);
-	return std::max(last_completed, last_timeout);
-    }
-    return timeslice_first_arrival_time_.get_begin_iterator()->first == 0 ? ConstVariables::MINUS_ONE : timeslice_first_arrival_time_.get_begin_iterator()->first - 1;
+    return last_ordered_timeslice_;
 }
 
 bool TimesliceManager::is_timeslice_timed_out(uint64_t timeslice){
@@ -110,20 +88,19 @@ bool TimesliceManager::is_timeslice_timed_out(uint64_t timeslice){
 }
 
 void TimesliceManager::trigger_timeslice_completion (uint64_t timeslice){
-    if (timeslice_first_arrival_time_.get_begin_iterator()->first != timeslice){
-	L_(fatal) << "[trigger_timeslice_completion] first arrival = " << timeslice_first_arrival_time_.get_begin_iterator()->first << ", triggered " << timeslice
-		  << ", last completed = " << (timeslice_completion_duration_.empty() ? 0 : timeslice_completion_duration_.get_last_key())
-		  << ", last timed out = " << (timeslice_timed_out_.empty() ? 0 : timeslice_timed_out_.get_last_key()) ;
-    }
     double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - timeslice_first_arrival_time_.get(timeslice)).count();
     timeslice_completion_duration_.add(timeslice, duration);
 
     //L_(info) << "----Timeslice " << timeslice << " is COMPLETED after " << duration << " ms";
-    // If Timeslice X is completed, then for sure all provious timeslices have to be completed as well
-    assert (timeslice_first_arrival_time_.get_begin_iterator()->first == timeslice);
     timeslice_first_arrival_time_.remove(timeslice);
     timeslice_arrived_count_.remove(timeslice);
+
+    if (last_ordered_timeslice_ == ConstVariables::MINUS_ONE && timeslice == 0)
+	last_ordered_timeslice_ = 0;
+   while (last_ordered_timeslice_ != ConstVariables::MINUS_ONE &&
+      (timeslice_completion_duration_.contains(last_ordered_timeslice_+1) || timeslice_timed_out_.contains(last_ordered_timeslice_+1)))
+	++last_ordered_timeslice_;
 }
 
 void TimesliceManager::generate_log_files(){

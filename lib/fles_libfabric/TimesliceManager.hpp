@@ -56,9 +56,6 @@ private:
 
     void trigger_timeslice_completion (uint64_t timeslice);
 
-    // Last received timeslice from each input connection
-    SizedMap<uint32_t, uint64_t> last_received_timeslice_;
-
     // The first arrival time of each timeslice
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_first_arrival_time_;
 
@@ -81,6 +78,9 @@ private:
     std::string log_directory_;
 
     bool enable_logging_;
+
+    // Last ordered timeslice which is either completed or timed out
+    uint64_t last_ordered_timeslice_ = ConstVariables::MINUS_ONE;
 
     // LOGGING
     // Time to complete each timeslice

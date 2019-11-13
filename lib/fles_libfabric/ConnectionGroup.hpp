@@ -8,6 +8,7 @@
 #include "Provider.hpp"
 #include "LibfabricContextPool.hpp"
 #include "RequestIdentifier.hpp"
+#include "HeartbeatManager.hpp"
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>
@@ -141,7 +142,7 @@ public:
     int poll_completion()
     {
 	// TODO detect the number of messages that we are waiting for
-        const int ne_max = conn_.size()*conn_.size();
+        const int ne_max = conn_.size()*conn_.size()*1000;
 
         struct fi_cq_entry wc[ne_max];
         int ne;
@@ -390,6 +391,9 @@ protected:
     std::vector<fi_addr_t> fi_addrs = {};
 
     bool connection_oriented_ = false;
+
+    ///
+    HeartbeatManager* heartbeat_manager_ = nullptr;
 
 private:
     /// Connection manager event dispatcher. Called by the CM event loop.
