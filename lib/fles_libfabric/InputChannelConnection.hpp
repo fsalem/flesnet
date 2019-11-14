@@ -8,7 +8,7 @@
 #include "Connection.hpp"
 #include "InputChannelStatusMessage.hpp"
 #include "InputIntervalInfo.hpp"
-#include "InputScheduler.hpp"
+#include "InputSchedulerOrchestrator.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 
 #include <sys/uio.h>
@@ -176,9 +176,6 @@ private:
     fi_addr_t partner_addr_ = 0;
 
     uint64_t last_sent_timeslice_ = ConstVariables::MINUS_ONE;
-
-    //A singleton instance from the input scheduler
-    InputScheduler* input_scheduler_ = nullptr;
 
     /// List of descriptors to be sent in the next sync messages
     std::vector<fles::TimesliceComponentDescriptor> pending_descriptors_;

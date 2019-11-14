@@ -42,7 +42,7 @@ InputChannelSender::InputChannelSender(
         connection_oriented_ = false;
     }
 
-    input_scheduler_ = InputScheduler::get_instance(input_index, compute_hostnames.size(), scheduler_interval_length, log_directory, enable_logging);
+    InputSchedulerOrchestrator::initialize(input_index, compute_hostnames.size(), scheduler_interval_length, log_directory, enable_logging);
 }
 
 InputChannelSender::~InputChannelSender()
@@ -146,7 +146,7 @@ void InputChannelSender::sync_data_source(bool schedule)
 void InputChannelSender::send_timeslices()
 {
 
-    uint64_t up_to_timeslice = input_scheduler_->get_last_timeslice_to_send();
+    uint64_t up_to_timeslice = InputSchedulerOrchestrator::get_last_timeslice_to_send();
 
     uint32_t conn_index = input_index_ % conn_.size();
     do {
@@ -154,8 +154,8 @@ void InputChannelSender::send_timeslices()
 			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
 	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
-	    input_scheduler_->log_timeslice_transmit_time(next_ts, conn_index);
-	    input_scheduler_->increament_sent_timeslices();
+	    InputSchedulerOrchestrator::log_timeslice_transmit_time(next_ts, conn_index);
+	    InputSchedulerOrchestrator::increament_sent_timeslices();
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
 	    sent_timeslices_++;
 	}
@@ -163,7 +163,7 @@ void InputChannelSender::send_timeslices()
     }while(conn_index != (input_index_ % conn_.size()));
 
     if (sent_timeslices_ <= max_timeslice_number_+1)
-	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
+	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(InputSchedulerOrchestrator::get_next_fire_time()));
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -227,7 +227,7 @@ void InputChannelSender::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
         assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
-        input_scheduler_->update_input_begin_time(time_begin_);
+        InputSchedulerOrchestrator::update_input_begin_time(time_begin_);
 
         for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
 	    conn_[indx]->set_time_MPI(time_begin_);
@@ -240,6 +240,9 @@ void InputChannelSender::operator()()
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
+                InputSchedulerOrchestrator::log_timeslice_transmit_time(sent_timeslices_, target_cn_index(sent_timeslices_));
+		InputSchedulerOrchestrator::increament_sent_timeslices();
+		conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
             	sent_timeslices_++;
             }*/
             scheduler_.timer();
@@ -280,7 +283,7 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
-        input_scheduler_->generate_log_files();
+        InputSchedulerOrchestrator::generate_log_files();
         summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
@@ -298,7 +301,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
     }
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
-	input_scheduler_->log_timeslice_IB_blocked(timeslice, true);
+	InputSchedulerOrchestrator::log_timeslice_IB_blocked(timeslice, true);
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
@@ -312,8 +315,8 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         uint64_t total_length =
             data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
 
-        if (false) {
-            L_(trace) << "SENDER working on timeslice " << timeslice
+        if (true) {
+            L_(debug) << "SENDER working on timeslice " << timeslice
                       << ", microslices " << desc_offset << ".."
                       << (desc_offset + desc_length - 1) << ", data bytes "
                       << data_offset << ".." << (data_offset + data_length - 1);
@@ -324,17 +327,17 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         if (!conn_[cn]->write_request_available()){
             //L_(info) << "[" << input_index_ << "]"
         	//    << "max # of writes to " << cn;
-            input_scheduler_->log_timeslice_MR_blocked(timeslice);
+            InputSchedulerOrchestrator::log_timeslice_MR_blocked(timeslice);
             return false;
         }
-        input_scheduler_->log_timeslice_MR_blocked(timeslice, true);
+        InputSchedulerOrchestrator::log_timeslice_MR_blocked(timeslice, true);
 
         // number of bytes to skip in advance (to avoid buffer wrap)
         uint64_t skip = conn_[cn]->skip_required(total_length);
         total_length += skip;
 
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
-            input_scheduler_->log_timeslice_CB_blocked(timeslice, true);
+            InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice, true);
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
@@ -347,10 +350,10 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             }
             return true;
         }else{
-            input_scheduler_->log_timeslice_CB_blocked(timeslice);
+            InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice);
         }
     }else{
-	input_scheduler_->log_timeslice_IB_blocked(timeslice);
+	InputSchedulerOrchestrator::log_timeslice_IB_blocked(timeslice);
     }
 
     return false;
@@ -575,7 +578,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
 
-        input_scheduler_->log_timeslice_ack_time(ts);
+        InputSchedulerOrchestrator::log_timeslice_ack_time(ts);
         if (false) {
             L_(info) << "[i" << input_index_ << "] "
                       << "write timeslice " << ts
@@ -590,13 +593,14 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         int64_t ts = (((int64_t)(conn_[cn]->cn_ack_desc()))*conn_.size()) + cn;
 
         conn_[cn]->on_complete_recv();
+        InputSchedulerOrchestrator::log_heartbeat(cn);
 
         int64_t acked_timeslice = (((int64_t)(conn_[cn]->cn_ack_desc())-1)*conn_.size()) + cn;
         //acked_timeslices_ += (conn_[cn]->cn_ack_.desc - last_desc);
         do{
 	    if (conn_[cn]->cn_ack_desc() == 0 || ts > acked_timeslice) break;
 	    uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
-	    input_scheduler_->increament_acked_timeslices(ts);
+	    InputSchedulerOrchestrator::increament_acked_timeslices(ts);
 	    if (ts != acked_ts) {
 	    // transmission has been reordered, store completion information
 		ack_.at(ts) = ts;

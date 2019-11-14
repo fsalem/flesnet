@@ -24,16 +24,16 @@ namespace tl_libfabric
 /**
  * Singleton Scheduler for input nodes that could be used in InputChannelSender and InputChannelConnections!
  */
-class InputScheduler
+class InputIntervalScheduler
 {
 public:
 
     // Initialize and get singleton instance
-    static InputScheduler* get_instance(uint32_t scheduler_index, uint32_t compute_conn_count,
+    static InputIntervalScheduler* get_instance(uint32_t scheduler_index, uint32_t compute_conn_count,
 	    uint32_t interval_length, std::string log_directory, bool enable_logging);
 
     // Get singleton instance
-    static InputScheduler* get_instance();
+    static InputIntervalScheduler* get_instance();
 
     // update the compute node count which is needed for the initial interval (#0)
     void update_compute_connection_count(uint32_t);
@@ -65,23 +65,11 @@ public:
     // Get the number of current compute node connections
     uint32_t get_compute_connection_count();
 
-    // Check whether a timeslice is acked
-    bool is_timeslice_acked(uint64_t timeslice);
-
     // Log the transmission time of a timeslice
     void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
 
-    // Log the duration of a timeslice until receiving the ack
-    void log_timeslice_ack_time(uint64_t);
-
     //Generate log files of the stored data
     void generate_log_files();
-
-    void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
-
-    void log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed=false);
-
-    void log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed=false);
 
 private:
 
@@ -92,11 +80,11 @@ private:
 	uint64_t acked_duration = 0;
     };
 
-    InputScheduler(uint32_t scheduler_index, uint32_t compute_conn_count,
+    InputIntervalScheduler(uint32_t scheduler_index, uint32_t compute_conn_count,
 	    uint32_t interval_length, std::string log_directory, bool enable_logging);
 
     // The singleton instance for this class
-    static InputScheduler* instance_;
+    static InputIntervalScheduler* instance_;
 
     /// create a new interval with specific index
     void create_new_interval_info(uint64_t);
@@ -164,16 +152,6 @@ private:
 
     /// LOGGING
     SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
-
-    //Input Buffer blockage
-    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_IB_blocked_start_log_;
-    SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;
-    //Compute Buffer blockage
-    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_CB_blocked_start_log_;
-    SizedMap<uint64_t, uint64_t> timeslice_CB_blocked_duration_log_;
-    //Max writes limitation blockage
-    SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_MR_blocked_start_log_;
-    SizedMap<uint64_t, uint64_t> timeslice_MR_blocked_duration_log_;
 
     SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;
 

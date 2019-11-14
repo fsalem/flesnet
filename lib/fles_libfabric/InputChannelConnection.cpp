@@ -44,7 +44,6 @@ InputChannelConnection::InputChannelConnection(
 
     data_changed_ = true; // to send empty message at the beginning
     data_acked_ = false; // to send empty message at the beginning
-    input_scheduler_ = InputScheduler::get_instance();
     msg_latency_.resize(ConstVariables::MAX_MEDIAN_VALUES);
 }
 
@@ -200,7 +199,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;
-    tscdesc.ts_desc = timeslice / input_scheduler_->get_compute_connection_count();
+    tscdesc.ts_desc = timeslice / InputSchedulerOrchestrator::get_compute_connection_count();
     tscdesc.offset = cn_wp_data;
     tscdesc.size =
         data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
@@ -212,7 +211,12 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
 		 << "POST SEND data (timeslice " << timeslice << ")"
 		 << " tscdesc.ts_num " << tscdesc.ts_num
 		 << " tscdesc.ts_desc " << tscdesc.ts_desc
-		 << " tscdesc.offset " << tscdesc.offset;
+		 << " tscdesc.offset " << tscdesc.offset
+		 << " tscdesc.size " << tscdesc.size
+		 << " tscdesc.num_microslices " << tscdesc.num_microslices
+		 << " cn_wp_.data " << cn_wp_.data
+		 << " cn_wp_pending_.data " << cn_wp_pending_.data
+		 << " skip " << skip;
     }
     pending_descriptors_.push_back(tscdesc);
     assert(pending_write_requests_ <= max_pending_write_requests_);
@@ -235,7 +239,7 @@ void InputChannelConnection::check_inc_write_pointers()
 {
     while (!timeslice_data_address_.empty() && added_sent_descriptors_ < ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE)
     {
-        if (!input_scheduler_->is_timeslice_acked(pending_descriptors_[0].ts_num))break;
+        if (!InputSchedulerOrchestrator::is_timeslice_acked(pending_descriptors_[0].ts_num))break;
         send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];
         inc_write_pointers(timeslice_data_address_[0],1);
         cn_wp_pending_.data -= timeslice_data_address_[0];
@@ -313,7 +317,7 @@ void InputChannelConnection::on_complete_recv()
     	cn_ack_ = recv_status_message_.ack;
     }
     if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-	input_scheduler_->add_proposed_meta_data(recv_status_message_.proposed_interval_metadata);
+	InputSchedulerOrchestrator::add_proposed_meta_data(recv_status_message_.proposed_interval_metadata);
     }
     post_recv_status_message();
 }
@@ -542,7 +546,7 @@ void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
 }
 
 void InputChannelConnection::ack_complete_interval_info(){
-    const IntervalMetaData* meta_data = input_scheduler_->get_actual_meta_data(
+    const IntervalMetaData* meta_data = InputSchedulerOrchestrator::get_actual_meta_data(
 	    send_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE ? send_status_message_.actual_interval_metadata.interval_index + 1 :0);
     if (meta_data != nullptr){
 	send_status_message_.actual_interval_metadata = *meta_data;

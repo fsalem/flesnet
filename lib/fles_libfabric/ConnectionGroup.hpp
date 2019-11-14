@@ -8,7 +8,6 @@
 #include "Provider.hpp"
 #include "LibfabricContextPool.hpp"
 #include "RequestIdentifier.hpp"
-#include "HeartbeatManager.hpp"
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>
@@ -391,9 +390,6 @@ protected:
     std::vector<fi_addr_t> fi_addrs = {};
 
     bool connection_oriented_ = false;
-
-    ///
-    HeartbeatManager* heartbeat_manager_ = nullptr;
 
 private:
     /// Connection manager event dispatcher. Called by the CM event loop.
