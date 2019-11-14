@@ -1,27 +1,27 @@
 // Copyright 2019 Farouk Salem <salem@zib.de>
 
 
-#include "TimesliceManager.hpp"
+#include "ComputeTimesliceManager.hpp"
 
 namespace tl_libfabric
 {
 
 
-TimesliceManager* TimesliceManager::get_instance(uint32_t compute_index,
+ComputeTimesliceManager* ComputeTimesliceManager::get_instance(uint32_t compute_index,
 	uint32_t input_connection_count,
 	std::string log_directory,
 	bool enable_logging){
     if (instance_ == nullptr){
-    	instance_ = new TimesliceManager(compute_index, input_connection_count, log_directory, enable_logging);
+    	instance_ = new ComputeTimesliceManager(compute_index, input_connection_count, log_directory, enable_logging);
     }
     return instance_;
 }
 
-TimesliceManager* TimesliceManager::get_instance(){
+ComputeTimesliceManager* ComputeTimesliceManager::get_instance(){
     return instance_;
 }
 
-TimesliceManager::TimesliceManager(uint32_t compute_index,
+ComputeTimesliceManager::ComputeTimesliceManager(uint32_t compute_index,
 	uint32_t input_connection_count,
 	std::string log_directory, bool enable_logging):
 		compute_index_(compute_index),
@@ -33,12 +33,12 @@ TimesliceManager::TimesliceManager(uint32_t compute_index,
 }
 
 
-void TimesliceManager::update_input_connection_count(uint32_t input_connection_count) {
+void ComputeTimesliceManager::update_input_connection_count(uint32_t input_connection_count) {
     assert (input_connection_count > 0);
     input_connection_count_ = input_connection_count;
 }
 
-void TimesliceManager::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
+void ComputeTimesliceManager::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
     assert (connection_id < input_connection_count_);
 
     if (timeslice_timed_out_.contains(timeslice) || timeslice_completion_duration_.contains(timeslice))return;
@@ -60,7 +60,7 @@ void TimesliceManager::log_contribution_arrival(uint32_t connection_id, uint64_t
     }
 }
 
-void TimesliceManager::log_timeout_timeslice(){
+void ComputeTimesliceManager::log_timeout_timeslice(){
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point>::iterator it;
     double taken_duration;
     uint64_t timeslice;
@@ -79,15 +79,15 @@ void TimesliceManager::log_timeout_timeslice(){
     }
 }
 
-uint64_t TimesliceManager::get_last_ordered_completed_timeslice(){
+uint64_t ComputeTimesliceManager::get_last_ordered_completed_timeslice(){
     return last_ordered_timeslice_;
 }
 
-bool TimesliceManager::is_timeslice_timed_out(uint64_t timeslice){
+bool ComputeTimesliceManager::is_timeslice_timed_out(uint64_t timeslice){
     return timeslice_timed_out_.contains(timeslice);
 }
 
-void TimesliceManager::trigger_timeslice_completion (uint64_t timeslice){
+void ComputeTimesliceManager::trigger_timeslice_completion (uint64_t timeslice){
     double duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - timeslice_first_arrival_time_.get(timeslice)).count();
     timeslice_completion_duration_.add(timeslice, duration);
@@ -103,7 +103,7 @@ void TimesliceManager::trigger_timeslice_completion (uint64_t timeslice){
 	++last_ordered_timeslice_;
 }
 
-void TimesliceManager::generate_log_files(){
+void ComputeTimesliceManager::generate_log_files(){
     if (!enable_logging_) return;
     std::ofstream log_file;
 
@@ -134,5 +134,5 @@ void TimesliceManager::generate_log_files(){
     log_file.close();
 }
 
-TimesliceManager* TimesliceManager::instance_ = nullptr;
+ComputeTimesliceManager* ComputeTimesliceManager::instance_ = nullptr;
 }

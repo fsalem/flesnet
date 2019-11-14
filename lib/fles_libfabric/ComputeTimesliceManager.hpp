@@ -21,15 +21,15 @@ namespace tl_libfabric
 /**
  * Singleton Timeslice manager that DDScheduler uses to track timeslices completion and timeout
  */
-class TimesliceManager
+class ComputeTimesliceManager
 {
 public:
     // Initialize the instance and retrieve it
-    static TimesliceManager* get_instance(uint32_t compute_index, uint32_t input_connection_count,
+    static ComputeTimesliceManager* get_instance(uint32_t compute_index, uint32_t input_connection_count,
 	    std::string log_directory, bool enable_logging);
 
     // Get singleton instance
-    static TimesliceManager* get_instance();
+    static ComputeTimesliceManager* get_instance();
 
     // Update input connection count
     void update_input_connection_count(uint32_t input_connection_count);
@@ -51,7 +51,7 @@ public:
 
 private:
 
-    TimesliceManager(uint32_t compute_index, uint32_t input_connection_count,
+    ComputeTimesliceManager(uint32_t compute_index, uint32_t input_connection_count,
 	    std::string log_directory, bool enable_logging);
 
     void trigger_timeslice_completion (uint64_t timeslice);
@@ -63,7 +63,7 @@ private:
     SizedMap<uint64_t, uint32_t> timeslice_arrived_count_;
 
     // The singleton instance for this class
-    static TimesliceManager* instance_;
+    static ComputeTimesliceManager* instance_;
 
     // Compute process index
     uint32_t compute_index_;
