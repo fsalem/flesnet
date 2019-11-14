@@ -7,8 +7,7 @@
 #include "RingBuffer.hpp"
 #include "TimesliceBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "TimesliceManager.hpp"
-
+#include "ComputeTimesliceManager.hpp"
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
@@ -115,7 +114,7 @@ private:
 
     DDScheduler* timeslice_DD_scheduler_;
 
-    TimesliceManager* timeslice_manager_;
+    ComputeTimesliceManager* timeslice_manager_;
 
     // LOGGING
     std::map<uint64_t, double> first_last_arrival_diff_;

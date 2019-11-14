@@ -9,8 +9,7 @@
 #include "InputNodeInfo.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 #include "DDScheduler.hpp"
-#include "TimesliceManager.hpp"
-
+#include "ComputeTimesliceManager.hpp"
 #include <boost/format.hpp>
 ///-----
 #include <map>
@@ -198,7 +197,7 @@ private:
 
     DDScheduler* timeslice_DD_scheduler_;
 
-    TimesliceManager* timeslice_manager_;
+    ComputeTimesliceManager* timeslice_manager_;
 
     bool registered_input_MPI_time = false;
 

@@ -8,7 +8,7 @@
 #include "InputChannelConnection.hpp"
 #include "RingBuffer.hpp"
 #include "InputIntervalInfo.hpp"
-#include "InputScheduler.hpp"
+#include "InputSchedulerOrchestrator.hpp"
 
 #include <boost/format.hpp>
 #include <cassert>
@@ -140,8 +140,6 @@ private:
     bool abort_ = false;
 
     uint64_t sent_timeslices_ = ConstVariables::ZERO;
-
-    InputScheduler* input_scheduler_;
 
     struct SendBufferStatus {
         std::chrono::system_clock::time_point time;

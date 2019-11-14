@@ -54,7 +54,7 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
 	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
 	    log_directory, enable_logging);
 
-    timeslice_manager_ = TimesliceManager::get_instance(compute_index, num_input_nodes,
+    timeslice_manager_ = ComputeTimesliceManager::get_instance(compute_index, num_input_nodes,
 	    log_directory, enable_logging);
 }
 

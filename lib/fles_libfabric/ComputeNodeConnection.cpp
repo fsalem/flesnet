@@ -38,7 +38,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     }
 
     timeslice_DD_scheduler_ = DDScheduler::get_instance();
-    timeslice_manager_ = TimesliceManager::get_instance();
+    timeslice_manager_ = ComputeTimesliceManager::get_instance();
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
