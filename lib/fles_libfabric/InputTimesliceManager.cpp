@@ -19,6 +19,7 @@ InputTimesliceManager* InputTimesliceManager::get_instance(uint32_t scheduler_in
 }
 
 InputTimesliceManager* InputTimesliceManager::get_instance(){
+    assert(instance_ != nullptr);
     return instance_;
 }
 
@@ -57,8 +58,6 @@ InputTimesliceManager::InputTimesliceManager(uint32_t scheduler_index, uint32_t 
 		interval_length_(interval_length), log_directory_(log_directory),
 		enable_logging_(enable_logging) {
 }
-
-InputTimesliceManager* InputTimesliceManager::instance_ = nullptr;
 
 void InputTimesliceManager::log_timeslice_ack_time(uint64_t timeslice){
     if (!timeslice_info_log_.contains(timeslice))return;
@@ -130,4 +129,6 @@ void InputTimesliceManager::log_timeslice_MR_blocked(uint64_t timeslice, bool se
     }
 }
 
+
+InputTimesliceManager* InputTimesliceManager::instance_ = nullptr;
 }

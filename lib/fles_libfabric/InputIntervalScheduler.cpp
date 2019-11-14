@@ -18,6 +18,7 @@ InputIntervalScheduler* InputIntervalScheduler::get_instance(uint32_t scheduler_
 }
 
 InputIntervalScheduler* InputIntervalScheduler::get_instance(){
+    assert(instance_ != nullptr);
     return instance_;
 }
 
@@ -282,8 +283,6 @@ void InputIntervalScheduler::log_timeslice_transmit_time(uint64_t timeslice, uin
     }
 }
 
-InputIntervalScheduler* InputIntervalScheduler::instance_ = nullptr;
-
 void InputIntervalScheduler::generate_log_files(){
     if (!enable_logging_) return;
 
@@ -361,5 +360,7 @@ void InputIntervalScheduler::generate_log_files(){
     expected_actual_round_time_log_file.flush();
     expected_actual_round_time_log_file.close();
 }
+
+InputIntervalScheduler* InputIntervalScheduler::instance_ = nullptr;
 
 }
