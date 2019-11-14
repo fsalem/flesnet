@@ -70,6 +70,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     make_endpoint(Provider::getInst()->get_info(), "", "", pd, cq, av);
 
     timeslice_DD_scheduler_ = DDScheduler::get_instance();
+    timeslice_manager_ = ComputeTimesliceManager::get_instance();
 }
 
 void ComputeNodeConnection::post_recv_status_message()

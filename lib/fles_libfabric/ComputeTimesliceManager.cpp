@@ -18,6 +18,7 @@ ComputeTimesliceManager* ComputeTimesliceManager::get_instance(uint32_t compute_
 }
 
 ComputeTimesliceManager* ComputeTimesliceManager::get_instance(){
+    assert (instance_ != nullptr);
     return instance_;
 }
 
