@@ -150,12 +150,10 @@ void InputChannelSender::send_timeslices()
 
     uint32_t conn_index = input_index_ % conn_.size();
     do {
-	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
-			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
+	uint64_t next_ts = InputSchedulerOrchestrator::get_connection_next_timeslice(conn_index);
 
 	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
-	    InputSchedulerOrchestrator::log_timeslice_transmit_time(next_ts, conn_index);
-	    InputSchedulerOrchestrator::increament_sent_timeslices();
+	    InputSchedulerOrchestrator::mark_timeslice_transmitted(conn_index, next_ts);
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
 	    sent_timeslices_++;
 	}
@@ -240,8 +238,7 @@ void InputChannelSender::operator()()
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
-                InputSchedulerOrchestrator::log_timeslice_transmit_time(sent_timeslices_, target_cn_index(sent_timeslices_));
-		InputSchedulerOrchestrator::increament_sent_timeslices();
+                InputSchedulerOrchestrator::mark_timeslice_transmitted(target_cn_index(sent_timeslices_), sent_timeslices_);
 		conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
             	sent_timeslices_++;
             }*/
@@ -578,7 +575,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
 
-        InputSchedulerOrchestrator::log_timeslice_ack_time(ts);
+        InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(cn, ts);
         if (false) {
             L_(info) << "[i" << input_index_ << "] "
                       << "write timeslice " << ts
@@ -590,17 +587,13 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     case ID_RECEIVE_STATUS: {
         int cn = wr_id >> 8;
         uint64_t last_desc = conn_[cn]->cn_ack_desc();
-        int64_t ts = (((int64_t)(conn_[cn]->cn_ack_desc()))*conn_.size()) + cn;
-
         conn_[cn]->on_complete_recv();
-        InputSchedulerOrchestrator::log_heartbeat(cn);
+        uint64_t new_desc = conn_[cn]->cn_ack_desc();
 
-        int64_t acked_timeslice = (((int64_t)(conn_[cn]->cn_ack_desc())-1)*conn_.size()) + cn;
-        //acked_timeslices_ += (conn_[cn]->cn_ack_.desc - last_desc);
-        do{
-	    if (conn_[cn]->cn_ack_desc() == 0 || ts > acked_timeslice) break;
-	    uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
-	    InputSchedulerOrchestrator::increament_acked_timeslices(ts);
+        for (uint64_t desc = last_desc+1 ; desc <= new_desc ; ++desc){
+            uint64_t ts = InputSchedulerOrchestrator::get_timeslice_of_not_acked_descriptor(cn, desc);
+            uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
+
 	    if (ts != acked_ts) {
 	    // transmission has been reordered, store completion information
 		ack_.at(ts) = ts;
@@ -610,6 +603,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 		    ++acked_ts;
 		} while (ack_.at(acked_ts) > ts);
 
+		// TODO Invalid when timeslices are not fixed in size
 		acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
 		acked_data_ =
 		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
@@ -621,8 +615,10 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 		    data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
 		}
 	    }
-	    ts += conn_.size();
-	}while(ts <= acked_timeslice);
+        }
+
+        InputSchedulerOrchestrator::log_heartbeat(cn);
+        InputSchedulerOrchestrator::mark_timeslices_acked(cn, new_desc);
 
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);

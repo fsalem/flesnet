@@ -33,32 +33,29 @@ public:
     // Get singleton instance
     static InputTimesliceManager* get_instance();
 
-    // update the compute node count which is needed for the initial interval (#0)
-    void update_compute_connection_count(uint32_t);
+    // Get the next timeslice to be trasmitted to specific compute node
+    uint64_t get_connection_next_timeslice(uint32_t compute_index);
 
-    // Set the input scheduler index
-    void update_input_scheduler_index(uint32_t);
+    // Log the transmission time of a timeslice
+    void log_timeslice_transmit_time(uint32_t compute_index, uint64_t timeslice);
 
-    // Increase the sent timeslices by one
-    void increament_sent_timeslices();
+    // log the duration to write a timeslice to the destination
+    void acknowledge_timeslice_rdma_write(uint32_t compute_index, uint64_t timeslice);
 
-    // Increase the acked timeslices by one
-    void increament_acked_timeslices(uint64_t);
+    // mark the timeslices up to specific descriptor as completed the acked timeslices by one
+    void acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id);
 
-    // Get the time to start sending more timeslices
-    int64_t get_next_fire_time();
+    // Check whether a timeslice is acked
+    bool is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice);
 
     // Get the number of current compute node connections
     uint32_t get_compute_connection_count();
 
-    // Check whether a timeslice is acked
-    bool is_timeslice_acked(uint64_t timeslice);
+    // Get the last acked descriptor ID of a compute node
+    uint64_t get_last_acked_descriptor(uint32_t compute_index);
 
-    // Log the transmission time of a timeslice
-    void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
-
-    // Log the duration of a timeslice until receiving the ack
-    void log_timeslice_ack_time(uint64_t);
+    // Get the timeslice number of a specific descriptor
+    uint64_t get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor);
 
     //Generate log files of the stored data
     void generate_log_files();
@@ -73,8 +70,9 @@ private:
 
     struct TimesliceInfo{
     	std::chrono::high_resolution_clock::time_point transmit_time;
-    	uint32_t compute_index;
-    	uint64_t acked_duration = 0;
+    	uint64_t compute_desc;
+    	uint64_t rdma_acked_duration = 0;
+    	uint64_t completion_acked_duration = 0;
     };
 
     InputTimesliceManager(uint32_t scheduler_index, uint32_t compute_conn_count,
@@ -98,8 +96,12 @@ private:
     // Check whether to generate log files
     bool enable_logging_;
 
+    SizedMap<uint32_t, SizedMap<uint64_t, TimesliceInfo*>*> conn_timeslice_info_;
+
+    // Mapping of timeslice and its descriptor ID of each compute node
+    SizedMap<uint32_t, SizedMap<uint64_t, uint64_t>*> conn_desc_timeslice_info_;
+
     /// LOGGING
-    SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
     //Input Buffer blockage
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_IB_blocked_start_log_;
     SizedMap<uint64_t, uint64_t> timeslice_IB_blocked_duration_log_;

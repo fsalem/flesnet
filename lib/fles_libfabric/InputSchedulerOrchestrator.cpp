@@ -5,6 +5,8 @@
 
 namespace tl_libfabric
 {
+
+//// Common Methods
 void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index, uint32_t compute_conn_count,
 					    uint32_t interval_length,
 					    std::string log_directory, bool enable_logging){
@@ -15,18 +17,26 @@ void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index, uint32_t c
 
 void InputSchedulerOrchestrator::update_compute_connection_count(uint32_t compute_count){
     interval_scheduler_->update_compute_connection_count(compute_count);
-    timeslice_manager_->update_compute_connection_count(compute_count);
 }
 
 void InputSchedulerOrchestrator::update_input_scheduler_index(uint32_t scheduler_index){
     interval_scheduler_->update_input_scheduler_index(scheduler_index);
-    timeslice_manager_->update_input_scheduler_index(scheduler_index);
 }
 
 void InputSchedulerOrchestrator::update_input_begin_time(std::chrono::high_resolution_clock::time_point begin_time){
     interval_scheduler_->update_input_begin_time(begin_time);
 }
 
+uint32_t InputSchedulerOrchestrator::get_compute_connection_count(){
+    return interval_scheduler_->get_compute_connection_count();
+}
+
+void InputSchedulerOrchestrator::generate_log_files(){
+    interval_scheduler_->generate_log_files();
+    timeslice_manager_->generate_log_files();
+}
+
+//// InputIntervalScheduler Methods
 void InputSchedulerOrchestrator::add_proposed_meta_data(const IntervalMetaData meta_data){
     interval_scheduler_->add_proposed_meta_data(meta_data);
 }
@@ -39,40 +49,45 @@ uint64_t InputSchedulerOrchestrator::get_last_timeslice_to_send(){
     return interval_scheduler_->get_last_timeslice_to_send();
 }
 
-void InputSchedulerOrchestrator::increament_sent_timeslices(){
-    interval_scheduler_->increament_sent_timeslices();
-    timeslice_manager_->increament_sent_timeslices();
-}
-
-void InputSchedulerOrchestrator::increament_acked_timeslices(uint64_t timeslice){
-    interval_scheduler_->increament_acked_timeslices(timeslice);
-    timeslice_manager_->increament_acked_timeslices(timeslice);
-}
-
 int64_t InputSchedulerOrchestrator::get_next_fire_time(){
     return interval_scheduler_->get_next_fire_time();
 }
 
-uint32_t InputSchedulerOrchestrator::get_compute_connection_count(){
-    return interval_scheduler_->get_compute_connection_count();
-    timeslice_manager_->get_compute_connection_count();
+//// InputTimesliceManager Methods
+
+uint64_t InputSchedulerOrchestrator::get_connection_next_timeslice(uint32_t compute_index){
+    return timeslice_manager_->get_connection_next_timeslice(compute_index);
 }
 
-bool InputSchedulerOrchestrator::is_timeslice_acked(uint64_t timeslice){
-    return timeslice_manager_->is_timeslice_acked(timeslice);
+void InputSchedulerOrchestrator::mark_timeslice_transmitted(uint32_t compute_index, uint64_t timeslice){
+    interval_scheduler_->increament_sent_timeslices();
+    timeslice_manager_->log_timeslice_transmit_time(compute_index, timeslice);
 }
 
-void InputSchedulerOrchestrator::log_timeslice_transmit_time(uint64_t timeslice, uint32_t compute_index){
-    interval_scheduler_->log_timeslice_transmit_time(timeslice, compute_index);
+void InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(uint32_t compute_index, uint64_t timeslice){
+    timeslice_manager_->acknowledge_timeslice_rdma_write(compute_index, timeslice);
 }
 
-void InputSchedulerOrchestrator::log_timeslice_ack_time(uint64_t timeslice){
-    timeslice_manager_->log_timeslice_ack_time(timeslice);
+void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, uint64_t up_to_descriptor_id){
+    uint64_t last_descriptor = timeslice_manager_->get_last_acked_descriptor(compute_index);
+    for (uint64_t desc = last_descriptor + 1 ; desc <= up_to_descriptor_id ; ++desc){
+	uint64_t timeslice = get_timeslice_of_not_acked_descriptor(compute_index, desc);
+	if (timeslice == ConstVariables::MINUS_ONE){
+	    L_(warning) << "Desc " << desc << " in compute conn_" << compute_index << " does not exist in the TimesliceManager database!!!";
+	    continue;
+	}
+	interval_scheduler_->increament_acked_timeslices(timeslice);
+    }
+
+    timeslice_manager_->acknowledge_timeslices_completion(compute_index, up_to_descriptor_id);
 }
 
-void InputSchedulerOrchestrator::generate_log_files(){
-    interval_scheduler_->generate_log_files();
-    timeslice_manager_->generate_log_files();
+bool InputSchedulerOrchestrator::is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice){
+    return timeslice_manager_->is_timeslice_rdma_acked(compute_index, timeslice);
+}
+
+uint64_t InputSchedulerOrchestrator::get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor){
+    return timeslice_manager_->get_timeslice_of_not_acked_descriptor(compute_index, descriptor);
 }
 
 void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){

@@ -263,22 +263,17 @@ std::chrono::high_resolution_clock::time_point InputIntervalScheduler::get_inter
     //return std::chrono::high_resolution_clock::now() + std::chrono::microseconds(current_interval->duration_per_round);
 }
 
-// TO BO REMOVED
+// TODO TO BO REMOVED
 void InputIntervalScheduler::log_timeslice_transmit_time(uint64_t timeslice, uint32_t compute_index){
     InputIntervalInfo* interval_info = get_interval_of_timeslice(timeslice);
     if (interval_info == nullptr)return;
-    TimesliceInfo* timeslice_info = new TimesliceInfo();
-    timeslice_info->expected_time = get_expected_ts_sent_time(interval_info->index, timeslice);
-    timeslice_info->compute_index = compute_index;
-    timeslice_info->transmit_time = std::chrono::high_resolution_clock::now();
-    timeslice_info_log_.add(timeslice, timeslice_info);
 
     uint64_t round_index = floor((timeslice-interval_info->start_ts+1)/interval_info->num_ts_per_round*1.0);
     std::pair<uint64_t,uint64_t> interval_round_pair = std::make_pair(interval_info->index, round_index);
     if (!round_proposed_actual_start_time_log_.contains(interval_round_pair)){
 	std::pair<uint64_t,uint64_t> expected_actual_pair = std::make_pair(
 		std::chrono::duration_cast<std::chrono::microseconds>(get_expected_round_sent_time(interval_info->index, round_index) - begin_time_).count(),
-		std::chrono::duration_cast<std::chrono::microseconds>(timeslice_info->transmit_time - begin_time_).count());
+		std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - begin_time_).count());
 	round_proposed_actual_start_time_log_.add(interval_round_pair,expected_actual_pair);
     }
 }
@@ -312,29 +307,6 @@ void InputIntervalScheduler::generate_log_files(){
     }
     log_file.flush();
     log_file.close();
-
-    /////////////////////////////////////////////////////////////////
-
-    std::ofstream block_log_file;
-    block_log_file.open(log_directory_+"/"+std::to_string(scheduler_index_)+".input.ts_info.out");
-
-    block_log_file << std::setw(25) << "Timeslice"
-	<< std::setw(25) << "Compute Index"
-	<< std::setw(25) << "duration"
-	<< std::setw(25) << "delay" << "\n";
-
-    SizedMap<uint64_t, TimesliceInfo*>::iterator delaying_time = timeslice_info_log_.get_begin_iterator();
-    while (delaying_time != timeslice_info_log_.get_end_iterator()){
-    block_log_file << std::setw(25) << delaying_time->first
-	    << std::setw(25) << delaying_time->second->compute_index
-	    << std::setw(25) << delaying_time->second->acked_duration
-	    << std::setw(25) << std::chrono::duration_cast<std::chrono::microseconds>(
-		delaying_time->second->transmit_time - delaying_time->second->expected_time).count()
-	    << "\n";
-    delaying_time++;
-    }
-    block_log_file.flush();
-    block_log_file.close();
 
     /////////////////////////////////////////////////////////////////
 

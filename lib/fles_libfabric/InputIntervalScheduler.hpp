@@ -151,8 +151,6 @@ private:
     bool enable_logging_;
 
     /// LOGGING
-    SizedMap<uint64_t, TimesliceInfo*> timeslice_info_log_;
-
     SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;
 
 

@@ -239,7 +239,7 @@ void InputChannelConnection::check_inc_write_pointers()
 {
     while (!timeslice_data_address_.empty() && added_sent_descriptors_ < ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE)
     {
-        if (!InputSchedulerOrchestrator::is_timeslice_acked(pending_descriptors_[0].ts_num))break;
+        if (!InputSchedulerOrchestrator::is_timeslice_rdma_acked(index_, pending_descriptors_[0].ts_num))break;
         send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];
         inc_write_pointers(timeslice_data_address_[0],1);
         cn_wp_pending_.data -= timeslice_data_address_[0];
