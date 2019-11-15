@@ -395,7 +395,7 @@ void ComputeNodeConnection::write_received_descriptors()
                 // TODO empty this list regularly
                 sync_received_ts_.insert(descriptor.ts_num);
                 std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
-                timeslice_manager_->log_contribution_arrival(index_, offset);
+                timeslice_manager_->log_contribution_arrival(index_, descriptor.ts_desc);
          }
     }
 }
