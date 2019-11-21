@@ -35,6 +35,7 @@ InputChannelConnection::InputChannelConnection(
     max_inline_data_ = sizeof(fles::TimesliceComponentDescriptor);
 
     send_status_message_.info.index = remote_index_;
+    send_heartbeat_message_.info.index = remote_index_;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -324,10 +325,10 @@ void InputChannelConnection::on_complete_recv()
 
 void InputChannelConnection::setup_mr(struct fid_domain* pd)
 {
-
+    setup_heartbeat_mr(pd);
     // register memory regions
     int err = fi_mr_reg(pd, &recv_status_message_,
-                        sizeof(ComputeNodeStatusMessage), FI_WRITE, 0,
+                        sizeof(ComputeNodeStatusMessage), FI_RECV | FI_TAGGED, 0,
                         Provider::requested_key++, 0, &mr_recv_, nullptr);
     if (err) {
         L_(fatal) << "fi_mr_reg failed for recv msg: " << err << "="
@@ -340,7 +341,7 @@ void InputChannelConnection::setup_mr(struct fid_domain* pd)
             "registration of memory region failed in InputChannelConnection");
 
     err = fi_mr_reg(pd, &send_status_message_, sizeof(send_status_message_),
-                    FI_WRITE, 0, Provider::requested_key++, 0, &mr_send_,
+		    FI_SEND | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_send_,
                     nullptr);
     if (err) {
         L_(fatal) << "fi_mr_reg failed for send msg: " << err << "="
@@ -355,7 +356,7 @@ void InputChannelConnection::setup_mr(struct fid_domain* pd)
 
 void InputChannelConnection::setup()
 {
-
+    setup_heartbeat();
     recv_descs[0] = fi_mr_desc(mr_recv_);
     send_descs[0] = fi_mr_desc(mr_send_);
 
@@ -368,6 +369,7 @@ void InputChannelConnection::setup()
     recv_wr.msg_iov = &recv_wr_iovec;
     recv_wr.desc = recv_descs;
     recv_wr.iov_count = 1;
+    recv_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
@@ -383,6 +385,7 @@ void InputChannelConnection::setup()
     send_wr.msg_iov = &send_wr_iovec;
     send_wr.desc = send_descs;
     send_wr.iov_count = 1;
+    send_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     context = LibfabricContextPool::getInst()->getContext();
@@ -497,6 +500,7 @@ void InputChannelConnection::connect(const std::string& hostname,
         L_(debug) << "fi_addr: " << fi_addr;
         // @todo is this save? does post_send_status_message create copy?
         send_wr.addr = fi_addr;
+        heartbeat_send_wr.addr = fi_addr;
         post_send_status_message();
     }
 }
@@ -514,6 +518,7 @@ void InputChannelConnection::set_partner_addr(struct fid_av* av)
     int res = fi_av_insert(av, &this->recv_status_message_.my_address, 1,
                            &this->partner_addr_, 0, NULL);
     send_wr.addr = this->partner_addr_;
+    heartbeat_send_wr.addr = this->partner_addr_;
     send_status_message_.connect = false;
     assert(res == 1);
 }

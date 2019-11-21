@@ -647,6 +647,19 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 	conn_[cn]->on_complete_send();
     } break;
 
+    case ID_HEARTBEAT_RECEIVE_STATUS: {
+	// TODO
+	int cn = wr_id >> 8;
+    	conn_[cn]->post_recv_heartbeat_message();
+    	conn_[cn]->post_send_heartbeat_message();
+
+    } break;
+
+    case ID_HEARTBEAT_SEND_STATUS: {
+	// TODO
+	int cn = wr_id >> 8;
+    } break;
+
     default:
         L_(fatal) << "[i" << input_index_ << "] "
                   << "wc for unknown wr_id=" << (wr_id & 0xFF);

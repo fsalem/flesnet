@@ -122,6 +122,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
     assert(data_ptr_ && desc_ptr_ && data_buffer_size_exp_ &&
            desc_buffer_size_exp_);
 
+    setup_heartbeat_mr(pd);
     // register memory regions
     std::size_t data_bytes = UINT64_C(1) << data_buffer_size_exp_;
     std::size_t desc_bytes = (UINT64_C(1) << desc_buffer_size_exp_) *
@@ -142,7 +143,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
     }
     res =
         fi_mr_reg(pd, &send_status_message_, sizeof(ComputeNodeStatusMessage),
-                  FI_SEND, 0, Provider::requested_key++, 0, &mr_send_, nullptr);
+        	  FI_SEND | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_send_, nullptr);
     if (res) {
         L_(fatal) << "fi_mr_reg failed for send: " << res << "="
                   << fi_strerror(-res);
@@ -150,7 +151,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
     }
     res =
         fi_mr_reg(pd, &recv_status_message_, sizeof(InputChannelStatusMessage),
-                  FI_RECV, 0, Provider::requested_key++, 0, &mr_recv_, nullptr);
+        	  FI_RECV | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_recv_, nullptr);
     if (res) {
         L_(fatal) << "fi_mr_reg failed for recv: " << res << "="
                   << fi_strerror(-res);
@@ -175,6 +176,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
 
 void ComputeNodeConnection::setup()
 {
+    setup_heartbeat();
     // setup send and receive buffers
     recv_sge.iov_base = &recv_status_message_;
     recv_sge.iov_len = sizeof(InputChannelStatusMessage);
@@ -184,6 +186,7 @@ void ComputeNodeConnection::setup()
     recv_wr.msg_iov = &recv_sge;
     recv_wr.desc = recv_wr_descs;
     recv_wr.iov_count = 1;
+    recv_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
@@ -199,6 +202,7 @@ void ComputeNodeConnection::setup()
     send_wr.msg_iov = &send_sge;
     send_wr.desc = send_wr_descs;
     send_wr.iov_count = 1;
+    send_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
     context = LibfabricContextPool::getInst()->getContext();
@@ -367,6 +371,7 @@ void ComputeNodeConnection::send_ep_addr()
         fi_getname(&ep_->fid, &send_status_message_.my_address, &addr_len);
     assert(res == 0);
     send_wr.addr = partner_addr_;
+    heartbeat_send_wr.addr = partner_addr_;
     ++pending_send_requests_;
     post_send_msg(&send_wr);
 }

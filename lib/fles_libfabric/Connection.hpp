@@ -7,6 +7,7 @@
 #include "SizedMap.hpp"
 #include "RequestIdentifier.hpp"
 #include "LibfabricContextPool.hpp"
+#include "HeartbeatMessage.hpp"
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>
@@ -16,6 +17,7 @@
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_errno.h>
 #include <rdma/fi_rma.h>
+#include <rdma/fi_tagged.h>
 
 #include <cstdint>
 #include <string>
@@ -83,6 +85,12 @@ public:
     virtual void setup_mr(struct fid_domain* pd) = 0;
 
     virtual bool try_sync_buffer_positions() = 0;
+
+    /// Post a receive work request (WR) to the receive queue
+    virtual void post_recv_heartbeat_message();
+
+    /// Post a send work request (WR) to the send queue
+    virtual void post_send_heartbeat_message();
     //
     //    /// Handle RDMA_CM_EVENT_ROUTE_RESOLVED event for this connection.
     //    virtual void on_route_resolved();
@@ -116,14 +124,20 @@ protected:
     void post_send_rdma(struct fi_msg_rma* msg, uint64_t flags);
 
     /// Post an Libfabric message send work request
-    void post_send_msg(struct fi_msg* msg);
+    void post_send_msg(const struct fi_msg_tagged* msg);
 
     /// Post an Libfabric message recveive request.
-    void post_recv_msg(const struct fi_msg* msg);
+    void post_recv_msg(const struct fi_msg_tagged* msg);
 
     void make_endpoint(struct fi_info* info, const std::string& hostname,
                        const std::string& service, struct fid_domain* pd,
                        struct fid_cq* cq, struct fid_av* av);
+
+    /// Message setup of heartbeat messages
+    virtual void setup_heartbeat();
+
+    /// Memory registers setup of heartbeat messages
+    virtual void setup_heartbeat_mr(struct fid_domain* pd);
 
     /// Index of this connection in the local group of connections.
     uint_fast16_t index_;
@@ -157,6 +171,24 @@ protected:
     /// To prevent reusing the buffer while injecting sync messages
     bool send_buffer_available_ = true;
 
+    /// Send Heartbeat message buffer
+    HeartbeatMessage send_heartbeat_message_ = HeartbeatMessage();
+
+    /// Receive Heartbeat message buffer
+    HeartbeatMessage recv_heartbeat_message_ = HeartbeatMessage();
+
+    /// heartbeat recv work request
+    struct fi_msg_tagged heartbeat_recv_wr = fi_msg_tagged();
+    struct iovec heartbeat_recv_wr_iovec = iovec();
+    void* heartbeat_recv_descs[1] = {nullptr};
+    fid_mr* mr_heartbeat_recv_ = nullptr;
+
+    /// heartbeat send work request
+    struct fi_msg_tagged heartbeat_send_wr = fi_msg_tagged();
+    struct iovec heartbeat_send_wr_iovec = iovec();
+    void* heartbeat_send_descs[1] = {nullptr};
+    fid_mr* mr_heartbeat_send_ = nullptr;
+    
 private:
     //    /// Low-level communication parameters.
     //    enum {

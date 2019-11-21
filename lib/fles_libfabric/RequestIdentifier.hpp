@@ -16,7 +16,9 @@ enum RequestIdentifier {
     ID_WRITE_DESC,
     ID_SEND_STATUS,
     ID_RECEIVE_STATUS,
-    ID_SEND_FINALIZE
+    ID_SEND_FINALIZE,
+    ID_HEARTBEAT_SEND_STATUS,
+    ID_HEARTBEAT_RECEIVE_STATUS
 };
 }
 #pragma pack()
@@ -39,6 +41,10 @@ inline std::ostream& operator<<(std::ostream& s, RequestIdentifier v)
         return s << "ID_RECEIVE_STATUS";
     case ID_SEND_FINALIZE:
         return s << "ID_SEND_FINALIZE";
+    case ID_HEARTBEAT_SEND_STATUS:	
+        return s << "ID_HEARTBEAT_SEND_STATUS";
+    case ID_HEARTBEAT_RECEIVE_STATUS:	
+        return s << "ID_HEARTBEAT_RECEIVE_STATUS";
     default:
         return s << static_cast<int>(v);
     }

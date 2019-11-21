@@ -143,7 +143,7 @@ public:
 	// TODO detect the number of messages that we are waiting for
         const int ne_max = conn_.size()*conn_.size()*1000;
 
-        struct fi_cq_entry wc[ne_max];
+        struct fi_cq_tagged_entry wc[ne_max];
         int ne;
         int ne_total = 0;
 
@@ -166,7 +166,7 @@ public:
 		    L_(fatal) << fi_strerror(err.err);
 		    L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
 						buffer, 256);
-		    throw LibfabricException("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr)");
+		    throw LibfabricException("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr) "+buffer);
 		}
 		if ((ne < 0) && (ne != -FI_EAGAIN)) {
 		    L_(fatal) << "fi_cq_read[" << i << "] failed: "
@@ -302,7 +302,8 @@ protected:
 	    memset(&cq_attr, 0, sizeof(cq_attr));
 	    cq_attr.size = num_cqe_;
 	    cq_attr.flags = 0;
-	    cq_attr.format = FI_CQ_FORMAT_CONTEXT;
+	    //cq_attr.format = FI_CQ_FORMAT_CONTEXT;
+	    cq_attr.format = FI_CQ_FORMAT_TAGGED;
 	    cq_attr.wait_obj = FI_WAIT_NONE;
 	    cq_attr.signaling_vector = Provider::vector++; // ??
 	    cq_attr.wait_cond = FI_CQ_COND_NONE;

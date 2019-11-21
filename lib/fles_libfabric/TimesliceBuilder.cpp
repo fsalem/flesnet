@@ -238,7 +238,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
 {
     InputChannelStatusMessage recv_connect_message;
     struct fid_mr* mr_recv_connect = nullptr;
-    struct fi_msg recv_msg_wr;
+    struct fi_msg_tagged recv_msg_wr;
     struct iovec recv_sge = iovec();
     void* recv_wr_descs[1] = {nullptr};
 
@@ -287,8 +287,9 @@ void TimesliceBuilder::bootstrap_wo_connections()
     recv_msg_wr.addr = FI_ADDR_UNSPEC;
     recv_msg_wr.context = LibfabricContextPool::getInst()->getContext();
     recv_msg_wr.data = 0;
+    recv_msg_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 
-    err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
+    err = fi_trecvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
     if (err) {
         L_(fatal) << "fi_recvmsg failed: " << strerror(err);
         throw LibfabricException("fi_recvmsg failed");
@@ -300,7 +301,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
     const int ne_max = 1; // the ne_max must be always 1 because there is ONLY
                           // ONE mr registered variable for receiving messages
 
-    struct fi_cq_entry wc[ne_max];
+    struct fi_cq_tagged_entry wc[ne_max];
     int ne;
 
     while (connected_senders_.size() != num_input_nodes_) {
@@ -341,7 +342,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
                 conn_.at(recv_connect_message.info.index)->send_ep_addr();
                 connected_senders_.insert(recv_connect_message.info.index);
                 ++connected_;
-                err = fi_recvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
+                err = fi_trecvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
             }
         }
         if (err) {
@@ -497,6 +498,18 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         conn_[in]->on_complete_recv();
     }
         break;
+
+    case ID_HEARTBEAT_RECEIVE_STATUS: {
+	// TODO
+	int cn = wr_id >> 8;
+	conn_[cn]->post_recv_heartbeat_message();;
+	conn_[cn]->post_send_heartbeat_message();
+    } break;
+
+    case ID_HEARTBEAT_SEND_STATUS: {
+	// TODO
+	int cn = wr_id >> 8;
+    } break;
 
     default:
         throw LibfabricException("wc for unknown wr_id");

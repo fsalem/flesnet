@@ -158,12 +158,12 @@ private:
     struct fid_mr* mr_send_ = nullptr;
 
     /// InfiniBand receive work request
-    struct fi_msg recv_wr = fi_msg();
+    struct fi_msg_tagged recv_wr = fi_msg_tagged();
     struct iovec recv_wr_iovec = iovec();
     void* recv_descs[1] = {nullptr};
 
     /// Infiniband send work request
-    struct fi_msg send_wr = fi_msg();
+    struct fi_msg_tagged send_wr = fi_msg_tagged();
     struct iovec send_wr_iovec = iovec();
     void* send_descs[1] = {nullptr};
 

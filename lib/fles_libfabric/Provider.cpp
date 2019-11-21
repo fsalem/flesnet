@@ -76,7 +76,7 @@ struct fi_info* Provider::get_hints(enum fi_ep_type ep_type, std::string prov)
     struct fi_info* hints = fi_allocinfo();
 
     hints->caps =
-	    FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
+	    FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE | FI_TAGGED;
     hints->mode = FI_LOCAL_MR | FI_CONTEXT;
     hints->ep_attr->type = ep_type;
     hints->domain_attr->threading = FI_THREAD_COMPLETION;

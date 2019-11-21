@@ -18,6 +18,8 @@ struct ConstVariables {
 
     constexpr static double TIMEOUT = 2.0; // in seconds
 
+    const static uint64_t STATUS_MESSAGE_TAG = 10;
+    const static uint64_t HEARTBEAT_MESSAGE_TAG = 20;
     ///-----
     const static uint32_t MAX_MEDIAN_VALUES = 10;
     ///-----/

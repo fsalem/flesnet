@@ -273,11 +273,104 @@ std::unique_ptr<std::vector<uint8_t>> Connection::get_private_data()
     return private_data;
 }
 
-void Connection::post_send_msg(struct fi_msg* wr)
+void Connection::setup_heartbeat()
+{
+    heartbeat_recv_descs[0] = fi_mr_desc(mr_heartbeat_recv_);
+    heartbeat_send_descs[0] = fi_mr_desc(mr_heartbeat_send_);
+
+    // setup send and receive buffers
+    memset(&heartbeat_recv_wr_iovec, 0, sizeof(struct iovec));
+    heartbeat_recv_wr_iovec.iov_base = &recv_heartbeat_message_;
+    heartbeat_recv_wr_iovec.iov_len = sizeof(recv_heartbeat_message_);
+
+    memset(&heartbeat_recv_wr, 0, sizeof(struct fi_msg));
+    heartbeat_recv_wr.msg_iov = &heartbeat_recv_wr_iovec;
+    heartbeat_recv_wr.desc = heartbeat_recv_descs;
+    heartbeat_recv_wr.iov_count = 1;
+    heartbeat_recv_wr.tag = ConstVariables::HEARTBEAT_MESSAGE_TAG;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_HEARTBEAT_RECEIVE_STATUS | (index_ << 8));
+    heartbeat_recv_wr.context = context;
+#pragma GCC diagnostic pop
+
+    memset(&heartbeat_send_wr_iovec, 0, sizeof(struct iovec));
+    heartbeat_send_wr_iovec.iov_base = &send_heartbeat_message_;
+    heartbeat_send_wr_iovec.iov_len = sizeof(send_heartbeat_message_);
+
+    memset(&heartbeat_send_wr, 0, sizeof(struct fi_msg));
+    heartbeat_send_wr.msg_iov = &heartbeat_send_wr_iovec;
+    heartbeat_send_wr.desc = heartbeat_send_descs;
+    heartbeat_send_wr.iov_count = 1;
+    heartbeat_send_wr.tag = ConstVariables::HEARTBEAT_MESSAGE_TAG;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_HEARTBEAT_SEND_STATUS | (index_ << 8));
+    heartbeat_send_wr.context = context;
+#pragma GCC diagnostic pop
+}
+
+void Connection::setup_heartbeat_mr(struct fid_domain* pd)
+{
+    // register memory regions
+    int res = fi_mr_reg(pd, &recv_heartbeat_message_,
+		    sizeof(recv_heartbeat_message_), FI_RECV | FI_TAGGED, 0,
+		    Provider::requested_key++, 0, &mr_heartbeat_recv_, nullptr);
+    if (res) {
+    L_(fatal) << "fi_mr_reg failed for heartbeat recv msg: " << res << "="
+	      << fi_strerror(-res);
+    throw LibfabricException("fi_mr_reg failed for heartbeat recv msg");
+    }
+
+    if (!mr_heartbeat_recv_)
+    throw LibfabricException(
+	"registration of memory region failed in Connection");
+
+    res = fi_mr_reg(pd, &send_heartbeat_message_, sizeof(send_heartbeat_message_),
+		FI_SEND | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_heartbeat_send_,
+		nullptr);
+    if (res) {
+    L_(fatal) << "fi_mr_reg failed for heartbeat send msg: " << res << "="
+	      << fi_strerror(-res);
+    throw LibfabricException("fi_mr_reg failed for heartbeat send msg");
+    }
+
+    if (!mr_heartbeat_send_)
+    throw LibfabricException(
+	"registration of memory region failed in Connection2");
+
+}
+
+void Connection::post_recv_heartbeat_message()
+{
+    if (false) {
+        L_(info) << "[i" << remote_index_ << "] "
+                  << "[" << index_ << "] "
+                  << "POST RECEIVE heartbeat message";
+    }
+    post_recv_msg(&heartbeat_recv_wr);
+}
+
+void Connection::post_send_heartbeat_message()
+{
+    if (false) {
+        L_(info) << "[i" << remote_index_ << "] "
+                  << "[" << index_ << "] "
+                  << "POST SEND heartbeat message ("
+                  << "id=" << send_heartbeat_message_.message_id
+                  << " ack=" << send_heartbeat_message_.ack << ")";
+    }
+
+    post_send_msg(&heartbeat_send_wr);
+}
+
+void Connection::post_send_msg(const struct fi_msg_tagged* wr)
 {
     // We need only FI_INJECT_COMPLETE but this is not supported with GNI
     uint64_t flags = FI_COMPLETION;
-    int err = fi_sendmsg(ep_, wr, flags);
+    int err = fi_tsendmsg(ep_, wr, flags);
     if (err) {
         // dump_send_wr(wr);
         L_(fatal) << "previous send requests: " << total_send_requests_;
@@ -311,9 +404,9 @@ void Connection::post_send_rdma(struct fi_msg_rma* wr, uint64_t flags)
         total_bytes_sent_ += wr->msg_iov[i].iov_len;
 }
 
-void Connection::post_recv_msg(const struct fi_msg* wr)
+void Connection::post_recv_msg(const struct fi_msg_tagged* wr)
 {
-    int err = fi_recvmsg(ep_, wr, FI_COMPLETION);
+    int err = fi_trecvmsg(ep_, wr, FI_COMPLETION);
     if (err) {
         L_(fatal) << "fi_recvmsg failed: " << err << "=" << fi_strerror(-err);
         throw LibfabricException("fi_recvmsg failed");

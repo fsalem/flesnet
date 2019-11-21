@@ -178,14 +178,14 @@ private:
     const std::size_t desc_buffer_size_exp_ = 0;
 
     /// Libfabric receive work request
-    struct fi_msg recv_wr = fi_msg();
+    struct fi_msg_tagged recv_wr = fi_msg_tagged();
 
     /// Scatter/gather list entry for receive work request
     struct iovec recv_sge = iovec();
     void* recv_wr_descs[1] = {nullptr};
 
     /// Libfabric send work request
-    struct fi_msg send_wr = fi_msg();
+    struct fi_msg_tagged send_wr = fi_msg_tagged();
 
     /// Scatter/gather list entry for send work request
     struct iovec send_sge = iovec();
