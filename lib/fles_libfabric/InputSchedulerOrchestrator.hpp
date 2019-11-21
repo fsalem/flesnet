@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "InputHeartbeatManager.hpp"
 #include "InputIntervalScheduler.hpp"
 #include "InputTimesliceManager.hpp"
-#include "HeartbeatManager.hpp"
 #include "IntervalMetaData.hpp"
 
 namespace tl_libfabric
@@ -87,6 +87,6 @@ public:
 private:
     static InputIntervalScheduler* interval_scheduler_;
     static InputTimesliceManager* timeslice_manager_;
-    static HeartbeatManager* heartbeat_manager_;
+    static InputHeartbeatManager* heartbeat_manager_;
 };
 }

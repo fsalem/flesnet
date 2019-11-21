@@ -22,15 +22,15 @@ namespace tl_libfabric
 /**
  * Singleton Heart Beat manager that DFS uses to detect the failure of a connection
  */
-class HeartbeatManager
+class InputHeartbeatManager
 {
 public:
     // Initialize the instance and retrieve it
-    static HeartbeatManager* get_instance(uint32_t index, uint32_t init_connection_count,
+    static InputHeartbeatManager* get_instance(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging);
 
     // Get singleton instance
-    static HeartbeatManager* get_instance();
+    static InputHeartbeatManager* get_instance();
 
     // Set the begin time to be used in logging
     void log_heartbeat(uint32_t connection_id);
@@ -46,12 +46,12 @@ public:
 
 private:
 
-    HeartbeatManager(uint32_t index, uint32_t init_connection_count,
+    InputHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging);
 
 
     // The singleton instance for this class
-    static HeartbeatManager* instance_;
+    static InputHeartbeatManager* instance_;
 
     // Compute process index
     uint32_t index_;

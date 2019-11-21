@@ -12,7 +12,7 @@ void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index, uint32_t c
 					    std::string log_directory, bool enable_logging){
     interval_scheduler_ = InputIntervalScheduler::get_instance(scheduler_index, compute_conn_count, interval_length, log_directory, enable_logging);
     timeslice_manager_ = InputTimesliceManager::get_instance(scheduler_index, compute_conn_count, interval_length, log_directory, enable_logging);
-    heartbeat_manager_ = HeartbeatManager::get_instance(scheduler_index, compute_conn_count, log_directory, enable_logging);
+    heartbeat_manager_ = InputHeartbeatManager::get_instance(scheduler_index, compute_conn_count, log_directory, enable_logging);
 }
 
 void InputSchedulerOrchestrator::update_compute_connection_count(uint32_t compute_count){
@@ -108,6 +108,6 @@ void InputSchedulerOrchestrator::log_heartbeat(uint32_t connection_id){
 
 InputIntervalScheduler* InputSchedulerOrchestrator::interval_scheduler_ = nullptr;
 InputTimesliceManager* InputSchedulerOrchestrator::timeslice_manager_ = nullptr;
-HeartbeatManager* InputSchedulerOrchestrator::heartbeat_manager_ = nullptr;
+InputHeartbeatManager* InputSchedulerOrchestrator::heartbeat_manager_ = nullptr;
 
 }

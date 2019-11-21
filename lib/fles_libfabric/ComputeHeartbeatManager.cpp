@@ -1,25 +1,25 @@
 // Copyright 2019 Farouk Salem <salem@zib.de>
 
 
-#include "HeartbeatManager.hpp"
+#include "ComputeHeartbeatManager.hpp"
 
 namespace tl_libfabric
 {
 
 
-HeartbeatManager* HeartbeatManager::get_instance(uint32_t index, uint32_t init_connection_count,
+ComputeHeartbeatManager* ComputeHeartbeatManager::get_instance(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging){
     if (instance_ == nullptr){
-    	instance_ = new HeartbeatManager(index, init_connection_count, log_directory, enable_logging);
+    	instance_ = new ComputeHeartbeatManager(index, init_connection_count, log_directory, enable_logging);
     }
     return instance_;
 }
 
-HeartbeatManager* HeartbeatManager::get_instance(){
+ComputeHeartbeatManager* ComputeHeartbeatManager::get_instance(){
     return instance_;
 }
 
-HeartbeatManager::HeartbeatManager(uint32_t index, uint32_t init_connection_count,
+ComputeHeartbeatManager::ComputeHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging):
 		index_(index),
 		connection_count_(init_connection_count),
@@ -33,12 +33,12 @@ HeartbeatManager::HeartbeatManager(uint32_t index, uint32_t init_connection_coun
 }
 
 
-void HeartbeatManager::log_heartbeat(uint32_t connection_id){
+void ComputeHeartbeatManager::log_heartbeat(uint32_t connection_id){
     assert (connection_id < connection_heartbeat_time_.size());
     connection_heartbeat_time_[connection_id] = std::chrono::high_resolution_clock::now();
 }
 
-std::vector<uint32_t> HeartbeatManager::retrieve_timeout_connections(){
+std::vector<uint32_t> ComputeHeartbeatManager::retrieve_timeout_connections(){
     std::vector<uint32_t> timed_out_conns;
     for (uint32_t i = 0 ; i < connection_heartbeat_time_.size() ; i++){
 	if (is_connection_timed_out(i))
@@ -47,7 +47,7 @@ std::vector<uint32_t> HeartbeatManager::retrieve_timeout_connections(){
     return timed_out_conns;
 }
 
-bool HeartbeatManager::is_connection_timed_out(uint32_t connection_id){
+bool ComputeHeartbeatManager::is_connection_timed_out(uint32_t connection_id){
     assert (connection_id < connection_heartbeat_time_.size());
     if (connection_timed_out_.find(connection_id) != connection_timed_out_.end()) return true;
     double duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -61,5 +61,5 @@ bool HeartbeatManager::is_connection_timed_out(uint32_t connection_id){
 }
 
 
-HeartbeatManager* HeartbeatManager::instance_ = nullptr;
+ComputeHeartbeatManager* ComputeHeartbeatManager::instance_ = nullptr;
 }
