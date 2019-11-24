@@ -301,10 +301,11 @@ void ComputeNodeConnection::on_complete_recv()
         return;
     }
     if (false) {
-        L_(trace) << "[c" << remote_index_ << "] "
+        L_(info) << "[c" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "COMPLETE RECEIVE status message"
-                  << " (wp.desc=" << recv_status_message_.wp.desc << ")";
+                  << " (wp.desc=" << recv_status_message_.wp.desc
+		  << " ts count=" << ((uint32_t)recv_status_message_.descriptor_count) << ")";
     }
     // to handle receiving sync messages out of sent order!
     if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){

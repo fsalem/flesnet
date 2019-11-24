@@ -320,7 +320,6 @@ void InputChannelConnection::on_complete_recv()
 	InputSchedulerOrchestrator::add_proposed_meta_data(recv_status_message_.proposed_interval_metadata);
     }
     InputSchedulerOrchestrator::log_heartbeat(index_);
-    InputSchedulerOrchestrator::mark_timeslices_acked(index_, cn_ack_.desc);
 
     post_recv_status_message();
 }

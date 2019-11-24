@@ -638,6 +638,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 	    }
         }
 
+        InputSchedulerOrchestrator::mark_timeslices_acked(cn, new_desc);
+
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);
             conn_[cn]->set_remote_info();
