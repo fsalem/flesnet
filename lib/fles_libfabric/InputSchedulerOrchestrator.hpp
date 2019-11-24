@@ -21,7 +21,6 @@ public:
     static void initialize(uint32_t scheduler_index, uint32_t compute_conn_count,
 	    uint32_t interval_length, std::string log_directory, bool enable_logging);
 
-
     // update the compute node count which is needed for the initial interval (#0)
     static void update_compute_connection_count(uint32_t);
 

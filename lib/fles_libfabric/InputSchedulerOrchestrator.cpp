@@ -1,4 +1,4 @@
-// Copyright 2018 Farouk Salem <salem@zib.de>
+// Copyright 2019 Farouk Salem <salem@zib.de>
 
 #include "InputSchedulerOrchestrator.hpp"
 

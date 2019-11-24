@@ -48,13 +48,10 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    timeslice_DD_scheduler_ = DDScheduler::get_instance(compute_index, num_input_nodes,
+    DDSchedulerOrchestrator::initialize(compute_index, num_input_nodes,
 	    scheduler_history_size, scheduler_interval_length,
 	    scheduler_speedup_difference_percentage,
 	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
-	    log_directory, enable_logging);
-
-    timeslice_manager_ = ComputeTimesliceManager::get_instance(compute_index, num_input_nodes,
 	    log_directory, enable_logging);
 }
 
@@ -369,7 +366,7 @@ void TimesliceBuilder::operator()()
         int rc = MPI_Barrier(MPI_COMM_WORLD);
 	assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
-        timeslice_DD_scheduler_->set_begin_time(time_begin_);
+        DDSchedulerOrchestrator::set_begin_time(time_begin_);
 
         sync_buffer_positions();
         report_status();
@@ -394,8 +391,7 @@ void TimesliceBuilder::operator()()
         timeslice_buffer_.send_end_work_item();
         timeslice_buffer_.send_end_completion();
 
-        timeslice_DD_scheduler_->generate_log_files();
-        timeslice_manager_->generate_log_files();
+        DDSchedulerOrchestrator::generate_log_files();
 
         build_time_file();
         summary();
@@ -572,12 +568,12 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 void TimesliceBuilder::process_completed_timeslices(){
     if (connected_ != conn_.size()) return;
 
-    timeslice_manager_->log_timeout_timeslice();
-    uint64_t new_completely_written = timeslice_manager_->get_last_ordered_completed_timeslice();
+    DDSchedulerOrchestrator::log_timeout_timeslice();
+    uint64_t new_completely_written = DDSchedulerOrchestrator::get_last_ordered_completed_timeslice();
     if (new_completely_written == ConstVariables::MINUS_ONE || new_completely_written < completely_written_)return;
     for (uint64_t ts_pos = completely_written_; ts_pos <= new_completely_written; ++ts_pos) {
 
-	bool timed_out = timeslice_manager_->is_timeslice_timed_out(ts_pos);
+	bool timed_out = DDSchedulerOrchestrator::is_timeslice_timed_out(ts_pos);
 	// check whether all contributions are received if it is not timed out!
 	if (!timed_out && !check_complete_timeslices(ts_pos)){
 	    timed_out = true;

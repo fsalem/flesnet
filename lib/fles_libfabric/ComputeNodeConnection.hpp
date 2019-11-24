@@ -8,8 +8,7 @@
 #include "InputChannelStatusMessage.hpp"
 #include "InputNodeInfo.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "DDScheduler.hpp"
-#include "ComputeTimesliceManager.hpp"
+#include "DDSchedulerOrchestrator.hpp"
 #include <boost/format.hpp>
 ///-----
 #include <map>
@@ -196,10 +195,6 @@ private:
     uint32_t pending_send_requests_{0};
 
     fi_addr_t partner_addr_;
-
-    DDScheduler* timeslice_DD_scheduler_;
-
-    ComputeTimesliceManager* timeslice_manager_;
 
     bool registered_input_MPI_time = false;
 

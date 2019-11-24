@@ -36,9 +36,6 @@ ComputeNodeConnection::ComputeNodeConnection(
     } else {
         connection_oriented_ = false;
     }
-
-    timeslice_DD_scheduler_ = DDScheduler::get_instance();
-    timeslice_manager_ = ComputeTimesliceManager::get_instance();
 }
 
 ComputeNodeConnection::ComputeNodeConnection(
@@ -68,9 +65,6 @@ ComputeNodeConnection::ComputeNodeConnection(
 
     //  setup anonymous endpoint
     make_endpoint(Provider::getInst()->get_info(), "", "", pd, cq, av);
-
-    timeslice_DD_scheduler_ = DDScheduler::get_instance();
-    timeslice_manager_ = ComputeTimesliceManager::get_instance();
 }
 
 void ComputeNodeConnection::post_recv_status_message()
@@ -271,10 +265,10 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
     if (!send_buffer_available_)return false;
     if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
 	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    timeslice_DD_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    timeslice_DD_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+	    DDSchedulerOrchestrator::get_last_completed_interval() != ConstVariables::MINUS_ONE &&
+	    DDSchedulerOrchestrator::get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
     {
-	const IntervalMetaData* meta_data = timeslice_DD_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
+	const IntervalMetaData* meta_data = DDSchedulerOrchestrator::get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
 	if (meta_data != nullptr){
 	    send_status_message_.proposed_interval_metadata = *meta_data;
 	    data_acked_ = true;
@@ -315,12 +309,12 @@ void ComputeNodeConnection::on_complete_recv()
 
     if (!registered_input_MPI_time) {
     	registered_input_MPI_time = true;
-    	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time);
+    	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time);
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-    	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency, recv_status_message_.actual_interval_metadata.interval_index);
-    	timeslice_DD_scheduler_->add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
+	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency, recv_status_message_.actual_interval_metadata.interval_index);
+	DDSchedulerOrchestrator::add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
     }
     post_recv_status_message();
 }
@@ -401,7 +395,7 @@ void ComputeNodeConnection::write_received_descriptors()
                 // TODO empty this list regularly
                 sync_received_ts_.insert(descriptor.ts_num);
                 std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
-                timeslice_manager_->log_contribution_arrival(index_, descriptor.ts_desc);
+                DDSchedulerOrchestrator::log_contribution_arrival(index_, descriptor.ts_desc);
          }
     }
 }
