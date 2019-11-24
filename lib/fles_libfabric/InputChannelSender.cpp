@@ -143,6 +143,26 @@ void InputChannelSender::sync_data_source(bool schedule)
     }
 }
 
+void InputChannelSender::sync_heartbeat()
+{
+    HeartbeatFailedNodeInfo failed_connection = InputSchedulerOrchestrator::get_timed_out_connection();
+    if (failed_connection.index == ConstVariables::MINUS_ONE){ // Check inactive connections
+	std::vector<uint32_t> inactive_conns = InputSchedulerOrchestrator::retrieve_new_inactive_connections();
+	for (uint32_t inactive: inactive_conns){
+	    conn_[inactive]->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id());
+	    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn_[inactive]->get_send_heartbeat_message());
+	}
+    }else{ // Send timeout message to all active connections (TODO UNLESS YOU HAVE ALREADY BEEN INFORMED)
+	for (auto& conn: conn_){
+	    if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index())){
+		conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), &failed_connection);
+		InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->get_send_heartbeat_message());
+	    }
+	}
+    }
+    scheduler_.add(std::bind(&InputChannelSender::sync_heartbeat, this), std::chrono::system_clock::now() + std::chrono::seconds(1));
+}
+
 void InputChannelSender::send_timeslices()
 {
 
@@ -233,6 +253,7 @@ void InputChannelSender::operator()()
 
         sync_buffer_positions();
         sync_data_source(true);
+        sync_heartbeat();
         report_status();
         send_timeslices();
 
@@ -617,9 +638,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 	    }
         }
 
-        InputSchedulerOrchestrator::log_heartbeat(cn);
-        InputSchedulerOrchestrator::mark_timeslices_acked(cn, new_desc);
-
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
             conn_[cn]->set_partner_addr(av_);
             conn_[cn]->set_remote_info();
@@ -648,11 +666,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     } break;
 
     case ID_HEARTBEAT_RECEIVE_STATUS: {
-	// TODO
 	int cn = wr_id >> 8;
-    	conn_[cn]->post_recv_heartbeat_message();
-    	conn_[cn]->post_send_heartbeat_message();
-
+    	conn_[cn]->on_complete_heartbeat_recv();
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {

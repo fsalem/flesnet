@@ -86,6 +86,9 @@ public:
 
     virtual bool try_sync_buffer_positions() = 0;
 
+    ///
+    virtual void on_complete_heartbeat_recv() = 0;
+
     /// Post a receive work request (WR) to the receive queue
     virtual void post_recv_heartbeat_message();
 
@@ -114,6 +117,12 @@ public:
 
     /// Retrieve the total number of RECV work requests.
     uint64_t total_recv_requests() const { return total_recv_requests_; }
+
+    /// Send heartbeat message
+    void send_heartbeat(uint64_t message_id, HeartbeatFailedNodeInfo* failure_info = nullptr, bool ack = false);
+
+    /// Get the last state of the send_heartbeat_message
+    const HeartbeatMessage get_send_heartbeat_message(){ return send_heartbeat_message_;}
 
     std::chrono::high_resolution_clock::time_point time_begin_;
 

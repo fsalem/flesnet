@@ -32,6 +32,8 @@ Connection::Connection(struct fid_eq* eq, uint_fast16_t connection_index,
     max_send_sge_ = 8;
     max_recv_sge_ = 8;
     max_inline_data_ = 0;
+
+    send_heartbeat_message_.info.index = remote_index_;
 }
 
 Connection::~Connection()
@@ -310,6 +312,9 @@ void Connection::setup_heartbeat()
     context->op_context = (ID_HEARTBEAT_SEND_STATUS | (index_ << 8));
     heartbeat_send_wr.context = context;
 #pragma GCC diagnostic pop
+
+    // post initial receive request
+    post_recv_heartbeat_message();
 }
 
 void Connection::setup_heartbeat_mr(struct fid_domain* pd)
@@ -413,5 +418,18 @@ void Connection::post_recv_msg(const struct fi_msg_tagged* wr)
     }
 
     ++total_recv_requests_;
+}
+
+void Connection::send_heartbeat(uint64_t message_id, HeartbeatFailedNodeInfo* failure_info, bool ack){
+    send_heartbeat_message_.message_id = message_id;
+    send_heartbeat_message_.ack = ack;
+    if (failure_info == nullptr){
+	send_heartbeat_message_.failure_info.index == ConstVariables::MINUS_ONE;
+    }else{
+	send_heartbeat_message_.failure_info.index = failure_info->index;
+	send_heartbeat_message_.failure_info.last_completed_desc = failure_info->last_completed_desc;
+	send_heartbeat_message_.failure_info.timeslice_trigger = failure_info->timeslice_trigger;
+    }
+    post_send_heartbeat_message();
 }
 }

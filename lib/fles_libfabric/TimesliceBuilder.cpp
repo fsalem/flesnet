@@ -502,8 +502,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     case ID_HEARTBEAT_RECEIVE_STATUS: {
 	// TODO
 	int cn = wr_id >> 8;
-	conn_[cn]->post_recv_heartbeat_message();;
-	conn_[cn]->post_send_heartbeat_message();
+	conn_[cn]->on_complete_heartbeat_recv();
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {

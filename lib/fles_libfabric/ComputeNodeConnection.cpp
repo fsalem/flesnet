@@ -404,4 +404,32 @@ void ComputeNodeConnection::write_received_descriptors()
          }
     }
 }
+void ComputeNodeConnection::on_complete_heartbeat_recv(){
+    if (true) {
+	L_(info) << "[c" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "COMPLETE RECEIVE heartbeat message"
+		  << " (id=" << recv_heartbeat_message_.message_id
+		  << ", ACK=" << recv_heartbeat_message_.ack
+		  << ", FAILED=" << recv_heartbeat_message_.failure_info.index
+		  << ", DESC=" << recv_heartbeat_message_.failure_info.last_completed_desc
+		  << ", TS=" << recv_heartbeat_message_.failure_info.timeslice_trigger << ")";
+    }
+    // inactive heartbeat message
+    if (recv_heartbeat_message_.failure_info.index == ConstVariables::MINUS_ONE){
+	assert (!recv_heartbeat_message_.ack);
+	send_heartbeat_message_.message_id = recv_heartbeat_message_.message_id;
+	send_heartbeat_message_.ack = true;
+	send_heartbeat_message_.failure_info.index = ConstVariables::MINUS_ONE;
+	post_send_heartbeat_message();
+    }else{ // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
+	if (recv_heartbeat_message_.ack){ // requested info received
+
+	}else{ // initial failure message
+
+	}
+    }
+
+    post_recv_heartbeat_message();
+}
 }

@@ -9,7 +9,7 @@ namespace tl_libfabric
 {
 struct HeartbeatFailedNodeInfo {
     // Index of the
-    uint32_t index;
+    uint32_t index = ConstVariables::MINUS_ONE;
     // Last completed descriptor of this failed node
     uint64_t last_completed_desc = ConstVariables::ZERO;
     // When this info is sent out from:

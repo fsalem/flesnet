@@ -86,6 +86,10 @@ bool InputSchedulerOrchestrator::is_timeslice_rdma_acked(uint32_t compute_index,
     return timeslice_manager_->is_timeslice_rdma_acked(compute_index, timeslice);
 }
 
+uint64_t InputSchedulerOrchestrator::get_last_acked_descriptor(uint32_t compute_index){
+    return timeslice_manager_->get_last_acked_descriptor(compute_index);
+}
+
 uint64_t InputSchedulerOrchestrator::get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor){
     return timeslice_manager_->get_timeslice_of_not_acked_descriptor(compute_index, descriptor);
 }
@@ -102,9 +106,52 @@ void InputSchedulerOrchestrator::log_timeslice_MR_blocked(uint64_t timeslice, bo
     timeslice_manager_->log_timeslice_MR_blocked(timeslice, sent_completed);
 }
 
+//// InputHeartbeatManager Methods
+
 void InputSchedulerOrchestrator::log_heartbeat(uint32_t connection_id){
     heartbeat_manager_->log_heartbeat(connection_id);
 }
+
+std::vector<uint32_t> InputSchedulerOrchestrator::retrieve_new_inactive_connections(){
+    return heartbeat_manager_->retrieve_new_inactive_connections();
+}
+
+int32_t InputSchedulerOrchestrator::get_new_timeout_connection(){
+    return heartbeat_manager_->get_new_timeout_connection();
+}
+
+bool InputSchedulerOrchestrator::is_connection_timed_out(uint32_t connection_id){
+    return heartbeat_manager_->is_connection_timed_out(connection_id);
+}
+
+void InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_id){
+    heartbeat_manager_->mark_connection_timed_out(connection_id);
+}
+
+void InputSchedulerOrchestrator::log_sent_heartbeat_message(HeartbeatMessage message){
+    heartbeat_manager_->log_sent_heartbeat_message(message);
+}
+
+uint64_t InputSchedulerOrchestrator::get_next_heartbeat_message_id(){
+    return heartbeat_manager_->get_next_heartbeat_message_id();
+}
+
+//// Methods combine data from different objects
+
+HeartbeatFailedNodeInfo InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
+    if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
+    HeartbeatFailedNodeInfo info = HeartbeatFailedNodeInfo();
+    if (timeout_conn != -1){
+	info.index = timeout_conn;
+	info.last_completed_desc = get_last_acked_descriptor(timeout_conn);
+	// TODO last possible timeslice
+	// TODO stop transmitting TSs until receiving an ACK
+	//info.timeslice_trigger = ;
+    }
+    return info;
+}
+
+//// Variables
 
 InputIntervalScheduler* InputSchedulerOrchestrator::interval_scheduler_ = nullptr;
 InputTimesliceManager* InputSchedulerOrchestrator::timeslice_manager_ = nullptr;

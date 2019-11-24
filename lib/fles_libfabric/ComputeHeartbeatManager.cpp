@@ -29,7 +29,7 @@ ComputeHeartbeatManager::ComputeHeartbeatManager(uint32_t index, uint32_t init_c
     for (uint32_t conn = 0 ; conn < init_connection_count ; ++conn){
 	connection_heartbeat_time_.push_back(std::chrono::high_resolution_clock::now());
     }
-    timeout_ = ConstVariables::TIMEOUT;
+    timeout_ = ConstVariables::HEARTBEAT_TIMEOUT;
 }
 
 

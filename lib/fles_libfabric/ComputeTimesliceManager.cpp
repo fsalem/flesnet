@@ -30,7 +30,7 @@ ComputeTimesliceManager::ComputeTimesliceManager(uint32_t compute_index,
 		log_directory_(log_directory),
 		enable_logging_(enable_logging){
     assert( input_connection_count > 0);
-    timeout_ = ConstVariables::TIMEOUT;
+    timeout_ = ConstVariables::TIMESLICE_TIMEOUT;
 }
 
 

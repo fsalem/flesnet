@@ -35,7 +35,6 @@ InputChannelConnection::InputChannelConnection(
     max_inline_data_ = sizeof(fles::TimesliceComponentDescriptor);
 
     send_status_message_.info.index = remote_index_;
-    send_heartbeat_message_.info.index = remote_index_;
 
     if (Provider::getInst()->is_connection_oriented()) {
         connection_oriented_ = true;
@@ -320,6 +319,9 @@ void InputChannelConnection::on_complete_recv()
     if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
 	InputSchedulerOrchestrator::add_proposed_meta_data(recv_status_message_.proposed_interval_metadata);
     }
+    InputSchedulerOrchestrator::log_heartbeat(index_);
+    InputSchedulerOrchestrator::mark_timeslices_acked(index_, cn_ack_.desc);
+
     post_recv_status_message();
 }
 
@@ -572,5 +574,35 @@ void InputChannelConnection::add_timeslice_data_address(uint64_t data_size, uint
     cn_wp_pending_.data += data_size;
     cn_wp_pending_.desc += desc_size;
 
+}
+
+void InputChannelConnection::on_complete_heartbeat_recv(){
+    if (true) {
+    	L_(info) << "[c" << remote_index_ << "] "
+    		  << "[" << index_ << "] "
+    		  << "COMPLETE RECEIVE heartbeat message"
+    		  << " (id=" << recv_heartbeat_message_.message_id
+    		  << ", ACK=" << recv_heartbeat_message_.ack
+    		  << ", FAILED=" << recv_heartbeat_message_.failure_info.index
+    		  << ", DESC=" << recv_heartbeat_message_.failure_info.last_completed_desc
+    		  << ", TS=" << recv_heartbeat_message_.failure_info.timeslice_trigger << ")";
+    }
+    // heartbeat message is either ACK of inactive conn or request for info about failed connection
+    // TODO check if the same information is already transmitted
+    if (!recv_heartbeat_message_.ack){// request message about information of a connection
+	assert(recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE);
+	// TODO mark as timed out
+	HeartbeatFailedNodeInfo failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
+	send_heartbeat(recv_heartbeat_message_.message_id, &failed_conn, true);
+    }
+    // Info to start re-distribution
+    if (recv_heartbeat_message_.ack &&
+	    recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE){
+	// TODO inform TimesliceManager of the decision
+    }
+
+    InputSchedulerOrchestrator::log_heartbeat(index_);
+
+    post_recv_heartbeat_message();
 }
 }

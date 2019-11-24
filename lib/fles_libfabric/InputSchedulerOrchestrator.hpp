@@ -6,6 +6,7 @@
 #include "InputIntervalScheduler.hpp"
 #include "InputTimesliceManager.hpp"
 #include "IntervalMetaData.hpp"
+#include "HeartbeatFailedNodeInfo.hpp"
 
 namespace tl_libfabric
 {
@@ -66,6 +67,9 @@ public:
     // Check whether a timeslice is acked
     static bool is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice);
 
+    // Get the last acked descriptor ID of a compute node
+    static uint64_t get_last_acked_descriptor(uint32_t compute_index);
+
     // Get the timeslice number of a specific descriptor
     static uint64_t get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor);
 
@@ -83,6 +87,26 @@ public:
 
     static void log_heartbeat(uint32_t connection_id);
 
+    // Retrieve the inactive connections to send heartbeat message
+    static std::vector<uint32_t> retrieve_new_inactive_connections();
+
+    // Get a new timed out connection to send heartbeat message (-1 is returned if there is no)
+    static int32_t get_new_timeout_connection();
+
+    // Check whether a connection is already timedout
+    static bool is_connection_timed_out(uint32_t connection_id);
+
+    // Mark connection as timedout
+    static void mark_connection_timed_out(uint32_t connection_id);
+
+    // Log sent heartbeat message
+    static void log_sent_heartbeat_message(HeartbeatMessage message);
+
+    // get next message id sequence
+    static uint64_t get_next_heartbeat_message_id();
+
+//// Methods combine data from different objects
+    static HeartbeatFailedNodeInfo get_timed_out_connection(int32_t timeout_conn = -1);
 
 private:
     static InputIntervalScheduler* interval_scheduler_;

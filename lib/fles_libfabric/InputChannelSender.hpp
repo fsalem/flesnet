@@ -50,6 +50,8 @@ public:
 
     void sync_data_source(bool schedule);
 
+    void sync_heartbeat();
+
     virtual void operator()() override;
 
     // A scheduling calls to send timeslices to each connection

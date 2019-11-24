@@ -4,6 +4,7 @@
 
 #include "ConstVariables.hpp"
 #include "SizedMap.hpp"
+#include "HeartbeatMessage.hpp"
 
 #include <vector>
 #include <set>
@@ -35,11 +36,29 @@ public:
     // Set the begin time to be used in logging
     void log_heartbeat(uint32_t connection_id);
 
-    //
-    std::vector<uint32_t> retrieve_timeout_connections();
+    // Retrieve the inactive connections to send heartbeat message
+    std::vector<uint32_t> retrieve_new_inactive_connections();
 
-    //
+    // Retrieve a list of timeout connections
+    std::vector<uint32_t> retrieve_new_timeout_connections();
+
+    // Get a new timed out connection to send heartbeat message (-1 is returned if there is no)
+    int32_t get_new_timeout_connection();
+
+    // Check whether a connection is inactive
+    bool is_connection_inactive(uint32_t connection_id);
+
+    // Check whether a connection is already timedout
     bool is_connection_timed_out(uint32_t connection_id);
+
+    // Mark connection as timedout
+    void mark_connection_timed_out(uint32_t connection_id);
+
+    // Log sent heartbeat message
+    void log_sent_heartbeat_message(HeartbeatMessage message);
+
+    // get next message id sequence
+    uint64_t get_next_heartbeat_message_id();
 
     //Generate log files of the stored data
     //void generate_log_files();
@@ -59,11 +78,17 @@ private:
     // The number of input connections
     uint32_t connection_count_;
 
-    //
+    // Time of the last received message from a connection
     std::vector<std::chrono::high_resolution_clock::time_point> connection_heartbeat_time_;
 
-    //
-    std::set<uint32_t> connection_timed_out_;
+    // List of all the timed out connections
+    std::set<uint32_t> timed_out_connection_;
+
+    // List of the inactive connections
+    std::set<uint32_t> inactive_connection_;
+
+    // Sent message log
+    std::set<HeartbeatMessage> heartbeat_message_log_;
 
     // Timeout limit in seconds
     double timeout_;

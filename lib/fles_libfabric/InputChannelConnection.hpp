@@ -68,6 +68,8 @@ public:
 
     virtual bool try_sync_buffer_positions() override;
 
+    virtual void on_complete_heartbeat_recv() override;
+
     /// Connection handler function, called on successful connection.
     /**
      \param event RDMA connection manager event structure

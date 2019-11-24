@@ -21,6 +21,21 @@ struct HeartbeatMessage {
     bool ack = false;
     // The info of a failed node
     HeartbeatFailedNodeInfo failure_info;
+
+    bool operator< (const HeartbeatMessage &right) const
+    {
+        return message_id < right.message_id;
+    }
+
+    bool operator> (const HeartbeatMessage &right) const
+    {
+	return message_id > right.message_id;
+    }
+
+    bool operator== (const HeartbeatMessage &right) const
+    {
+	return message_id == right.message_id;
+    }
 };
 }
 
