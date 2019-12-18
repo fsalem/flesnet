@@ -6,6 +6,7 @@
 #include "SizedMap.hpp"
 
 #include <map>
+#include <set>
 #include <math.h>
 #include <string>
 #include <chrono>
@@ -34,8 +35,14 @@ public:
     // Update input connection count
     void update_input_connection_count(uint32_t input_connection_count);
 
+    // Set the begin time to be used in logging (the trigger_completion flag is used to stop processing timeslices after rescheduling operation until receiving the ACK)
+    void log_contribution_arrival(uint32_t connection_id, uint64_t timeslice, bool trigger_completion = true);
+
     // Set the begin time to be used in logging
-    void log_contribution_arrival(uint32_t connection_id, uint64_t timeslice);
+    bool undo_log_contribution_arrival(uint32_t connection_id, uint64_t timeslice);
+
+    // Update the timeslice completion when trigger_completion flag is false in log_contribution_arrival method
+    void update_timeslice_completion();
 
     // Get last ordered completed timeslice
     uint64_t get_last_ordered_completed_timeslice();
@@ -60,7 +67,10 @@ private:
     SizedMap<uint64_t, std::chrono::high_resolution_clock::time_point> timeslice_first_arrival_time_;
 
     // Counts the number of received contributions of each timeslice
-    SizedMap<uint64_t, uint32_t> timeslice_arrived_count_;
+    SizedMap<uint64_t, std::set<uint32_t>*> timeslice_arrived_count_;
+
+    // When the trigger_completion flag is false in log_contribution_arrival, this list logs the skipped completed timeslice
+    std::set<uint64_t> skipped_trigger_completion_list_;
 
     // The singleton instance for this class
     static ComputeTimesliceManager* instance_;

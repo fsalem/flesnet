@@ -11,8 +11,6 @@
 #include "InputSchedulerOrchestrator.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 
-#include <sys/uio.h>
-
 namespace tl_libfabric
 {
 /// Input node connection class.
@@ -36,7 +34,7 @@ public:
     bool check_for_buffer_space(uint64_t data_size, uint64_t desc_size);
 
     /// Send data and descriptors to compute node.
-    void send_data(struct iovec* sge, void** desc, int num_sge,
+    bool send_data(struct iovec* sge, void** desc, int num_sge,
                    uint64_t timeslice, uint64_t desc_length,
                    uint64_t data_length, uint64_t skip);
 
@@ -54,6 +52,8 @@ public:
     void finalize(bool abort);
 
     bool request_abort_flag() { return recv_status_message_.request_abort; }
+
+    bool request_finalize_flag() { return finalize_; }
 
     void on_complete_write();
 
@@ -106,6 +106,9 @@ public:
 
     /// Update the status message with the completed interval information
     void ack_complete_interval_info();
+
+    /// update the cn_wp after scheduler redistribution decision
+    void update_cn_wp_after_failure_action();
 
     void add_timeslice_data_address(uint64_t data_size, uint64_t desc_size);
 

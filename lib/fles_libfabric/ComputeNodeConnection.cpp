@@ -86,17 +86,19 @@ void ComputeNodeConnection::post_send_status_message()
                   << "[" << index_ << "] "
                   << "POST SEND status_message"
                   << " (ack.desc=" << send_status_message_.ack.desc << ")"
-                  << ", (addr=" << send_wr.addr << ")";
+                  << ", (addr=" << send_wr.addr << ")"
+		  << " finalize " << send_status_message_.final;
     }
     while (pending_send_requests_ >= 2000 /*qp_cap_.max_send_wr*/) {
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    data_acked_ = false;
-    data_changed_ = false;
-    send_buffer_available_ = false;
-    ++pending_send_requests_;
-    post_send_msg(&send_wr);
+    if (post_send_msg(&send_wr)){
+	data_acked_ = false;
+	data_changed_ = false;
+	send_buffer_available_ = false;
+	++pending_send_requests_;
+    }
 }
 
 void ComputeNodeConnection::post_send_final_status_message()
@@ -288,22 +290,36 @@ bool ComputeNodeConnection::try_sync_buffer_positions()
 
 void ComputeNodeConnection::on_complete_recv()
 {
-    if (recv_status_message_.final) {
-        // send FINAL status message
-        send_status_message_.final = true;
-        post_send_final_status_message();
-        return;
-    }
     if (false) {
         L_(info) << "[c" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "COMPLETE RECEIVE status message"
                   << " (wp.desc=" << recv_status_message_.wp.desc
-		  << " ts count=" << ((uint32_t)recv_status_message_.descriptor_count) << ")";
+		  << " ts count=" << ((uint32_t)recv_status_message_.descriptor_count)
+		  << " decision ACK=" << recv_status_message_.sync_after_scheduling_decision << ")"
+		  << " finalize " << recv_status_message_.final;
+    }
+    if (recv_status_message_.final) {
+        // send FINAL status message
+        send_status_message_.final = true;
+        post_send_final_status_message();
+        DDSchedulerOrchestrator::log_finalize_connection(index_);
+        return;
     }
     // to handle receiving sync messages out of sent order!
     if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){
     	cn_wp_ = recv_status_message_.wp;
+    }
+    if (recv_status_message_.sync_after_scheduling_decision){
+	for (uint64_t desc = recv_status_message_.wp.desc ; desc < cn_wp_.desc ; ++desc){
+	    L_(debug) << "[c" << remote_index_ << "] "
+		      << "[" << index_ << "] "
+		      << "COMPLETE RECEIVE status message"
+		      << " undo " << desc;
+	    DDSchedulerOrchestrator::undo_log_contribution_arrival(index_, desc);
+	}
+	DDSchedulerOrchestrator::log_decision_ack(index_);
+	cn_wp_ = recv_status_message_.wp;
     }
     write_received_descriptors();
 
@@ -321,6 +337,13 @@ void ComputeNodeConnection::on_complete_recv()
 
 void ComputeNodeConnection::on_complete_send()
 {
+    if (false) {
+	L_(info) << "[c" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "COMPLETE SEND status message"
+		  << " (ack.desc=" << send_status_message_.ack.desc
+	          << " finalize " << send_status_message_.final;
+    }
     pending_send_requests_--;
     send_buffer_available_  = true;
 }
@@ -380,23 +403,20 @@ void ComputeNodeConnection::write_received_descriptors()
 {
     for (int i=0 ; i < recv_status_message_.descriptor_count ; i++) {
         fles::TimesliceComponentDescriptor descriptor = recv_status_message_.tscdesc_msg[i];
-        if (sync_received_ts_.find(descriptor.ts_num) == sync_received_ts_.end()) {
-                uint64_t offset = (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
-                fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
-                L_(debug) << "[c" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "TS descriptor of ts#" << descriptor.ts_num
-                  << " offset " << descriptor.offset
-                  << " local offset " << offset
-                  << " size " << descriptor.size
-                  << " num mts " << descriptor.num_microslices
-                  << " local address " << (acked_ts)
-                  << " tscdesc_ts " << descriptor.ts_desc;
-                // TODO empty this list regularly
-                sync_received_ts_.insert(descriptor.ts_num);
-                std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
-                DDSchedulerOrchestrator::log_contribution_arrival(index_, descriptor.ts_desc);
-         }
+	uint64_t offset = (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
+	fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
+	L_(debug) << "[c" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "TS descriptor of ts#" << descriptor.ts_num
+		  << " offset " << descriptor.offset
+		  << " local offset " << offset
+		  << " size " << descriptor.size
+		  << " num mts " << descriptor.num_microslices
+		  << " local address " << (acked_ts)
+		  << " tscdesc_ts " << descriptor.ts_desc
+		  << " cur desc " << cn_wp_.desc;
+	std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
+	DDSchedulerOrchestrator::log_contribution_arrival(index_, descriptor.ts_desc);
     }
 }
 void ComputeNodeConnection::on_complete_heartbeat_recv(){
@@ -418,13 +438,8 @@ void ComputeNodeConnection::on_complete_heartbeat_recv(){
 	send_heartbeat_message_.failure_info.index = ConstVariables::MINUS_ONE;
 	post_send_heartbeat_message();
     }else{ // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
-	if (recv_heartbeat_message_.ack){ // requested info received
-
-	}else{ // initial failure message
-
-	}
+	DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
     }
-
     post_recv_heartbeat_message();
 }
 }

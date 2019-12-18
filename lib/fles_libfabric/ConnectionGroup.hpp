@@ -25,6 +25,8 @@
 #include <fstream>
 #include <mpi.h>
 
+#include <sys/uio.h>
+
 namespace tl_libfabric
 {
 /// Libfabric connection group base class.
@@ -163,10 +165,14 @@ public:
 		    struct fi_cq_err_entry err;
 		    char buffer[256];
 		    ne = fi_cq_readerr(cqs_[i], &err, 0);
-		    L_(fatal) << fi_strerror(err.err);
-		    L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
-						buffer, 256);
-		    throw LibfabricException("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr) "+buffer);
+		    // err == 0 --> Success
+		    if (err.err != 0 /*&& err.err != 5*/){
+			L_(fatal) << fi_strerror(err.err);
+			L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
+						    buffer, 256)
+				  << ("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr) "+buffer + "[code:" + std::to_string(err.err) + "]" + " ne: " + std::to_string(ne));
+			throw LibfabricException("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr) "+buffer + "[code:" + std::to_string(err.err) + "]" + " ne: " + std::to_string(ne));
+		    }
 		}
 		if ((ne < 0) && (ne != -FI_EAGAIN)) {
 		    L_(fatal) << "fi_cq_read[" << i << "] failed: "
@@ -239,6 +245,8 @@ public:
 
     /// The "main" function of an ConnectionGroup decendant.
     virtual void operator()() = 0;
+
+    virtual void sync_heartbeat() = 0;
 
 protected:
     /// Handle RDMA_CM_REJECTED event.

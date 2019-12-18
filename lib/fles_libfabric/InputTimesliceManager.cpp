@@ -11,13 +11,114 @@ namespace tl_libfabric
 
 InputTimesliceManager::InputTimesliceManager(uint32_t scheduler_index, uint32_t compute_conn_count,
 	uint32_t interval_length, std::string log_directory, bool enable_logging):
-    		scheduler_index_(scheduler_index), compute_count_(compute_conn_count),
+		compute_count_(compute_conn_count), scheduler_index_(scheduler_index),
 		interval_length_(interval_length), log_directory_(log_directory),
 		enable_logging_(enable_logging) {
+
+    last_conn_desc_.resize(compute_count_, 0);
+    last_conn_timeslice_.resize(compute_count_, ConstVariables::MINUS_ONE);
     for (uint32_t i = 0 ; i< compute_count_ ; ++i){
 	conn_timeslice_info_.add(i, new SizedMap<uint64_t, TimesliceInfo*>());
 	conn_desc_timeslice_info_.add(i, new SizedMap<uint64_t, uint64_t>());
+	future_conn_timeslices_.add(i, new std::set<uint64_t>());
+
     }
+    refill_future_timeslices(interval_length_);
+}
+
+
+void InputTimesliceManager::refill_future_timeslices(uint64_t up_to_timeslice){
+    if (next_start_future_timeslice_ >= up_to_timeslice)return;
+    uint32_t comp_index = next_start_future_timeslice_%compute_count_;
+    for (uint64_t ts = next_start_future_timeslice_ ; ts < up_to_timeslice ; ++ts){
+	while (redistribution_decisions_log_.contains(comp_index))
+	    comp_index = (comp_index+1)%compute_count_;
+	future_conn_timeslices_.get(comp_index)->insert(ts);
+	comp_index = (comp_index+1)%compute_count_;
+    }
+    next_start_future_timeslice_ = up_to_timeslice;
+}
+
+void InputTimesliceManager::check_to_add_rescheduled_timeslices(uint32_t compute_index){
+    if (to_be_moved_timeslices_.empty())return;
+    // TODO check the correctness of the new desc(s)
+    SizedMap<uint64_t, std::vector<std::set<uint64_t>*>>::iterator it = to_be_moved_timeslices_.get_begin_iterator();
+    while (it != to_be_moved_timeslices_.get_end_iterator()){
+	L_(debug) << "[" << compute_index << "]check to add: trigger " << it->first
+	          << " next " << get_connection_next_timeslice(compute_index)
+		  << " list " << it->second[compute_index];
+	if (get_connection_next_timeslice(compute_index) > it->first &&
+		it->second[compute_index] != nullptr && !it->second[compute_index]->empty()){
+	    L_(debug) << "adding rescheduled timeslices after " << it->first << " to " << compute_index << " ... last transmitted is " <<
+		    conn_timeslice_info_.get(compute_index)->get_last_key();
+	    std::set<uint64_t>* rescheduled_timeslices = it->second[compute_index];
+	    std::set<uint64_t>::iterator set_it = rescheduled_timeslices->begin();
+	    while (set_it != rescheduled_timeslices->end()){
+		future_conn_timeslices_.get(compute_index)->insert(*set_it);
+		++set_it;
+	    }
+	    it->second[compute_index] = nullptr;
+
+	}
+	++it;
+    }
+    // TODO to be written in a better way
+    while (!to_be_moved_timeslices_.empty()){
+	it = to_be_moved_timeslices_.get_begin_iterator();
+	bool all_empty = true;
+	for (int i=0 ; i<compute_count_ ; i++){
+	    if (it->second[i] != nullptr && !it->second[i]->empty()){
+		all_empty = false;
+		break;
+	    }
+	}
+	if (all_empty){
+	    assert(to_be_moved_timeslices_.remove(it->first));
+	}else{
+	    break;
+	}
+    }
+}
+
+std::vector<uint64_t> InputTimesliceManager::undo_transmitted_timeslices_after_trigger(uint64_t timeslice_trigger){
+    std::vector<uint64_t> undo_timeslices;
+    if (timeslice_trigger > next_start_future_timeslice_)return undo_timeslices;
+
+    for (uint32_t conn = 0 ; conn < compute_count_ ; ++conn){
+	SizedMap<uint64_t, TimesliceInfo*>* timeslices_map = conn_timeslice_info_.get(conn);
+	uint64_t last_timeslice;
+	TimesliceInfo* last_timeslice_info;
+	while (!timeslices_map->empty()){
+	    last_timeslice = timeslices_map->get_last_key();
+	    if (last_timeslice <= timeslice_trigger)break;
+	    last_timeslice_info = timeslices_map->get(last_timeslice);
+	    assert(last_timeslice_info->completion_acked_duration == 0);
+	    assert (last_timeslice_info->compute_desc == last_conn_desc_[conn]);
+	    assert (last_timeslice == last_conn_timeslice_[conn]);
+	    // remove conn_desc_timeslices
+	    conn_desc_timeslice_info_.get(conn)->remove(last_timeslice_info->compute_desc);
+	    // remove conn_timeslice_info
+	    timeslices_map->remove(last_timeslice);
+	    undo_timeslices.push_back(last_timeslice);
+	    L_(debug) << "Removing " << last_timeslice << " from " << conn;
+	    // update the last_conn_desc
+	    last_conn_desc_[conn]--;
+	    // update last_conn_timeslice
+	    last_conn_timeslice_[conn] = timeslices_map->get_last_key();
+	}
+	// remove future_timeslices
+	std::set<uint64_t>* future_timeslices = future_conn_timeslices_.get(conn);
+	while (!future_timeslices->empty()){
+	    last_timeslice = *(--future_timeslices->end());
+	    if (last_timeslice <= timeslice_trigger){
+		L_(debug) << "last_timeslice of " << conn << " is " << last_timeslice;
+		break;
+	    }
+	    future_timeslices->erase(last_timeslice);
+	}
+    }
+    return undo_timeslices;
+
 }
 
 // PUBLIC
@@ -36,36 +137,43 @@ InputTimesliceManager* InputTimesliceManager::get_instance(){
 }
 
 uint64_t InputTimesliceManager::get_connection_next_timeslice(uint32_t compute_index){
-    if (conn_timeslice_info_.get(compute_index)->empty()){
-	return compute_index;
+    if (future_conn_timeslices_.get(compute_index)->empty()){
+	refill_future_timeslices(next_start_future_timeslice_+interval_length_);
     }
-    return conn_timeslice_info_.get(compute_index)->get_last_key() + compute_count_;
+    return (*future_conn_timeslices_.get(compute_index)->begin());
 }
 
-void InputTimesliceManager::log_timeslice_transmit_time(uint32_t compute_index, uint64_t timeslice){
+void InputTimesliceManager::log_timeslice_transmit_time(uint32_t compute_index, uint64_t timeslice, uint64_t size){
     assert (!conn_timeslice_info_.get(compute_index)->contains(timeslice));
 
-    uint64_t descriptor_index = 1;
-    if (!conn_timeslice_info_.get(compute_index)->empty()){
-	descriptor_index = conn_timeslice_info_.get(compute_index)->
-			    get(conn_timeslice_info_.get(compute_index)->get_last_key())->compute_desc + 1;
-    }
+    uint64_t descriptor_index = last_conn_desc_[compute_index] + 1,
+             timeslice_data = size +
+		 (last_conn_timeslice_[compute_index] == ConstVariables::MINUS_ONE ? 0 :
+			 conn_timeslice_info_.get(compute_index)->get(last_conn_timeslice_[compute_index])->data);
     
     TimesliceInfo* timeslice_info = new TimesliceInfo();
+    timeslice_info->data = timeslice_data ;
     timeslice_info->compute_desc = descriptor_index;
     timeslice_info->transmit_time = std::chrono::high_resolution_clock::now();
     assert(conn_timeslice_info_.get(compute_index)->add(timeslice, timeslice_info));
     assert(conn_desc_timeslice_info_.get(compute_index)->add(descriptor_index, timeslice));
+    future_conn_timeslices_.get(compute_index)->erase(future_conn_timeslices_.get(compute_index)->find(timeslice));
+    ++last_conn_desc_[compute_index];
+    last_conn_timeslice_[compute_index] = timeslice;
+
+    check_to_add_rescheduled_timeslices(compute_index);
 }
 
-void InputTimesliceManager::acknowledge_timeslice_rdma_write(uint32_t compute_index, uint64_t timeslice){
+bool InputTimesliceManager::acknowledge_timeslice_rdma_write(uint32_t compute_index, uint64_t timeslice){
     if (!conn_timeslice_info_.get(compute_index)->contains(timeslice)){
     	L_(warning) << "[i_" << scheduler_index_ << "][ACK_RDMA_WRITE] ts " << timeslice << " does not belong to conn_" << compute_index;
-    	return;
+    	return false;
     }
     TimesliceInfo* timeslice_info = conn_timeslice_info_.get(compute_index)->get(timeslice);
+    if (timeslice_info->rdma_acked_duration != 0)return false;
     timeslice_info->rdma_acked_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 	    		std::chrono::high_resolution_clock::now() - timeslice_info->transmit_time).count();
+    return true;
 }
 
 void InputTimesliceManager::acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id){
@@ -90,7 +198,22 @@ bool InputTimesliceManager::is_timeslice_rdma_acked(uint32_t compute_index, uint
     }
 
     TimesliceInfo* timeslice_info = conn_timeslice_info_.get(compute_index)->get(timeslice);
-    return timeslice_info->rdma_acked_duration == 0 ? false : true;
+    return timeslice_info->rdma_acked_duration != 0 ||  timeslice_info->completion_acked_duration != 0 ? true : false;
+}
+
+bool InputTimesliceManager::is_timeslice_belongs_to_timeout_connection(uint64_t timeslice, const std::set<uint32_t> timeout_connections){
+    if (timeslice >= next_start_future_timeslice_){
+	refill_future_timeslices(timeslice+1);
+    }
+    std::set<uint32_t>::iterator it = timeout_connections.begin();
+    while (it != timeout_connections.end()){
+	std::set<uint64_t>* future_ts = future_conn_timeslices_.get(*it);
+	if (future_ts->find(timeslice) != future_ts->end() ||
+		conn_timeslice_info_.get(*it)->contains(timeslice))
+	    return true;
+	++it;
+    }
+    return false;
 }
 
 uint32_t InputTimesliceManager::get_compute_connection_count(){
@@ -106,9 +229,114 @@ uint64_t InputTimesliceManager::get_last_acked_descriptor(uint32_t compute_index
 
 }
 
-uint64_t InputTimesliceManager::get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor){
-    return conn_desc_timeslice_info_.get(compute_index)->contains(descriptor) ?
-	    conn_desc_timeslice_info_.get(compute_index)->get(descriptor) : ConstVariables::MINUS_ONE;
+uint64_t InputTimesliceManager::get_timeslice_by_descriptor(uint32_t compute_index, uint64_t descriptor){
+    if (conn_desc_timeslice_info_.get(compute_index)->contains(descriptor))
+	return conn_desc_timeslice_info_.get(compute_index)->get(descriptor);
+
+    SizedMap<uint64_t, TimesliceInfo*>* timeslice_info_list = conn_timeslice_info_.get(compute_index);
+    SizedMap<uint64_t, TimesliceInfo*>::iterator timeslice_info_it = timeslice_info_list->get_end_iterator();
+    do{
+	--timeslice_info_it;
+	if (timeslice_info_it->second->compute_desc == descriptor) return timeslice_info_it->first;
+    }while (timeslice_info_it != timeslice_info_list->get_begin_iterator());
+
+    return ConstVariables::MINUS_ONE;
+}
+
+uint64_t InputTimesliceManager::get_last_rdma_acked_timeslice(uint32_t compute_index){
+    SizedMap<uint64_t, uint64_t>* incompleted_desc_timeslices =conn_desc_timeslice_info_.get(compute_index);
+    if (incompleted_desc_timeslices->empty())return last_conn_timeslice_[compute_index];
+    SizedMap<uint64_t, uint64_t>::iterator incompleted_it = incompleted_desc_timeslices->get_end_iterator();
+    SizedMap<uint64_t, TimesliceInfo*>* conn_timeslice_list = conn_timeslice_info_.get(compute_index);
+    TimesliceInfo* timeslice_info;
+    do{
+	--incompleted_it;
+	timeslice_info = conn_timeslice_list->get(incompleted_it->second);
+	if (timeslice_info->rdma_acked_duration != 0)return incompleted_it->second;
+
+    }while (incompleted_it != incompleted_desc_timeslices->get_begin_iterator());
+
+    // When all the timeslices in conn_desc_timeslice_info_ are not RDMA acked yet, return the last one not in the conn_desc_timeslice_info_
+    return get_timeslice_by_descriptor(compute_index, incompleted_it->first-1);
+}
+
+
+uint64_t InputTimesliceManager::get_last_timeslice_before_blockage(uint32_t timed_out_conn){
+    // TODO
+    return 0;
+}
+
+uint64_t InputTimesliceManager::get_last_connection_descriptor_index(uint32_t compute_index){
+    assert (compute_index < last_conn_desc_.size());
+    return last_conn_desc_[compute_index];
+}
+
+std::pair<uint64_t, uint64_t> InputTimesliceManager::get_data_and_desc_of_timeslice(uint32_t compute_index, uint32_t timeslice){
+    if (!conn_timeslice_info_.get(compute_index)->contains(timeslice)){
+	L_(fatal) << "compute index " << compute_index << " timeslice " << timeslice << " last conn_timeslice " << last_conn_timeslice_[compute_index]
+		 << " conn_timeslice_info size " << conn_timeslice_info_.get(compute_index)->size();
+	assert(false);
+    }
+    TimesliceInfo* timeslice_info = conn_timeslice_info_.get(compute_index)->get(timeslice);
+    return std::pair<uint64_t, uint64_t>(timeslice_info->data, timeslice_info->compute_desc);
+}
+
+std::pair<uint64_t, uint64_t> InputTimesliceManager::get_data_and_desc_of_last_timeslice(uint32_t compute_index){
+    if (last_conn_timeslice_[compute_index] == ConstVariables::MINUS_ONE)
+	return std::pair<uint64_t, uint64_t>(0, 0);
+    return get_data_and_desc_of_timeslice(compute_index, last_conn_timeslice_[compute_index]);
+}
+
+std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info,
+							 const std::set<uint32_t> timeout_connections){
+
+    assert (compute_count_ > timeout_connections.size());
+    std::vector<uint64_t> undo_timeslices;
+    if (next_start_future_timeslice_ <= (failed_node_info.timeslice_trigger+1)){
+	refill_future_timeslices(failed_node_info.timeslice_trigger+1);
+    }else{
+	// Check if timeslice_trigger is already passed!! (return them back to the queue for the correct ordering)
+	std::vector<uint64_t> list = undo_transmitted_timeslices_after_trigger(failed_node_info.timeslice_trigger);
+	undo_timeslices.insert(undo_timeslices.end(), list.begin(), list.end());
+	L_(debug) << "[consider_reschedule_decision][" << failed_node_info.index << "] undo after trigger " << undo_timeslices.size();
+	// update the desc correspondingly
+	next_start_future_timeslice_ = failed_node_info.timeslice_trigger+1;
+    }
+    /////////
+    std::set<uint64_t>* failed_timeslice = future_conn_timeslices_.get(failed_node_info.index);
+
+    // clean the conn_desc_timeslice_info_ and move them back to future timeslices
+    SizedMap<uint64_t, uint64_t>* failed_conn_desc_timeslice_info = conn_desc_timeslice_info_.get(failed_node_info.index);
+    assert (failed_conn_desc_timeslice_info->empty() ||
+	    failed_conn_desc_timeslice_info->get_begin_iterator()->first == failed_node_info.last_completed_desc+1);
+    while (!failed_conn_desc_timeslice_info->empty()){
+	failed_timeslice->insert(failed_conn_desc_timeslice_info->get_begin_iterator()->second);
+	undo_timeslices.push_back(failed_conn_desc_timeslice_info->get_begin_iterator()->second);
+	failed_conn_desc_timeslice_info->remove(failed_conn_desc_timeslice_info->get_begin_iterator()->first);
+    }
+
+    L_(debug) << "Number of failed timeslices is " << failed_timeslice->size() << " trigger timeslice " << failed_node_info.timeslice_trigger << " ... [0] " << *failed_timeslice->begin()
+	     << " [n-1] " << *(--failed_timeslice->end());
+
+    // Distribute failed_timeslices over other active connections in a temporary array
+    std::vector<std::set<uint64_t>*> movable_ts(compute_count_, nullptr);
+    uint32_t compute_index = 0;
+    while (!failed_timeslice->empty()){
+	while (timeout_connections.find(compute_index) != timeout_connections.end()) compute_index = (compute_index+1)%compute_count_;
+	if (movable_ts[compute_index] == nullptr) movable_ts[compute_index] = new std::set<uint64_t>();
+	movable_ts[compute_index]->insert((*failed_timeslice->begin()));
+	//L_(info) << "ts "<< (*failed_timeslice->begin()) << " of CN " << failed_node_info.index << " moved to " << compute_index;
+	failed_timeslice->erase((*failed_timeslice->begin()));
+	compute_index = (compute_index+1)%compute_count_;
+    }
+    to_be_moved_timeslices_.add(failed_node_info.timeslice_trigger, movable_ts);
+
+    redistribution_decisions_log_.add(failed_node_info.index, failed_node_info.timeslice_trigger);
+    for (uint32_t i=0 ; i < compute_count_ ; ++i){
+	L_(debug) << "last transmitted ts of " << i << " is " << last_conn_timeslice_[i] << " and desc " << last_conn_desc_[i];
+	check_to_add_rescheduled_timeslices(i);
+    }
+    return undo_timeslices;
 }
 
 void InputTimesliceManager::generate_log_files(){

@@ -26,10 +26,6 @@ void InputIntervalScheduler::update_compute_connection_count(uint32_t compute_co
     compute_count_ = compute_count;
 }
 
-void InputIntervalScheduler::update_input_scheduler_index(uint32_t scheduler_index){
-    scheduler_index_ = scheduler_index;
-}
-
 void InputIntervalScheduler::update_input_begin_time(std::chrono::high_resolution_clock::time_point begin_time){
     begin_time_ = begin_time;
     if (interval_info_.empty()){
@@ -62,17 +58,38 @@ const IntervalMetaData* InputIntervalScheduler::get_actual_meta_data(uint64_t in
 
 uint64_t InputIntervalScheduler::get_last_timeslice_to_send(){
     InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+	// TODO TO BE REMOVED
+	L_(debug) << "[last to send] last key " << interval_info_.get_last_key()
+		 << " indx " << current_interval->index
+		 << " count_sent_ts " << current_interval->count_sent_ts
+		 << " count_acked_ts " << current_interval->count_acked_ts
+		 << " start_ts " << current_interval->start_ts
+		 << " end_ts " << current_interval->end_ts;
     uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1; // get_interval_current_round_index(current_interval->index)+1
     return std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
 
-void InputIntervalScheduler::increament_sent_timeslices(){
-    InputIntervalInfo* current_interval = interval_info_.get(interval_info_.get_last_key());
+void InputIntervalScheduler::increament_sent_timeslices(uint64_t timeslice){
+    InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
+    assert (current_interval != nullptr);
     if (current_interval->count_sent_ts == 0)
 	current_interval->actual_start_time = std::chrono::high_resolution_clock::now();
     current_interval->count_sent_ts++;
     if (is_interval_sent_completed(current_interval->index) && is_ack_percentage_reached(current_interval->index) && !interval_info_.contains(current_interval->index+1)){
     	create_new_interval_info(current_interval->index+1);
+    }
+}
+
+void InputIntervalScheduler::undo_increament_sent_timeslices(uint64_t timeslice_trigger, std::vector<uint64_t> undo_timeslices){
+    assert (!interval_info_.empty());
+    for (uint32_t i=0 ; i < undo_timeslices.size() ; i++){
+	InputIntervalInfo* interval = get_interval_of_timeslice(undo_timeslices[i]);
+	L_(debug) << "[UNDO INTERVAL] BEFORE indx = " << interval->index
+		 << " count sent " << interval->count_sent_ts
+		 << " count acked " << interval->count_acked_ts;
+	assert (interval->count_sent_ts > 0);
+	--interval->count_sent_ts;
+	assert (interval->count_sent_ts >= interval->count_acked_ts);
     }
 }
 

@@ -16,11 +16,9 @@ void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index, uint32_t c
 }
 
 void InputSchedulerOrchestrator::update_compute_connection_count(uint32_t compute_count){
+    // TODO remove
+    assert(false);
     interval_scheduler_->update_compute_connection_count(compute_count);
-}
-
-void InputSchedulerOrchestrator::update_input_scheduler_index(uint32_t scheduler_index){
-    interval_scheduler_->update_input_scheduler_index(scheduler_index);
 }
 
 void InputSchedulerOrchestrator::update_input_begin_time(std::chrono::high_resolution_clock::time_point begin_time){
@@ -56,22 +54,27 @@ int64_t InputSchedulerOrchestrator::get_next_fire_time(){
 //// InputTimesliceManager Methods
 
 uint64_t InputSchedulerOrchestrator::get_connection_next_timeslice(uint32_t compute_index){
-    return timeslice_manager_->get_connection_next_timeslice(compute_index);
+    if (is_connection_timed_out(compute_index))return ConstVariables::MINUS_ONE;
+    // TODO TO BE UPDATED
+    uint64_t next = timeslice_manager_->get_connection_next_timeslice(compute_index);
+    if (timeslice_trigger != ConstVariables::MINUS_ONE && next >= timeslice_trigger) return ConstVariables::MINUS_ONE;
+    return next;
 }
 
-void InputSchedulerOrchestrator::mark_timeslice_transmitted(uint32_t compute_index, uint64_t timeslice){
-    interval_scheduler_->increament_sent_timeslices();
-    timeslice_manager_->log_timeslice_transmit_time(compute_index, timeslice);
+void InputSchedulerOrchestrator::mark_timeslice_transmitted(uint32_t compute_index, uint64_t timeslice, uint64_t size){
+    interval_scheduler_->increament_sent_timeslices(timeslice);
+    timeslice_manager_->log_timeslice_transmit_time(compute_index, timeslice, size);
+    sent_timeslices++;
 }
 
-void InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(uint32_t compute_index, uint64_t timeslice){
-    timeslice_manager_->acknowledge_timeslice_rdma_write(compute_index, timeslice);
+bool InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(uint32_t compute_index, uint64_t timeslice){
+    return timeslice_manager_->acknowledge_timeslice_rdma_write(compute_index, timeslice);
 }
 
 void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, uint64_t up_to_descriptor_id){
     uint64_t last_descriptor = timeslice_manager_->get_last_acked_descriptor(compute_index);
     for (uint64_t desc = last_descriptor + 1 ; desc <= up_to_descriptor_id ; ++desc){
-	uint64_t timeslice = get_timeslice_of_not_acked_descriptor(compute_index, desc);
+	uint64_t timeslice = get_timeslice_by_descriptor(compute_index, desc);
 	if (timeslice == ConstVariables::MINUS_ONE){
 	    L_(warning) << "Desc " << desc << " in compute conn_" << compute_index << " does not exist in the TimesliceManager database!!!";
 	    continue;
@@ -90,8 +93,54 @@ uint64_t InputSchedulerOrchestrator::get_last_acked_descriptor(uint32_t compute_
     return timeslice_manager_->get_last_acked_descriptor(compute_index);
 }
 
-uint64_t InputSchedulerOrchestrator::get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor){
-    return timeslice_manager_->get_timeslice_of_not_acked_descriptor(compute_index, descriptor);
+uint64_t InputSchedulerOrchestrator::get_timeslice_by_descriptor(uint32_t compute_index, uint64_t descriptor){
+    return timeslice_manager_->get_timeslice_by_descriptor(compute_index, descriptor);
+}
+
+uint64_t InputSchedulerOrchestrator::get_last_connection_descriptor_index(uint32_t compute_index){
+    return timeslice_manager_->get_last_connection_descriptor_index(compute_index);
+}
+
+std::pair<uint64_t, uint64_t> InputSchedulerOrchestrator::get_data_and_desc_of_timeslice(uint32_t compute_index, uint32_t timeslice){
+    return timeslice_manager_->get_data_and_desc_of_timeslice(compute_index, timeslice);
+}
+
+std::pair<uint64_t, uint64_t> InputSchedulerOrchestrator::get_data_and_desc_of_last_timeslice(uint32_t compute_index){
+    return timeslice_manager_->get_data_and_desc_of_last_timeslice(compute_index);
+}
+
+std::pair<uint64_t, uint64_t> InputSchedulerOrchestrator::get_data_and_desc_of_last_rdma_acked_timeslice(uint32_t compute_index){
+    uint64_t timeslice = timeslice_manager_->get_last_rdma_acked_timeslice(compute_index);
+    return get_data_and_desc_of_timeslice(compute_index, timeslice);
+}
+
+void InputSchedulerOrchestrator::consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info){
+    if (is_decision_considered(failed_node_info.index))return;
+
+    mark_timeslices_acked(failed_node_info.index, failed_node_info.last_completed_desc);
+    L_(debug) << "consider_reschedule_decision of " << failed_node_info.index << " sent " << sent_timeslices
+    		 << " source desc " << data_source_desc;
+    uint64_t sent = sent_timeslices;
+    while(1){
+	uint64_t desc_offset = sent * timeslice_size + start_index_desc;
+	uint64_t desc_length = timeslice_size + overlap_size;
+	// check if microslice no. (desc_offset + desc_length - 1) is avail
+	if (data_source_desc >= desc_offset + desc_length){
+	    ++sent;
+	}else break;
+    }
+    std::vector<uint64_t> undo_timeslices = timeslice_manager_->consider_reschedule_decision(failed_node_info, retrieve_timeout_connections());
+    interval_scheduler_->undo_increament_sent_timeslices(failed_node_info.timeslice_trigger, undo_timeslices);
+    sent_timeslices -= undo_timeslices.size();
+    L_(debug) << "Undo " << undo_timeslices.size() << " .... new sent_timeslices = " << sent_timeslices;
+    // TODO
+    InputSchedulerOrchestrator::last_timeslice_trigger = InputSchedulerOrchestrator::timeslice_trigger;
+    InputSchedulerOrchestrator::timeslice_trigger = ConstVariables::MINUS_ONE;
+    //InputSchedulerOrchestrator::SHOW_LOGS_ = true;
+}
+
+bool InputSchedulerOrchestrator::is_decision_considered(uint32_t connection_id){
+    return timeslice_manager_->is_decision_considered(connection_id);
 }
 
 void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){
@@ -116,6 +165,11 @@ std::vector<uint32_t> InputSchedulerOrchestrator::retrieve_new_inactive_connecti
     return heartbeat_manager_->retrieve_new_inactive_connections();
 }
 
+// Retrieve a list of timeout connections
+const std::set<uint32_t> InputSchedulerOrchestrator::retrieve_timeout_connections(){
+    return heartbeat_manager_->retrieve_timeout_connections();
+}
+
 int32_t InputSchedulerOrchestrator::get_new_timeout_connection(){
     return heartbeat_manager_->get_new_timeout_connection();
 }
@@ -136,19 +190,31 @@ uint64_t InputSchedulerOrchestrator::get_next_heartbeat_message_id(){
     return heartbeat_manager_->get_next_heartbeat_message_id();
 }
 
+uint32_t InputSchedulerOrchestrator::get_active_connection_count(){
+    return heartbeat_manager_->get_active_connection_count();
+}
+
+uint32_t InputSchedulerOrchestrator::get_timeout_connection_count(){
+    return heartbeat_manager_->get_timeout_connection_count();
+}
 //// Methods combine data from different objects
 
 HeartbeatFailedNodeInfo InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
     if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
-    HeartbeatFailedNodeInfo info = HeartbeatFailedNodeInfo();
+    else mark_connection_timed_out(timeout_conn);
+
+    HeartbeatFailedNodeInfo failure_info = HeartbeatFailedNodeInfo();
     if (timeout_conn != -1){
-	info.index = timeout_conn;
-	info.last_completed_desc = get_last_acked_descriptor(timeout_conn);
+	failure_info.index = timeout_conn;
+	failure_info.last_completed_desc = get_last_acked_descriptor(timeout_conn);
 	// TODO last possible timeslice
+	failure_info.timeslice_trigger = get_up_to_timeslice_trigger();
+	// TODO info.timeslice_trigger = timeslice_manager_->get_last_timeslice_before_blockage(timeout_conn);
 	// TODO stop transmitting TSs until receiving an ACK
-	//info.timeslice_trigger = ;
+	InputSchedulerOrchestrator::timeslice_trigger = failure_info.timeslice_trigger;
+	//-----
     }
-    return info;
+    return failure_info;
 }
 
 //// Variables
@@ -157,4 +223,33 @@ InputIntervalScheduler* InputSchedulerOrchestrator::interval_scheduler_ = nullpt
 InputTimesliceManager* InputSchedulerOrchestrator::timeslice_manager_ = nullptr;
 InputHeartbeatManager* InputSchedulerOrchestrator::heartbeat_manager_ = nullptr;
 
+
+// TODO TO BE REMOVED
+uint64_t InputSchedulerOrchestrator::timeslice_trigger;
+uint64_t InputSchedulerOrchestrator::data_source_desc = ConstVariables::ZERO;
+uint32_t InputSchedulerOrchestrator::timeslice_size;
+uint32_t InputSchedulerOrchestrator::overlap_size;
+uint64_t InputSchedulerOrchestrator::start_index_desc;
+uint64_t InputSchedulerOrchestrator::sent_timeslices;
+bool InputSchedulerOrchestrator::SHOW_LOGS_ = false;
+uint64_t InputSchedulerOrchestrator::last_timeslice_trigger;
+
+uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(){
+    uint64_t timeslice = sent_timeslices-2;
+    while(1){
+	uint64_t desc_offset = (timeslice) * timeslice_size + start_index_desc;
+	uint64_t desc_length = timeslice_size + overlap_size;
+	// check if microslice no. (desc_offset + desc_length - 1) is avail
+	if (data_source_desc >= desc_offset + desc_length) ++timeslice;
+	else break;
+    }
+    --timeslice;
+    const std::set<uint32_t> timeout_connections = retrieve_timeout_connections();
+    while (!timeout_connections.empty() &&
+	    timeslice_manager_->is_timeslice_belongs_to_timeout_connection(timeslice, timeout_connections)){
+	--timeslice;
+    }
+
+    return timeslice;
+}
 }

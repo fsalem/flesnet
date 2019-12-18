@@ -23,6 +23,8 @@
 #include <string>
 #include <chrono>
 
+#include <sys/uio.h>
+
 namespace tl_libfabric
 {
 /// Libfabric connection base class.
@@ -106,6 +108,8 @@ public:
 
     bool done() const { return done_; }
 
+    void mark_done() {done_ = true;}
+
     /// Retrieve the total number of bytes transmitted.
     uint64_t total_bytes_sent() const { return total_bytes_sent_; }
 
@@ -124,19 +128,22 @@ public:
     /// Get the last state of the send_heartbeat_message
     const HeartbeatMessage get_send_heartbeat_message(){ return send_heartbeat_message_;}
 
+    /// Get the last state of the send_heartbeat_message
+    const HeartbeatMessage get_recv_heartbeat_message(){ return recv_heartbeat_message_;}
+
     std::chrono::high_resolution_clock::time_point time_begin_;
 
 protected:
     //    void dump_send_wr(struct ibv_send_wr* wr);
 
     /// Post an Libfabric rdma send work request
-    void post_send_rdma(struct fi_msg_rma* msg, uint64_t flags);
+    bool post_send_rdma(struct fi_msg_rma* msg, uint64_t flags);
 
     /// Post an Libfabric message send work request
-    void post_send_msg(const struct fi_msg_tagged* msg);
+    bool post_send_msg(const struct fi_msg_tagged* msg);
 
     /// Post an Libfabric message recveive request.
-    void post_recv_msg(const struct fi_msg_tagged* msg);
+    bool post_recv_msg(const struct fi_msg_tagged* msg);
 
     void make_endpoint(struct fi_info* info, const std::string& hostname,
                        const std::string& service, struct fid_domain* pd,

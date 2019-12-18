@@ -61,12 +61,13 @@ void Connection::connect(const std::string& hostname,
     struct fi_info* info2 = nullptr;
     struct fi_info* hints = fi_dupinfo(Provider::getInst()->get_info());//Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type, Provider::getInst()->get_info()->fabric_attr->prov_name);
 
-    hints->rx_attr->size = max_recv_wr_;
+    // TODO make it generic in the hints to be the same at compute and input nodes
+    /*hints->rx_attr->size = max_recv_wr_;
     hints->rx_attr->iov_limit = max_recv_sge_;
     // TODO this attribute causes a problem while running flesnet
     // hints->tx_attr->size = max_send_wr_;
     hints->tx_attr->iov_limit = max_send_sge_;
-    hints->tx_attr->inject_size = max_inline_data_;
+    hints->tx_attr->inject_size = max_inline_data_;*/
 
     /*hints->src_addr = nullptr;
     hints->src_addrlen = 0;*/
@@ -365,13 +366,16 @@ void Connection::post_send_heartbeat_message()
                   << "[" << index_ << "] "
                   << "POST SEND heartbeat message ("
                   << "id=" << send_heartbeat_message_.message_id
-                  << " ack=" << send_heartbeat_message_.ack << ")";
+                  << " ack=" << send_heartbeat_message_.ack
+		  << " failed node " << send_heartbeat_message_.failure_info.index
+		  << " failed desc " << send_heartbeat_message_.failure_info.last_completed_desc
+		  << " failed trigger " << send_heartbeat_message_.failure_info.timeslice_trigger << ")";
     }
 
     post_send_msg(&heartbeat_send_wr);
 }
 
-void Connection::post_send_msg(const struct fi_msg_tagged* wr)
+bool Connection::post_send_msg(const struct fi_msg_tagged* wr)
 {
     // We need only FI_INJECT_COMPLETE but this is not supported with GNI
     uint64_t flags = FI_COMPLETION;
@@ -381,7 +385,8 @@ void Connection::post_send_msg(const struct fi_msg_tagged* wr)
         L_(fatal) << "previous send requests: " << total_send_requests_;
         L_(fatal) << "previous recv requests: " << total_recv_requests_;
         L_(fatal) << "fi_sendmsg failed: " << err << "=" << fi_strerror(-err);
-        throw LibfabricException("fi_sendmsg failed");
+        //throw LibfabricException("fi_sendmsg failed");
+        return false;
     }
 
     ++total_send_requests_;
@@ -390,10 +395,11 @@ void Connection::post_send_msg(const struct fi_msg_tagged* wr)
         total_bytes_sent_ += wr->msg_iov[i].iov_len;
         total_sync_bytes_sent_ += wr->msg_iov[i].iov_len;
     }
+    return true;
 }
 
 /// Post an Libfabric rdma send work request
-void Connection::post_send_rdma(struct fi_msg_rma* wr, uint64_t flags)
+bool Connection::post_send_rdma(struct fi_msg_rma* wr, uint64_t flags)
 {
     int err = fi_writemsg(ep_, wr, flags);
     if (err) {
@@ -401,23 +407,27 @@ void Connection::post_send_rdma(struct fi_msg_rma* wr, uint64_t flags)
         L_(fatal) << "previous send requests: " << total_send_requests_;
         L_(fatal) << "previous recv requests: " << total_recv_requests_;
         L_(fatal) << "fi_writemsg failed: " << err << "=" << fi_strerror(-err);
-        throw LibfabricException("fi_writemsg failed");
+        //throw LibfabricException("fi_writemsg failed");
+        return false;
     }
     ++total_send_requests_;
 
     for (size_t i = 0; i < wr->iov_count; ++i)
         total_bytes_sent_ += wr->msg_iov[i].iov_len;
+    return true;
 }
 
-void Connection::post_recv_msg(const struct fi_msg_tagged* wr)
+bool Connection::post_recv_msg(const struct fi_msg_tagged* wr)
 {
     int err = fi_trecvmsg(ep_, wr, FI_COMPLETION);
     if (err) {
         L_(fatal) << "fi_recvmsg failed: " << err << "=" << fi_strerror(-err);
-        throw LibfabricException("fi_recvmsg failed");
+        //throw LibfabricException("fi_recvmsg failed");
+        return false;
     }
 
     ++total_recv_requests_;
+    return true;
 }
 
 void Connection::send_heartbeat(uint64_t message_id, HeartbeatFailedNodeInfo* failure_info, bool ack){

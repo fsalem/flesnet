@@ -5,8 +5,8 @@
 
 #include "ConnectionGroup.hpp"
 #include "DualRingBuffer.hpp"
-#include "InputChannelConnection.hpp"
 #include "RingBuffer.hpp"
+#include "InputChannelConnection.hpp"
 #include "InputIntervalInfo.hpp"
 #include "InputSchedulerOrchestrator.hpp"
 
@@ -50,7 +50,7 @@ public:
 
     void sync_data_source(bool schedule);
 
-    void sync_heartbeat();
+    virtual void sync_heartbeat() override;
 
     virtual void operator()() override;
 
@@ -79,7 +79,7 @@ private:
     std::string get_state_string();
 
     /// Create gather list for transmission of timeslice
-    void post_send_data(uint64_t timeslice, int cn, uint64_t desc_offset,
+    bool post_send_data(uint64_t timeslice, int cn, uint64_t desc_offset,
                         uint64_t desc_length, uint64_t data_offset,
                         uint64_t data_length, uint64_t skip);
 
@@ -94,6 +94,12 @@ private:
 
     /// Update compute scheduler when an interval is completed
     void update_compute_schedulers();
+
+    /// Update the data source after receiving the acknowledgement
+    void update_data_source(uint32_t compute_index, uint64_t old_desc, uint64_t new_desc);
+
+    /// Mark connection as completed in case of normal termination or failure
+    void mark_connection_completed(uint32_t conn_id);
 
     uint64_t input_index_;
 

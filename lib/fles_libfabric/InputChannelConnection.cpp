@@ -77,16 +77,25 @@ bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
     }
 }
 
-void InputChannelConnection::send_data(struct iovec* sge, void** desc,
+bool InputChannelConnection::send_data(struct iovec* sge, void** desc,
                                        int num_sge, uint64_t timeslice,
                                        uint64_t desc_length,
                                        uint64_t data_length, uint64_t skip)
 {
+    std::pair<uint64_t, uint64_t> last_timeslice_info = InputSchedulerOrchestrator::get_data_and_desc_of_last_timeslice(index_);
     int num_sge2 = 0;
     struct iovec sge2[4];
     void* desc2[4];
+    bool res = true;
 
     uint64_t cn_wp_data = cn_wp_.data + cn_wp_pending_.data;
+    if (last_timeslice_info.first != cn_wp_data){
+    	L_(fatal) << "Incorrect cn_wp_data before sending timeslice " << timeslice
+    		    << " to " << index_ << "--------- ts " << timeslice
+		    << " cn_wp_.data = " << cn_wp_.data << " cn_wp_pending_.data = " << cn_wp_pending_.data
+    	            << " last_timeslice_info.first = " << last_timeslice_info.first;
+    	assert(false);
+    }
     cn_wp_data += skip;
 
     uint64_t cn_data_buffer_mask =
@@ -156,14 +165,14 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.context = context;
 #pragma GCC diagnostic pop
         if (i+1 < num_sge || num_sge2 > 0){
-            post_send_rdma(&send_wr_ts, FI_MORE);
+            res = post_send_rdma(&send_wr_ts, FI_MORE);
         }else{
-            post_send_rdma(&send_wr_ts, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
+            res = post_send_rdma(&send_wr_ts, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
             ++pending_write_requests_;
         }
     }
 
-    if (num_sge2) {
+    if (num_sge2 && res) {
         uint64_t remote_addr = remote_info_.data.addr;
         for (int i = 0; i < num_sge2; i++) {
 
@@ -188,18 +197,20 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
             if (i+1 < num_sge2){
-        	post_send_rdma(&send_wr_tswrap, FI_MORE);
+        	res = post_send_rdma(&send_wr_tswrap, FI_MORE);
             }else{
-        	post_send_rdma(&send_wr_tswrap, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
+        	res = post_send_rdma(&send_wr_tswrap, FI_FENCE | FI_DELIVERY_COMPLETE | FI_COMPLETION);
 		++pending_write_requests_;
             }
         }
     }
-
+    if (!res) return false;
+    
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;
-    tscdesc.ts_desc = timeslice / InputSchedulerOrchestrator::get_compute_connection_count();
+    tscdesc.ts_desc = last_timeslice_info.second;
+    //tscdesc.ts_desc = (cn_wp_pending_.desc+ cn_wp_.desc);
     tscdesc.offset = cn_wp_data;
     tscdesc.size =
         data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
@@ -220,6 +231,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     }
     pending_descriptors_.push_back(tscdesc);
     assert(pending_write_requests_ <= max_pending_write_requests_);
+    return true;
 }
 
 bool InputChannelConnection::write_request_available()
@@ -252,7 +264,7 @@ void InputChannelConnection::check_inc_write_pointers()
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
-    if (!send_buffer_available_) return false;
+    if (!send_buffer_available_ || InputSchedulerOrchestrator::is_connection_timed_out(index())) return false;
     if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
 	if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
 		send_status_message_.final = true;
@@ -261,7 +273,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 	}
     }
     check_inc_write_pointers();
-    if ((data_changed_ || data_acked_)) { //
+    if ((data_changed_ || data_acked_) || send_status_message_.sync_after_scheduling_decision) { //
 	send_status_message_.wp = cn_wp_;
 	send_status_message_.local_time = std::chrono::high_resolution_clock::now();
         post_send_status_message();
@@ -292,27 +304,43 @@ void InputChannelConnection::on_complete_write() { pending_write_requests_--; }
 
 void InputChannelConnection::on_complete_send()
 {
+    if (false) {
+	L_(info) << "[i" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "on_complete_send, send_status_message_.wp.desc="
+		  << send_status_message_.wp.desc
+	      << " new send_status_message_.wp.data="
+	      << send_status_message_.wp.data;
+    }
     send_buffer_available_ = true;
+    send_status_message_.sync_after_scheduling_decision = false;
     msg_latency_[msg_latency_index_] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - msg_send_time_).count();
     msg_latency_index_ = (msg_latency_index_+1) % msg_latency_.size();
 }
 
 void InputChannelConnection::on_complete_recv()
 {
-    if (recv_status_message_.final) {
-        done_ = true;
-        return;
-    }
-
     if (false) {
         L_(info) << "[i" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "receive completion, new cn_ack_.desc="
                   << recv_status_message_.ack.desc
+		  << " new cn_ack_.data="
+		  << recv_status_message_.ack.data
+		  << " old cn_ack_.data="
+		  << cn_ack_.data
+		  << " old cn_ack_.desc="
+		  << cn_ack_.desc
                   <<"(interval index = "
 		  << recv_status_message_.proposed_interval_metadata.interval_index
-		  << " for " << recv_status_message_.proposed_interval_metadata.interval_duration;
+		  << " for " << recv_status_message_.proposed_interval_metadata.interval_duration
+		  << " finalize " << recv_status_message_.final;
     }
+    if (recv_status_message_.final) {
+        done_ = true;
+        return;
+    }
+
     if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {
     	cn_ack_ = recv_status_message_.ack;
     }
@@ -470,19 +498,21 @@ void InputChannelConnection::post_send_status_message()
                   << send_status_message_.wp.data
                   << " wp.desc=" << send_status_message_.wp.desc << ")"
 		  << " added descriptors=" << std::to_string(added_sent_descriptors_)
-		  << " remaining=" << pending_descriptors_.size();
+		  << " remaining=" << pending_descriptors_.size()
+		  << " finalize " << send_status_message_.final;
     }
 
-    data_changed_ = false;
-    data_acked_ = false;
-    send_buffer_available_ = false;
 
     send_status_message_.descriptor_count = added_sent_descriptors_;
-    added_sent_descriptors_ = 0;
 
-    msg_send_time_ = std::chrono::high_resolution_clock::now();
+    if (post_send_msg(&send_wr)){
+	data_changed_ = false;
+	data_acked_ = false;
+	send_buffer_available_ = false;
+	added_sent_descriptors_ = 0;
+	msg_send_time_ = std::chrono::high_resolution_clock::now();
+    }
 
-    post_send_msg(&send_wr);
 }
 
 void InputChannelConnection::connect(const std::string& hostname,
@@ -590,18 +620,49 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     // TODO check if the same information is already transmitted
     if (!recv_heartbeat_message_.ack){// request message about information of a connection
 	assert(recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE);
-	// TODO mark as timed out
 	HeartbeatFailedNodeInfo failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
 	send_heartbeat(recv_heartbeat_message_.message_id, &failed_conn, true);
     }
     // Info to start re-distribution
     if (recv_heartbeat_message_.ack &&
 	    recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE){
-	// TODO inform TimesliceManager of the decision
+	InputSchedulerOrchestrator::consider_reschedule_decision(recv_heartbeat_message_.failure_info);
     }
 
     InputSchedulerOrchestrator::log_heartbeat(index_);
 
     post_recv_heartbeat_message();
 }
+
+void InputChannelConnection::update_cn_wp_after_failure_action(){
+    std::pair<uint64_t, uint64_t> last_transmitted_timeslice_info = InputSchedulerOrchestrator::get_data_and_desc_of_last_timeslice(index_);
+    std::pair<uint64_t, uint64_t> last_rdma_acked_timeslice_info = InputSchedulerOrchestrator::get_data_and_desc_of_last_rdma_acked_timeslice(index_);
+    if (last_rdma_acked_timeslice_info.first < cn_wp_.data){
+	L_(debug) << "[c" << remote_index_ << "] "
+  		  << "[" << index_ << "] "
+  		  << "update_cn_wp_after_failure_action"
+		  << " cn_wp_.data = " << cn_wp_.data << " cn_wp_.desc = " << cn_wp_.desc
+		  << " cn_wp_pending_.data = " << cn_wp_pending_.data << " cn_wp_pending_.desc = " << cn_wp_pending_.desc
+		  << " last_rdma_acked_timeslice_info.first = " << last_rdma_acked_timeslice_info.first << " last_rdma_acked_timeslice_info.second = " <<last_rdma_acked_timeslice_info.second
+		  << " last_transmitted_timeslice_info.first = " << last_transmitted_timeslice_info.first << " last_transmitted_timeslice_info.second = " << last_transmitted_timeslice_info.second;
+	cn_wp_.data = last_rdma_acked_timeslice_info.first;
+	cn_wp_.desc = last_rdma_acked_timeslice_info.second;
+	cn_wp_pending_.data = last_transmitted_timeslice_info.first - cn_wp_.data;
+	cn_wp_pending_.desc = last_transmitted_timeslice_info.second - cn_wp_.desc;
+	if (cn_ack_.data > cn_wp_.data){
+	    cn_ack_.data = cn_wp_.data;
+	    cn_ack_.desc = cn_wp_.desc;
+	}
+	data_changed_ = true;
+    }
+    while (!pending_descriptors_.empty() && pending_descriptors_[pending_descriptors_.size()-1].ts_desc < last_transmitted_timeslice_info.second - 1)
+    {
+	timeslice_data_address_.erase(--timeslice_data_address_.end());
+	pending_descriptors_.erase(--pending_descriptors_.end());
+	data_acked_ = true;
+    }
+    send_status_message_.sync_after_scheduling_decision = true;
+    try_sync_buffer_positions();
+}
+
 }

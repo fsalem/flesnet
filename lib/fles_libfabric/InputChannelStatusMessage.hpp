@@ -42,6 +42,8 @@ struct InputChannelStatusMessage {
     /// Count of the descriptors in the list
     uint8_t descriptor_count = 0;
 
+    bool sync_after_scheduling_decision = false;
+
 };
 }
 

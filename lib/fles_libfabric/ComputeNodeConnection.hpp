@@ -14,8 +14,6 @@
 #include <map>
 ///-----/
 
-#include <sys/uio.h>
-
 namespace tl_libfabric
 {
 
@@ -200,10 +198,6 @@ private:
 
     /// To prevent sending more messages (late messages) once the final message is sent out
     bool final_msg_sent_ = false;
-
-    /// list of added descriptors in the memory
-    std::set<uint64_t> sync_received_ts_;
-
 
 };
 }

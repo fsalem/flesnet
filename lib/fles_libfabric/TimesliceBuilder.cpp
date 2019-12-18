@@ -168,7 +168,7 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
     memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.size = num_cqe_;
     cq_attr.flags = 0;
-    cq_attr.format = FI_CQ_FORMAT_CONTEXT;
+    cq_attr.format = FI_CQ_FORMAT_TAGGED;
     cq_attr.wait_obj = FI_WAIT_NONE;
     cq_attr.signaling_vector = Provider::vector++; // ??
     cq_attr.wait_cond = FI_CQ_COND_NONE;
@@ -263,7 +263,7 @@ void TimesliceBuilder::bootstrap_wo_connections()
 
     // register memory regions
     int err = fi_mr_reg(
-        pd_, &recv_connect_message, sizeof(recv_connect_message), FI_RECV, 0,
+        pd_, &recv_connect_message, sizeof(recv_connect_message), FI_RECV | FI_TAGGED, 0,
         Provider::requested_key++, 0, &mr_recv_connect, nullptr);
     if (err) {
         L_(fatal) << "fi_mr_reg failed for recv msg in compute-buffer: " << err
@@ -370,6 +370,7 @@ void TimesliceBuilder::operator()()
 
         sync_buffer_positions();
         report_status();
+        sync_heartbeat();
         while (!all_done_ || connected_ != 0) {
             if (!all_done_) {
                 poll_completion();
@@ -473,17 +474,7 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
         }
         conn_[in]->on_complete_send();
         if (!conn_[in]->done()){
-            conn_[in]->on_complete_send_finalize();
-	    ++connections_done_;
-	    all_done_ = (connections_done_ == conn_.size());
-	    if (!connection_oriented_) {
-		on_disconnected(nullptr, in);
-	    }else{
-		// TODO gni check should be removed
-		if (all_done_ && strcmp(Provider::getInst()->get_info()->fabric_attr->prov_name, "gni") == 0){
-		    disconnect();
-		}
-	    }
+            mark_connection_completed(in);
         }
 	L_(debug) << "[c" << compute_index_ << "] "
 		  << "SEND FINALIZE complete for id " << in
@@ -513,20 +504,22 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
 void TimesliceBuilder::poll_ts_completion()
 {
-    fles::TimesliceCompletion c;
-    if (!timeslice_buffer_.try_receive_completion(c))
-        return;
-    if (c.ts_pos == acked_) {
-        do
-            ++acked_;
-        while (ack_.at(acked_) > c.ts_pos);
-        for (auto& connection : conn_){
-            // check timed out timeslice
-            if (acked_ > connection->cn_wp().desc)continue;
-            connection->inc_ack_pointers(acked_);
-        }
-    } else
-        ack_.at(c.ts_pos) = c.ts_pos;
+    while (1){
+	fles::TimesliceCompletion c;
+	if (!timeslice_buffer_.try_receive_completion(c))
+	    return;
+	if (c.ts_pos == acked_) {
+	    do
+		++acked_;
+	    while (ack_.at(acked_) > c.ts_pos);
+	    for (auto& connection : conn_){
+		// check timed out timeslice
+		if (acked_ > connection->cn_wp().desc)continue;
+		connection->inc_ack_pointers(acked_);
+	    }
+	} else
+	    ack_.at(c.ts_pos) = c.ts_pos;
+    }
 }
 
 bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
@@ -593,6 +586,51 @@ void TimesliceBuilder::process_completed_timeslices(){
     }
     completely_written_ = new_completely_written+1;
 
+}
+
+void TimesliceBuilder::sync_heartbeat(){
+    HeartbeatFailedNodeInfo* decision = DDSchedulerOrchestrator::get_decision_to_broadcast();
+    if (decision != nullptr){
+	for (auto& conn:conn_){
+	    // TODO check message id
+	    conn->send_heartbeat(1, decision, true);
+	}
+    }else{
+	std::pair<uint32_t, std::set<uint32_t>> missing_info = DDSchedulerOrchestrator::retrieve_missing_info_from_connections();
+	if (missing_info.first != ConstVariables::MINUS_ONE){
+	    decision = new HeartbeatFailedNodeInfo();
+	    decision->index = missing_info.first;
+	    std::set<uint32_t>::iterator it = missing_info.second.begin();
+	    while (it != missing_info.second.end()){
+		conn_[*it]->send_heartbeat(2, decision);
+		++it;
+
+	    }
+	}
+    }
+
+    // TODO write it in a better way
+    // Check finalize long waiting connections
+    std::vector<uint32_t> long_waiting_finalize_conns = DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections();
+    for (uint32_t i=0 ; i < long_waiting_finalize_conns.size() ; i++){
+	mark_connection_completed(long_waiting_finalize_conns[i]);
+    }
+    scheduler_.add(std::bind(&TimesliceBuilder::sync_heartbeat, this), std::chrono::system_clock::now() + std::chrono::seconds(1));
+}
+
+void TimesliceBuilder::mark_connection_completed(uint32_t conn_id){
+    DDSchedulerOrchestrator::log_finalize_connection(conn_id, true);
+    conn_[conn_id]->on_complete_send_finalize();
+    ++connections_done_;
+    all_done_ = (connections_done_ == conn_.size());
+    if (!connection_oriented_) {
+	on_disconnected(nullptr, conn_id);
+    }else{
+	// TODO gni check should be removed
+	if (all_done_ && strcmp(Provider::getInst()->get_info()->fabric_attr->prov_name, "gni") == 0){
+	    disconnect();
+	}
+    }
 }
 
 }

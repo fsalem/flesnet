@@ -4,6 +4,7 @@
 
 #include "ConstVariables.hpp"
 #include "SizedMap.hpp"
+#include "HeartbeatMessage.hpp"
 
 #include <vector>
 #include <set>
@@ -32,23 +33,49 @@ public:
     // Get singleton instance
     static ComputeHeartbeatManager* get_instance();
 
-    // Set the begin time to be used in logging
-    void log_heartbeat(uint32_t connection_id);
+    // log the arrival of failure node message
+    void log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
 
-    //
-    std::vector<uint32_t> retrieve_timeout_connections();
+    // A list of input connections to inform about a compute node failure <failed node, list of connections>
+    std::pair<uint32_t, std::set<uint32_t>> retrieve_missing_info_from_connections();
 
-    //
-    bool is_connection_timed_out(uint32_t connection_id);
+    // Get a decision about a failed compute node to broadcast to input nodes
+    HeartbeatFailedNodeInfo* get_decision_to_broadcast();
 
+    // Log the acknowledge of receiving a decision
+    void log_decision_ack(uint32_t connection_id);
+
+    // Log when the finalize message is sent
+    void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
+
+    // Retrieve Connections that are not received any finalize ACK for a timeout period
+    std::vector<uint32_t> retrieve_long_waiting_finalized_connections();
+
+    uint32_t get_decision_ack_size() {return decision_ack_log_.size();}
     //Generate log files of the stored data
     //void generate_log_files();
 
+    // TODO TO BE REMOVED
+    uint64_t get_last_timeslice_decision() {if (completed_decisions_log_.empty())return ConstVariables::MINUS_ONE;
+    else return completed_decisions_log_.get(completed_decisions_log_.get_last_key())->timeslice_trigger;}
+
 private:
+
+    struct FailureRequestedInfo{
+	bool info_requested = false;
+	HeartbeatFailedNodeInfo* failure_info = nullptr;
+    };
+
+    struct FinalizeConnectionInfo{
+	std::chrono::high_resolution_clock::time_point sent_time;
+	bool ack_received = false;
+    };
 
     ComputeHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging);
 
+    // Calculate the final decision of a failure
+    void calculate_failure_decision (uint32_t failed_node);
 
     // The singleton instance for this class
     static ComputeHeartbeatManager* instance_;
@@ -59,14 +86,23 @@ private:
     // The number of input connections
     uint32_t connection_count_;
 
-    //
-    std::vector<std::chrono::high_resolution_clock::time_point> connection_heartbeat_time_;
+    // A list of a failed node and the response of each input node
+    SizedMap<uint32_t, std::vector<FailureRequestedInfo*>*> collected_failure_info_;
 
-    //
-    std::set<uint32_t> connection_timed_out_;
+    // The decisions that are still in the collection process <failed node, collected count>
+    SizedMap<uint32_t, uint32_t> collected_decisions_count_;
 
-    // Timeout limit in seconds
-    double timeout_;
+    // A list of completed decisions but not broadcasted yet <failed node, decision>
+    std::vector<HeartbeatFailedNodeInfo*> pending_completed_decisions_;
+
+    SizedMap<uint32_t, HeartbeatFailedNodeInfo*> completed_decisions_log_;
+
+    // Temporary acknowledgment of decisions
+    SizedMap<uint32_t, std::set<uint32_t>*> decision_ack_log_;
+
+    // Monitor the acknowledgment of the ACK messages when finalize message is sent
+    // With RxM, sometimes the ack completion events are not received if the remote connection is already closed!
+    SizedMap<uint32_t, FinalizeConnectionInfo*> finalize_connection_log_;
 
     // The log directory
     std::string log_directory_;

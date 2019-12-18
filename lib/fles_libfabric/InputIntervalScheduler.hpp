@@ -38,9 +38,6 @@ public:
     // update the compute node count which is needed for the initial interval (#0)
     void update_compute_connection_count(uint32_t);
 
-    // Set the input scheduler index
-    void update_input_scheduler_index(uint32_t);
-
     // Set the begin time to be used in logging and create the first interval if not there
     void update_input_begin_time(std::chrono::high_resolution_clock::time_point);
 
@@ -54,7 +51,10 @@ public:
     uint64_t get_last_timeslice_to_send();
 
     // Increase the sent timeslices by one
-    void increament_sent_timeslices();
+    void increament_sent_timeslices(uint64_t timeslice);
+
+    // Undo the sent timeslices incremental
+    void undo_increament_sent_timeslices(uint64_t timeslice_trigger, std::vector<uint64_t> undo_timeslices);
 
     // Increase the acked timeslices by one
     void increament_acked_timeslices(uint64_t);

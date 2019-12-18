@@ -54,6 +54,8 @@ public:
 
     virtual void operator()() override;
 
+    virtual void sync_heartbeat() override;
+
     /// Handle RDMA_CM_EVENT_CONNECT_REQUEST event.
     virtual void on_connect_request(struct fi_eq_cm_entry* event,
                                     size_t private_data_len) override;
@@ -78,6 +80,9 @@ private:
 
     /// Check if a timeslice is received completely
     bool check_complete_timeslices(uint64_t ts_pos);
+
+    /// Mark connection as completed in case of normal termination or failure
+    void mark_connection_completed(uint32_t conn_id);
 
     void build_time_file();
 

@@ -49,19 +49,45 @@ public:
 
 //// ComputeTimesliceManager Methods
 
-	// Set the begin time to be used in logging
-        static void log_contribution_arrival(uint32_t connection_id, uint64_t timeslice);
+    // Set the begin time to be used in logging
+    static void log_contribution_arrival(uint32_t connection_id, uint64_t timeslice);
 
-        // Get last ordered completed timeslice
-        static uint64_t get_last_ordered_completed_timeslice();
+    // Undo logging contribution arrival after rescheduling decision
+    static bool undo_log_contribution_arrival(uint32_t connection_id, uint64_t timeslice);
 
-        // Check timeslices that should time out
-        static void log_timeout_timeslice();
+    // Get last ordered completed timeslice
+    static uint64_t get_last_ordered_completed_timeslice();
 
-        // Check whether a timeslice is timed out
-        static bool is_timeslice_timed_out(uint64_t timeslice);
+    // Check timeslices that should time out
+    static void log_timeout_timeslice();
+
+    // Check whether a timeslice is timed out
+    static bool is_timeslice_timed_out(uint64_t timeslice);
 
 //// ComputeHeartbeatManager Methods
+
+    // log the arrival of failure node message
+    static void log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
+
+    // A list of input connections to inform about a compute node failure <failed node, list of connections>
+    static std::pair<uint32_t, std::set<uint32_t>> retrieve_missing_info_from_connections();
+
+    // Get a decision about a failed compute node to broadcast to input nodes
+    static HeartbeatFailedNodeInfo* get_decision_to_broadcast();
+
+    // Log the acknowledge of receiving a decision
+    static void log_decision_ack(uint32_t connection_id);
+
+    // Log when the finalize message is sent
+    static void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
+
+    // Retrieve Connections that are not received any finalize ACK for a timeout period
+    static std::vector<uint32_t> retrieve_long_waiting_finalized_connections();
+
+    // TODO TO BE REMOVED
+    static bool SHOW_LOG_;
+
+//// Variables
 private:
     static DDScheduler* interval_scheduler_;
     static ComputeTimesliceManager* timeslice_manager_;

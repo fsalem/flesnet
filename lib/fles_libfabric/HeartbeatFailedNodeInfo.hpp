@@ -16,6 +16,24 @@ struct HeartbeatFailedNodeInfo {
     // (1) an input process: the timeslice that other compute nodes will be blocked starting from it
     // (2) a compute process: the last timeslice to be sent before distributing the contributions of the failed node
     uint64_t timeslice_trigger = ConstVariables::ZERO;
+
+    HeartbeatFailedNodeInfo(){}
+    HeartbeatFailedNodeInfo(uint32_t index, uint64_t desc, uint64_t trigger):
+	index(index), last_completed_desc(desc), timeslice_trigger(trigger){}
+    bool operator< (const HeartbeatFailedNodeInfo &right) const
+    {
+	return index < right.index;
+    }
+
+    bool operator> (const HeartbeatFailedNodeInfo &right) const
+    {
+    return index > right.index;
+    }
+
+    bool operator== (const HeartbeatFailedNodeInfo &right) const
+    {
+    return index == right.index;
+    }
 };
 }
 #pragma pack()

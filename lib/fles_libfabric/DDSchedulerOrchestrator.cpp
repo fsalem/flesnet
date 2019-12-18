@@ -57,25 +57,65 @@ uint64_t DDSchedulerOrchestrator::get_last_completed_interval() {
 
 //// ComputeTimesliceManager Methods
 
-    void DDSchedulerOrchestrator::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
-	timeslice_manager_->log_contribution_arrival(connection_id, timeslice);
-    }
+void DDSchedulerOrchestrator::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
+    bool decision_ack_received = (heartbeat_manager_->get_decision_ack_size() == ConstVariables::ZERO ? true : false);
+    timeslice_manager_->log_contribution_arrival(connection_id, timeslice, decision_ack_received);
+    // TODO TO BE REMOVED
+    uint64_t last_decision = heartbeat_manager_->get_last_timeslice_decision();
+    //if (last_decision != ConstVariables::MINUS_ONE && last_decision + 1000 < timeslice)
+	//SHOW_LOG_ = false;
+}
 
-    uint64_t DDSchedulerOrchestrator::get_last_ordered_completed_timeslice(){
-	return timeslice_manager_->get_last_ordered_completed_timeslice();
-    }
+bool DDSchedulerOrchestrator::undo_log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
+    return timeslice_manager_->undo_log_contribution_arrival(connection_id, timeslice);
+}
 
-    void DDSchedulerOrchestrator::log_timeout_timeslice(){
-	timeslice_manager_->log_timeout_timeslice();
-    }
+uint64_t DDSchedulerOrchestrator::get_last_ordered_completed_timeslice(){
+    return timeslice_manager_->get_last_ordered_completed_timeslice();
+}
 
-    bool DDSchedulerOrchestrator::is_timeslice_timed_out(uint64_t timeslice){
-	return timeslice_manager_->is_timeslice_timed_out(timeslice);
+void DDSchedulerOrchestrator::log_timeout_timeslice(){
+    timeslice_manager_->log_timeout_timeslice();
+}
+
+bool DDSchedulerOrchestrator::is_timeslice_timed_out(uint64_t timeslice){
+    return timeslice_manager_->is_timeslice_timed_out(timeslice);
+}
+
+//// ComputeHeartbeatManager
+void DDSchedulerOrchestrator::log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info){
+    heartbeat_manager_->log_heartbeat_failure(connection_id, failure_info);
+    // TODO SHOW_LOG_ = true;
+}
+
+std::pair<uint32_t, std::set<uint32_t>> DDSchedulerOrchestrator::retrieve_missing_info_from_connections(){
+    return heartbeat_manager_->retrieve_missing_info_from_connections();
+}
+
+HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::get_decision_to_broadcast(){
+    return heartbeat_manager_->get_decision_to_broadcast();
+}
+
+// Log the acknowledge of receiving a decision
+void DDSchedulerOrchestrator::log_decision_ack(uint32_t connection_id){
+    heartbeat_manager_->log_decision_ack(connection_id);
+    if (heartbeat_manager_->get_decision_ack_size() == ConstVariables::ZERO){
+	timeslice_manager_->update_timeslice_completion();
     }
+}
+
+void DDSchedulerOrchestrator::log_finalize_connection(uint32_t connection_id, bool ack_received){
+    heartbeat_manager_->log_finalize_connection(connection_id, ack_received);
+}
+
+std::vector<uint32_t> DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections(){
+    return heartbeat_manager_->retrieve_long_waiting_finalized_connections();
+}
 
 //// Variables
 
 DDScheduler* DDSchedulerOrchestrator::interval_scheduler_ = nullptr;
 ComputeTimesliceManager* DDSchedulerOrchestrator::timeslice_manager_ = nullptr;
 ComputeHeartbeatManager* DDSchedulerOrchestrator::heartbeat_manager_ = nullptr;
+bool DDSchedulerOrchestrator::SHOW_LOG_ = false;
 }

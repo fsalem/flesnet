@@ -35,7 +35,11 @@ InputHeartbeatManager::InputHeartbeatManager(uint32_t index, uint32_t init_conne
 
 void InputHeartbeatManager::log_heartbeat(uint32_t connection_id){
     assert (connection_id < connection_heartbeat_time_.size());
-    assert (timed_out_connection_.find(connection_id) == timed_out_connection_.end());
+    if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()){
+	L_(warning) << "logging heartbeat of timeout connection " << connection_id;
+	return;
+    }
+    //assert (timed_out_connection_.find(connection_id) == timed_out_connection_.end());
     connection_heartbeat_time_[connection_id] = std::chrono::high_resolution_clock::now();
     // Remove the inactive entry when heartbeat is received
     std::set<uint32_t>::iterator inactive = inactive_connection_.find(connection_id);
@@ -55,22 +59,8 @@ std::vector<uint32_t> InputHeartbeatManager::retrieve_new_inactive_connections()
     return conns;
 }
 
-std::vector<uint32_t> InputHeartbeatManager::retrieve_new_timeout_connections(){
-    std::vector<uint32_t> timed_out_conns;
-    std::set<uint32_t>::iterator conn = inactive_connection_.begin(),
-				 prev_conn = inactive_connection_.begin();
-    while (conn != inactive_connection_.end()){
-	if (is_connection_timed_out(*conn) && timed_out_connection_.find(*conn) == timed_out_connection_.end()){
-	    timed_out_connection_.insert(*conn);
-	    timed_out_conns.push_back(*conn);
-	    // remove the entry from inactive_connections
-	    inactive_connection_.erase(conn);
-	    conn = prev_conn;
-	}
-	prev_conn = conn;
-	++conn;
-    }
-    return timed_out_conns;
+const std::set<uint32_t> InputHeartbeatManager::retrieve_timeout_connections(){
+    return timed_out_connection_;
 }
 
 int32_t InputHeartbeatManager::get_new_timeout_connection(){
@@ -124,6 +114,15 @@ uint64_t InputHeartbeatManager::get_next_heartbeat_message_id(){
     return (--heartbeat_message_log_.end())->message_id+1;
 }
 
+uint32_t InputHeartbeatManager::get_active_connection_count(){
+    assert(timed_out_connection_.size() <= connection_count_);
+    return connection_count_ - timed_out_connection_.size();
+}
+
+uint32_t InputHeartbeatManager::get_timeout_connection_count(){
+    assert(timed_out_connection_.size() < connection_count_);
+    return timed_out_connection_.size();
+}
 
 InputHeartbeatManager* InputHeartbeatManager::instance_ = nullptr;
 }

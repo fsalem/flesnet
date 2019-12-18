@@ -8,6 +8,10 @@
 #include "IntervalMetaData.hpp"
 #include "HeartbeatFailedNodeInfo.hpp"
 
+// TODO remove
+#include "DualRingBuffer.hpp"
+#include "RingBuffer.hpp"
+
 namespace tl_libfabric
 {
 /**
@@ -23,9 +27,6 @@ public:
 
     // update the compute node count which is needed for the initial interval (#0)
     static void update_compute_connection_count(uint32_t);
-
-    // Set the input scheduler index
-    static void update_input_scheduler_index(uint32_t);
 
     // Set the begin time to be used in logging and create the first interval if not there
     static void update_input_begin_time(std::chrono::high_resolution_clock::time_point);
@@ -55,10 +56,10 @@ public:
     static uint64_t get_connection_next_timeslice(uint32_t compute_index);
 
     // Log the transmission time of a timeslice
-    static void mark_timeslice_transmitted(uint32_t compute_index, uint64_t timeslice);
+    static void mark_timeslice_transmitted(uint32_t compute_index, uint64_t timeslice, uint64_t size);
 
     // Log the duration to receive the completion event of rdma write operation
-    static void mark_timeslice_rdma_write_acked(uint32_t compute_index, uint64_t timeslice);
+    static bool mark_timeslice_rdma_write_acked(uint32_t compute_index, uint64_t timeslice);
 
     // Log the duration of a timeslice until receiving the ack
     static void mark_timeslices_acked(uint32_t compute_index, uint64_t up_to_descriptor_id);
@@ -70,8 +71,25 @@ public:
     static uint64_t get_last_acked_descriptor(uint32_t compute_index);
 
     // Get the timeslice number of a specific descriptor
-    static uint64_t get_timeslice_of_not_acked_descriptor(uint32_t compute_index, uint64_t descriptor);
+    static uint64_t get_timeslice_by_descriptor(uint32_t compute_index, uint64_t descriptor);
 
+    // Get last descriptor of a connection
+    static uint64_t get_last_connection_descriptor_index(uint32_t compute_index);
+
+    // Return the data size and the descriptor index of a timeslice
+    static std::pair<uint64_t, uint64_t> get_data_and_desc_of_timeslice(uint32_t compute_index, uint32_t timeslice);
+
+    // Return the data size and the descriptor index of the last timeslice
+    static std::pair<uint64_t, uint64_t> get_data_and_desc_of_last_timeslice(uint32_t compute_index);
+
+    // Return the data size and the descriptor index of the last rdma acked timeslice
+    static std::pair<uint64_t, uint64_t> get_data_and_desc_of_last_rdma_acked_timeslice(uint32_t compute_index);
+
+    // Calculate the last possible timeslice to be sent before blockage when a connection timed out
+    static void consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info);
+
+    // Check whether the decision message is already received
+    static bool is_decision_considered(uint32_t connection_id);
     //
     static void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
 
@@ -89,6 +107,9 @@ public:
     // Retrieve the inactive connections to send heartbeat message
     static std::vector<uint32_t> retrieve_new_inactive_connections();
 
+    // Retrieve a list of timeout connections
+    static const std::set<uint32_t> retrieve_timeout_connections();
+
     // Get a new timed out connection to send heartbeat message (-1 is returned if there is no)
     static int32_t get_new_timeout_connection();
 
@@ -104,9 +125,26 @@ public:
     // get next message id sequence
     static uint64_t get_next_heartbeat_message_id();
 
+    // Get the number of active connections
+    static uint32_t get_active_connection_count();
+
+    // Get the number of timeout connections
+    static uint32_t get_timeout_connection_count();
+
 //// Methods combine data from different objects
     static HeartbeatFailedNodeInfo get_timed_out_connection(int32_t timeout_conn = -1);
 
+    // TODO TO BE REMOVED
+    static uint64_t timeslice_trigger;
+    static uint64_t data_source_desc;
+    static uint32_t timeslice_size;
+    static uint32_t overlap_size;
+    static uint64_t start_index_desc;
+    static uint64_t sent_timeslices;
+    static bool SHOW_LOGS_;
+    static uint64_t last_timeslice_trigger;
+    static uint64_t get_up_to_timeslice_trigger();
+    //////
 private:
     static InputIntervalScheduler* interval_scheduler_;
     static InputTimesliceManager* timeslice_manager_;

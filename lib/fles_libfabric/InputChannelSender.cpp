@@ -43,6 +43,15 @@ InputChannelSender::InputChannelSender(
     }
 
     InputSchedulerOrchestrator::initialize(input_index, compute_hostnames.size(), scheduler_interval_length, log_directory, enable_logging);
+    //// TODO TO BE REMOVED
+    InputSchedulerOrchestrator::data_source_desc = data_source.get_write_index().desc;
+    InputSchedulerOrchestrator::timeslice_size = timeslice_size;
+    InputSchedulerOrchestrator::overlap_size = overlap_size;
+    InputSchedulerOrchestrator::start_index_desc = start_index_desc_;
+    InputSchedulerOrchestrator::sent_timeslices = ConstVariables::ZERO;
+    InputSchedulerOrchestrator::timeslice_trigger = ConstVariables::MINUS_ONE;
+
+    ////
 }
 
 InputChannelSender::~InputChannelSender()
@@ -145,18 +154,25 @@ void InputChannelSender::sync_data_source(bool schedule)
 
 void InputChannelSender::sync_heartbeat()
 {
+    InputSchedulerOrchestrator::data_source_desc = data_source_.get_write_index().desc;
     HeartbeatFailedNodeInfo failed_connection = InputSchedulerOrchestrator::get_timed_out_connection();
     if (failed_connection.index == ConstVariables::MINUS_ONE){ // Check inactive connections
 	std::vector<uint32_t> inactive_conns = InputSchedulerOrchestrator::retrieve_new_inactive_connections();
 	for (uint32_t inactive: inactive_conns){
-	    conn_[inactive]->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id());
-	    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn_[inactive]->get_send_heartbeat_message());
+	    if (!conn_[inactive]->done()){
+		conn_[inactive]->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id());
+		InputSchedulerOrchestrator::log_sent_heartbeat_message(conn_[inactive]->get_send_heartbeat_message());
+	    }
 	}
     }else{ // Send timeout message to all active connections (TODO UNLESS YOU HAVE ALREADY BEEN INFORMED)
 	for (auto& conn: conn_){
-	    if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index())){
-		conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), &failed_connection);
-		InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->get_send_heartbeat_message());
+	    if (conn->request_finalize_flag() && !conn->done()){
+		mark_connection_completed(conn->index());
+	    }else{
+		if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index()) && !conn->done()){
+		    conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), &failed_connection);
+		    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->get_send_heartbeat_message());
+		}
 	    }
 	}
     }
@@ -172,15 +188,15 @@ void InputChannelSender::send_timeslices()
     do {
 	uint64_t next_ts = InputSchedulerOrchestrator::get_connection_next_timeslice(conn_index);
 
-	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
-	    InputSchedulerOrchestrator::mark_timeslice_transmitted(conn_index, next_ts);
+	if (next_ts != ConstVariables::MINUS_ONE && next_ts <= up_to_timeslice &&
+		next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
 	    sent_timeslices_++;
 	}
 	conn_index = (conn_index+1) % conn_.size();
     }while(conn_index != (input_index_ % conn_.size()));
 
-    if (sent_timeslices_ <= max_timeslice_number_+1)
+    if (InputSchedulerOrchestrator::sent_timeslices <= max_timeslice_number_)
 	scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(InputSchedulerOrchestrator::get_next_fire_time()));
 }
 
@@ -257,11 +273,11 @@ void InputChannelSender::operator()()
         report_status();
         send_timeslices();
 
-        while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
-            /*if (try_send_timeslice(sent_timeslices_)) {
-                InputSchedulerOrchestrator::mark_timeslice_transmitted(target_cn_index(sent_timeslices_), sent_timeslices_);
-		conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
+        while (InputSchedulerOrchestrator::sent_timeslices <= max_timeslice_number_ && !abort_) {
+            /*if (try_send_timeslice(InputSchedulerOrchestrator::sent_timeslices)) {
+                conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
             	sent_timeslices_++;
+            	++InputSchedulerOrchestrator::sent_timeslices;
             }*/
             scheduler_.timer();
             poll_completion();
@@ -273,7 +289,7 @@ void InputChannelSender::operator()()
         	<< "All timeslices are sent.  wait for pending send completions!";
 
         // wait for pending send completions
-        while (acked_desc_ < timeslice_size_ * sent_timeslices_ + start_index_desc_) {
+        while (acked_desc_ < timeslice_size_ * InputSchedulerOrchestrator::sent_timeslices + start_index_desc_) {
             poll_completion();
             scheduler_.timer();
         }
@@ -333,18 +349,19 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         uint64_t total_length =
             data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
 
+
+        int cn = target_cn_index(timeslice);
         if (true) {
             L_(debug) << "SENDER working on timeslice " << timeslice
+        	     << " to " << cn
                       << ", microslices " << desc_offset << ".."
                       << (desc_offset + desc_length - 1) << ", data bytes "
                       << data_offset << ".." << (data_offset + data_length - 1);
         }
 
-        int cn = target_cn_index(timeslice);
-
         if (!conn_[cn]->write_request_available()){
-            //L_(info) << "[" << input_index_ << "]"
-        	//    << "max # of writes to " << cn;
+            L_(debug) << "[" << input_index_ << "]"
+        	     << "max # of writes to " << cn;
             InputSchedulerOrchestrator::log_timeslice_MR_blocked(timeslice);
             return false;
         }
@@ -355,18 +372,19 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         total_length += skip;
 
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
-            InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice, true);
-            post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
-                           data_length, skip);
+            if (post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
+                           data_length, skip)){
+		InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice, true);
 
-            //conn_[cn]->inc_write_pointers(total_length, 1);
-            conn_[cn]->add_timeslice_data_address(total_length, 1);
-
-            if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
-            	sent_desc_ = desc_offset + desc_length;
-            	sent_data_ = data_end;
+		//conn_[cn]->inc_write_pointers(total_length, 1);
+		conn_[cn]->add_timeslice_data_address(total_length, 1);
+		InputSchedulerOrchestrator::mark_timeslice_transmitted(cn, timeslice, total_length);
+		if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
+		    sent_desc_ = desc_offset + desc_length;
+		    sent_data_ = data_end;
+		}
+		return true;
             }
-            return true;
         }else{
             InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice);
         }
@@ -423,7 +441,20 @@ void InputChannelSender::connect()
 
 int InputChannelSender::target_cn_index(uint64_t timeslice)
 {
-    return timeslice % conn_.size();
+    // TODO
+    for (uint32_t i=0 ; i<conn_.size() ; i++){
+	uint64_t ts = InputSchedulerOrchestrator::get_connection_next_timeslice(i);
+	if (ts == timeslice) return i;
+    }
+    // TODO TO BE REMOVED
+    for (uint32_t i=0 ; i<conn_.size() ; i++){
+	uint64_t ts = InputSchedulerOrchestrator::get_connection_next_timeslice(i);
+	L_(info) << "target_cn_index timeslice " << timeslice << " ts " << ts << " of " << i;
+    }
+    assert (false);
+    return -1;
+
+    //return timeslice % conn_.size();
 }
 
 void InputChannelSender::on_connected(struct fid_domain* pd)
@@ -504,7 +535,7 @@ std::string InputChannelSender::get_state_string()
     return s.str();
 }
 
-void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
+bool InputChannelSender::post_send_data(uint64_t timeslice, int cn,
                                         uint64_t desc_offset,
                                         uint64_t desc_length,
                                         uint64_t data_offset,
@@ -581,7 +612,7 @@ void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
         }
     }
 
-    conn_[cn]->send_data(sge, descs, num_sge, timeslice, desc_length,
+    return conn_[cn]->send_data(sge, descs, num_sge, timeslice, desc_length,
                          data_length, skip);
 }
 
@@ -594,12 +625,13 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         uint64_t ts = wr_id >> 24;
 
         int cn = (wr_id >> 8) & 0xFFFF;
-        conn_[cn]->on_complete_write();
+        if (InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(cn, ts))
+                conn_[cn]->on_complete_write();
 
-        InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(cn, ts);
         if (false) {
             L_(info) << "[i" << input_index_ << "] "
                       << "write timeslice " << ts
+		      << " to " << cn
                       << " complete, now: acked_data_=" << acked_data_
                       << " acked_desc_=" << acked_desc_;
         }
@@ -608,36 +640,11 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     case ID_RECEIVE_STATUS: {
         int cn = wr_id >> 8;
         uint64_t last_desc = conn_[cn]->cn_ack_desc();
+        bool was_done = conn_[cn]->done();
         conn_[cn]->on_complete_recv();
         uint64_t new_desc = conn_[cn]->cn_ack_desc();
 
-        for (uint64_t desc = last_desc+1 ; desc <= new_desc ; ++desc){
-            uint64_t ts = InputSchedulerOrchestrator::get_timeslice_of_not_acked_descriptor(cn, desc);
-            uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
-
-	    if (ts != acked_ts) {
-	    // transmission has been reordered, store completion information
-		ack_.at(ts) = ts;
-	    } else {
-	    // completion is for earliest pending timeslice, update indices
-		do {
-		    ++acked_ts;
-		} while (ack_.at(acked_ts) > ts);
-
-		// TODO Invalid when timeslices are not fixed in size
-		acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
-		acked_data_ =
-		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
-		data_source_.desc_buffer().at(acked_desc_ - 1).size;
-		if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
-			acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
-		    cached_acked_data_ = acked_data_;
-		    cached_acked_desc_ = acked_desc_;
-		    data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
-		}
-	    }
-        }
-
+        update_data_source(cn, last_desc, new_desc);
         InputSchedulerOrchestrator::mark_timeslices_acked(cn, new_desc);
 
         if (!connection_oriented_ && !conn_[cn]->get_partner_addr()) {
@@ -650,15 +657,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         if (conn_[cn]->request_abort_flag()) {
             abort_ = true;
         }
-        if (conn_[cn]->done()) {
-            ++connections_done_;
-            all_done_ = (connections_done_ == conn_.size());
-            if (!connection_oriented_) {
-                on_disconnected(nullptr, cn);
-            }
-            L_(debug) << "[i" << input_index_ << "] "
-                      << "ID_RECEIVE_STATUS final for id " << cn
-                      << " all_done=" << all_done_;
+        if (!was_done && conn_[cn]->done()) {
+            mark_connection_completed(cn);
         }
     } break;
 
@@ -669,7 +669,26 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
     case ID_HEARTBEAT_RECEIVE_STATUS: {
 	int cn = wr_id >> 8;
+	InputSchedulerOrchestrator::data_source_desc = data_source_.get_write_index().desc;
+	bool is_decision_considered = true;
+	// Updating data source before re-arranging timeslice
+	if (conn_[cn]->get_recv_heartbeat_message().ack &&
+		conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE){
+
+	    is_decision_considered = InputSchedulerOrchestrator::is_decision_considered(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+	    uint64_t last_desc = conn_[conn_[cn]->get_recv_heartbeat_message().failure_info.index]->cn_ack_desc();
+	    update_data_source(conn_[cn]->get_recv_heartbeat_message().failure_info.index, last_desc, conn_[cn]->get_recv_heartbeat_message().failure_info.last_completed_desc);
+	}
     	conn_[cn]->on_complete_heartbeat_recv();
+    	// update the cn_wp after performing timeslice re-arrangment
+    	if (conn_[cn]->get_recv_heartbeat_message().ack &&
+		    conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE &&
+		    !is_decision_considered){
+    	    for (auto& conn:conn_)
+    		if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index()))
+    		    conn->update_cn_wp_after_failure_action();
+    	mark_connection_completed(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+    	}
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {
@@ -680,7 +699,7 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     default:
         L_(fatal) << "[i" << input_index_ << "] "
                   << "wc for unknown wr_id=" << (wr_id & 0xFF);
-        throw LibfabricException("wc for unknown wr_id");
+        //throw LibfabricException("wc for unknown wr_id");
     }
 }
 
@@ -688,5 +707,47 @@ void InputChannelSender::update_compute_schedulers() {
     for (auto& c : conn_) {
 	c->ack_complete_interval_info();
     }
+}
+
+void InputChannelSender::update_data_source(uint32_t compute_index, uint64_t old_desc, uint64_t new_desc){
+    for (uint64_t desc = old_desc+1 ; desc <= new_desc ; ++desc){
+                uint64_t ts = InputSchedulerOrchestrator::get_timeslice_by_descriptor(compute_index, desc);
+                uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
+
+	if (ts != acked_ts) {
+	// transmission has been reordered, store completion information
+	    ack_.at(ts) = ts;
+	} else {
+	// completion is for earliest pending timeslice, update indices
+	    do {
+		++acked_ts;
+	    } while (ack_.at(acked_ts) > ts);
+
+	    // TODO Invalid when timeslices are not fixed in size
+	    acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
+	    acked_data_ =
+	    data_source_.desc_buffer().at(acked_desc_ - 1).offset +
+	    data_source_.desc_buffer().at(acked_desc_ - 1).size;
+	    if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
+		    acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
+		cached_acked_data_ = acked_data_;
+		cached_acked_desc_ = acked_desc_;
+		data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
+	    }
+	}
+    }
+}
+
+void InputChannelSender::mark_connection_completed(uint32_t cn){
+    conn_[cn]->mark_done();
+    ++connections_done_;
+    all_done_ = (connections_done_ == conn_.size());
+    if (!connection_oriented_) {
+	on_disconnected(nullptr, cn);
+    }
+    L_(warning) << "[i" << input_index_ << "] "
+	      << "ID_RECEIVE_STATUS final for id " << cn
+	      << " all_done=" << all_done_ <<
+	      " done " << connections_done_;
 }
 }

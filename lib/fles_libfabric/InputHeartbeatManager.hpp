@@ -40,7 +40,7 @@ public:
     std::vector<uint32_t> retrieve_new_inactive_connections();
 
     // Retrieve a list of timeout connections
-    std::vector<uint32_t> retrieve_new_timeout_connections();
+    const std::set<uint32_t> retrieve_timeout_connections();
 
     // Get a new timed out connection to send heartbeat message (-1 is returned if there is no)
     int32_t get_new_timeout_connection();
@@ -59,6 +59,12 @@ public:
 
     // get next message id sequence
     uint64_t get_next_heartbeat_message_id();
+
+    // Get the number of active connections
+    uint32_t get_active_connection_count();
+
+    // Get the number of timeout connections
+    uint32_t get_timeout_connection_count();
 
     //Generate log files of the stored data
     //void generate_log_files();
