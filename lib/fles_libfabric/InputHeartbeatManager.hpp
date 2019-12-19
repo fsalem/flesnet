@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "ConstVariables.hpp"
 #include "SizedMap.hpp"
 #include "HeartbeatMessage.hpp"
 
@@ -35,6 +34,9 @@ public:
 
     // Set the begin time to be used in logging
     void log_heartbeat(uint32_t connection_id);
+
+    //Upon receiving a sync message, the latency is calculated and used accordingly
+    void log_new_latency(uint32_t connection_id, uint64_t latency);
 
     // Retrieve the inactive connections to send heartbeat message
     std::vector<uint32_t> retrieve_new_inactive_connections();
@@ -71,6 +73,13 @@ public:
 
 private:
 
+    struct ConnectionHeartbeatInfo{
+	std::chrono::high_resolution_clock::time_point last_received_message = std::chrono::high_resolution_clock::now();
+	std::vector<uint64_t> latency_history; // in microseconds
+	uint64_t sum_latency = ConstVariables::HEARTBEAT_TIMEOUT_HISTORY_SIZE * ConstVariables::HEARTBEAT_TIMEOUT;
+	uint32_t next_latency_index = 0;
+    };
+
     InputHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging);
 
@@ -85,7 +94,7 @@ private:
     uint32_t connection_count_;
 
     // Time of the last received message from a connection
-    std::vector<std::chrono::high_resolution_clock::time_point> connection_heartbeat_time_;
+    std::vector<ConnectionHeartbeatInfo*> connection_heartbeat_time_;
 
     // List of all the timed out connections
     std::set<uint32_t> timed_out_connection_;
@@ -95,9 +104,6 @@ private:
 
     // Sent message log
     std::set<HeartbeatMessage> heartbeat_message_log_;
-
-    // Timeout limit in seconds
-    double timeout_;
 
     // The log directory
     std::string log_directory_;

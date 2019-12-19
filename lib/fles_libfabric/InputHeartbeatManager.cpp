@@ -26,10 +26,12 @@ InputHeartbeatManager::InputHeartbeatManager(uint32_t index, uint32_t init_conne
 		log_directory_(log_directory),
 		enable_logging_(enable_logging){
     assert( init_connection_count > 0);
+    uint64_t timeout = ConstVariables::HEARTBEAT_TIMEOUT;
     for (uint32_t conn = 0 ; conn < init_connection_count ; ++conn){
-	connection_heartbeat_time_.push_back(std::chrono::high_resolution_clock::now());
+	connection_heartbeat_time_.push_back(new ConnectionHeartbeatInfo());
+	connection_heartbeat_time_[conn]->latency_history.resize(ConstVariables::HEARTBEAT_TIMEOUT_HISTORY_SIZE, timeout);
     }
-    timeout_ = ConstVariables::HEARTBEAT_TIMEOUT;
+    assert (ConstVariables::HEARTBEAT_INACTIVE_FACTOR < ConstVariables::HEARTBEAT_TIMEOUT_FACTOR);
 }
 
 
@@ -39,13 +41,26 @@ void InputHeartbeatManager::log_heartbeat(uint32_t connection_id){
 	L_(warning) << "logging heartbeat of timeout connection " << connection_id;
 	return;
     }
-    //assert (timed_out_connection_.find(connection_id) == timed_out_connection_.end());
-    connection_heartbeat_time_[connection_id] = std::chrono::high_resolution_clock::now();
+    ConnectionHeartbeatInfo* conn_info = connection_heartbeat_time_[connection_id];
+    conn_info->last_received_message = std::chrono::high_resolution_clock::now();
     // Remove the inactive entry when heartbeat is received
     std::set<uint32_t>::iterator inactive = inactive_connection_.find(connection_id);
     if (inactive != inactive_connection_.end()){
 	inactive_connection_.erase(inactive);
     }
+}
+
+void InputHeartbeatManager::log_new_latency(uint32_t connection_id, uint64_t latency){
+    assert (connection_id < connection_heartbeat_time_.size());
+    if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()){
+    	L_(warning) << "logging new latency of timeout connection " << connection_id;
+    	return;
+    }
+    //L_(info) << "Latency of [" << connection_id << "] is " << latency;
+    ConnectionHeartbeatInfo* conn_info = connection_heartbeat_time_[connection_id];
+    conn_info->sum_latency = conn_info->sum_latency - conn_info->latency_history[conn_info->next_latency_index] + latency;
+    conn_info->latency_history[conn_info->next_latency_index] = latency;
+    conn_info->next_latency_index = (conn_info->next_latency_index+1)%ConstVariables::HEARTBEAT_TIMEOUT_HISTORY_SIZE;
 }
 
 std::vector<uint32_t> InputHeartbeatManager::retrieve_new_inactive_connections(){
@@ -80,19 +95,22 @@ bool InputHeartbeatManager::is_connection_inactive(uint32_t connection_id){
     assert (connection_id < connection_heartbeat_time_.size());
     if (inactive_connection_.find(connection_id) != inactive_connection_.end()) return true;
     if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()) return false;
-    double duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-	    std::chrono::high_resolution_clock::now() - connection_heartbeat_time_[connection_id]).count();
-    if (duration >= (timeout_*1000.0)) return true;
+    double duration = std::chrono::duration_cast<std::chrono::microseconds>(
+	    std::chrono::high_resolution_clock::now() - connection_heartbeat_time_[connection_id]->last_received_message).count();
+    uint64_t avg_latency = connection_heartbeat_time_[connection_id]->sum_latency/ConstVariables::HEARTBEAT_TIMEOUT_HISTORY_SIZE;
+
+    if (duration >= (avg_latency*ConstVariables::HEARTBEAT_INACTIVE_FACTOR)) return true;
     return false;
 }
 
 bool InputHeartbeatManager::is_connection_timed_out(uint32_t connection_id){
     assert (connection_id < connection_heartbeat_time_.size());
     if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()) return true;
-    double duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-	std::chrono::high_resolution_clock::now() - connection_heartbeat_time_[connection_id]).count();
-    // Check if the last received heartbeat is 2 times the timeout duration
-    if (duration >= (2.0 * timeout_*1000.0)) return true;
+    double duration = std::chrono::duration_cast<std::chrono::microseconds>(
+	std::chrono::high_resolution_clock::now() - connection_heartbeat_time_[connection_id]->last_received_message).count();
+    uint64_t avg_latency = connection_heartbeat_time_[connection_id]->sum_latency/ConstVariables::HEARTBEAT_TIMEOUT_HISTORY_SIZE;
+
+    if (duration >= (avg_latency*ConstVariables::HEARTBEAT_TIMEOUT_FACTOR)) return true;
     return false;
 }
 

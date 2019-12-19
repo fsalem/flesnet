@@ -176,7 +176,9 @@ bool InputTimesliceManager::acknowledge_timeslice_rdma_write(uint32_t compute_in
     return true;
 }
 
-void InputTimesliceManager::acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id){
+double InputTimesliceManager::acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id){
+    uint64_t sum_latency = 0;
+    uint32_t count = 0;
     SizedMap<uint64_t, uint64_t>::iterator transmitted_timeslice_iterator = conn_desc_timeslice_info_.get(compute_index)->get_begin_iterator();
 
     while (transmitted_timeslice_iterator != conn_desc_timeslice_info_.get(compute_index)->get_end_iterator()
@@ -186,9 +188,14 @@ void InputTimesliceManager::acknowledge_timeslices_completion(uint32_t compute_i
 	timeslice_info->completion_acked_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - timeslice_info->transmit_time).count();
 
+	// Calculate the latency
+	sum_latency += timeslice_info->completion_acked_duration - timeslice_info->rdma_acked_duration;
+	++count;
+
 	assert(conn_desc_timeslice_info_.get(compute_index)->remove(transmitted_timeslice_iterator->first));
 	transmitted_timeslice_iterator = conn_desc_timeslice_info_.get(compute_index)->get_begin_iterator();
     }
+    return count == 0 ? 0 : sum_latency/count;
 }
 
 bool InputTimesliceManager::is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice){

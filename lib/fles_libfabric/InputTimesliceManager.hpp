@@ -43,8 +43,8 @@ public:
     // log the duration to write a timeslice to the destination
     bool acknowledge_timeslice_rdma_write(uint32_t compute_index, uint64_t timeslice);
 
-    // mark the timeslices up to specific descriptor as completed the acked timeslices by one
-    void acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id);
+    // mark the timeslices up to specific descriptor as completed the acked timeslices by one and returns the average latency of these timeslices
+    double acknowledge_timeslices_completion(uint32_t compute_index, uint64_t up_to_descriptor_id);
 
     // Check whether a timeslice is acked
     bool is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice);
