@@ -189,7 +189,7 @@ void InputChannelSender::send_timeslices()
 	uint64_t next_ts = InputSchedulerOrchestrator::get_connection_next_timeslice(conn_index);
 
 	if (next_ts != ConstVariables::MINUS_ONE && next_ts <= up_to_timeslice &&
-		next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
+		next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts, conn_index)){
 	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
 	    sent_timeslices_++;
 	}
@@ -274,7 +274,8 @@ void InputChannelSender::operator()()
         send_timeslices();
 
         while (InputSchedulerOrchestrator::sent_timeslices <= max_timeslice_number_ && !abort_) {
-            /*if (try_send_timeslice(InputSchedulerOrchestrator::sent_timeslices)) {
+            /*if (target_cn_index(sent_timeslices_) != ConstVariable::MINUS_ONE &&
+                  try_send_timeslice(InputSchedulerOrchestrator::sent_timeslices, target_cn_index(sent_timeslices_))) {
                 conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
             	sent_timeslices_++;
             	++InputSchedulerOrchestrator::sent_timeslices;
@@ -324,7 +325,7 @@ void InputChannelSender::operator()()
     }
 }
 
-bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
+bool InputChannelSender::try_send_timeslice(uint64_t timeslice, uint32_t cn)
 {
     // wait until a complete timeslice is available in the input buffer
     uint64_t desc_offset = timeslice * timeslice_size_ + start_index_desc_;
@@ -349,8 +350,6 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
         uint64_t total_length =
             data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
 
-
-        int cn = target_cn_index(timeslice);
         if (true) {
             L_(debug) << "SENDER working on timeslice " << timeslice
         	     << " to " << cn

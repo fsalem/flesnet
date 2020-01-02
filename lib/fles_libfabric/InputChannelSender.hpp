@@ -58,7 +58,7 @@ public:
     void send_timeslices();
 
     /// The central function for distributing timeslice data.
-    bool try_send_timeslice(uint64_t timeslice);
+    bool try_send_timeslice(uint64_t timeslice, uint32_t cn);
 
     std::unique_ptr<InputChannelConnection>
     create_input_node_connection(uint_fast16_t index);
