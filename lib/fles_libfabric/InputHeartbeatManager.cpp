@@ -41,13 +41,18 @@ void InputHeartbeatManager::log_heartbeat(uint32_t connection_id){
 	L_(warning) << "logging heartbeat of timeout connection " << connection_id;
 	return;
     }
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+
     ConnectionHeartbeatInfo* conn_info = connection_heartbeat_time_[connection_id];
-    conn_info->last_received_message = std::chrono::high_resolution_clock::now();
+    uint64_t time_gap = std::chrono::duration_cast<std::chrono::microseconds>(
+	    now - conn_info->last_received_message).count();
+    conn_info->last_received_message = now;
     // Remove the inactive entry when heartbeat is received
     std::set<uint32_t>::iterator inactive = inactive_connection_.find(connection_id);
     if (inactive != inactive_connection_.end()){
 	inactive_connection_.erase(inactive);
     }
+    log_new_latency(connection_id, time_gap);
 }
 
 void InputHeartbeatManager::log_new_latency(uint32_t connection_id, uint64_t latency){

@@ -82,8 +82,9 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 	interval_scheduler_->increament_acked_timeslices(timeslice);
     }
 
+    // TODO convert acknowledge_timeslices_completion to void
     uint64_t avg_latency = timeslice_manager_->acknowledge_timeslices_completion(compute_index, up_to_descriptor_id);
-    if (avg_latency > 0) heartbeat_manager_->log_new_latency(compute_index, avg_latency);
+    //if (avg_latency > 0) heartbeat_manager_->log_new_latency(compute_index, avg_latency);
 }
 
 bool InputSchedulerOrchestrator::is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice){
