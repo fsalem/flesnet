@@ -502,7 +502,6 @@ void InputChannelConnection::post_send_status_message()
 		  << " finalize " << send_status_message_.final;
     }
 
-
     send_status_message_.descriptor_count = added_sent_descriptors_;
 
     if (post_send_msg(&send_wr)){
@@ -616,6 +615,8 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     		  << ", DESC=" << recv_heartbeat_message_.failure_info.last_completed_desc
     		  << ", TS=" << recv_heartbeat_message_.failure_info.timeslice_trigger << ")";
     }
+    if (done_) return;
+    
     // heartbeat message is either ACK of inactive conn or request for info about failed connection
     // TODO check if the same information is already transmitted
     if (!recv_heartbeat_message_.ack){// request message about information of a connection

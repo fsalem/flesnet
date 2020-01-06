@@ -420,6 +420,7 @@ void ComputeNodeConnection::write_received_descriptors()
     }
 }
 void ComputeNodeConnection::on_complete_heartbeat_recv(){
+    if (final_msg_sent_) return;
     if (true) {
 	L_(info) << "[c" << remote_index_ << "] "
 		  << "[" << index_ << "] "
