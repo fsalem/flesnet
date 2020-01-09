@@ -274,11 +274,12 @@ void InputChannelSender::operator()()
         send_timeslices();
 
         while (InputSchedulerOrchestrator::sent_timeslices <= max_timeslice_number_ && !abort_) {
-            /*if (target_cn_index(sent_timeslices_) != ConstVariable::MINUS_ONE &&
-                  try_send_timeslice(InputSchedulerOrchestrator::sent_timeslices, target_cn_index(sent_timeslices_))) {
-                conn_[target_cn_index(sent_timeslices_)]->set_last_sent_timeslice(sent_timeslices_);
-            	sent_timeslices_++;
-            	++InputSchedulerOrchestrator::sent_timeslices;
+            /*uint32_t comp_indx = target_cn_index(InputSchedulerOrchestrator::sent_timeslices);
+            uint64_t next = InputSchedulerOrchestrator::get_connection_next_timeslice(comp_indx);
+            assert (InputSchedulerOrchestrator::sent_timeslices == next);
+            if (try_send_timeslice(InputSchedulerOrchestrator::sent_timeslices, comp_indx)) {
+                conn_[comp_indx]->set_last_sent_timeslice(InputSchedulerOrchestrator::sent_timeslices);
+                sent_timeslices_++;
             }*/
             scheduler_.timer();
             poll_completion();
@@ -438,22 +439,10 @@ void InputChannelSender::connect()
     }
 }
 
+// TODO TO BE REMOVED
 int InputChannelSender::target_cn_index(uint64_t timeslice)
 {
-    // TODO
-    for (uint32_t i=0 ; i<conn_.size() ; i++){
-	uint64_t ts = InputSchedulerOrchestrator::get_connection_next_timeslice(i);
-	if (ts == timeslice) return i;
-    }
-    // TODO TO BE REMOVED
-    for (uint32_t i=0 ; i<conn_.size() ; i++){
-	uint64_t ts = InputSchedulerOrchestrator::get_connection_next_timeslice(i);
-	L_(info) << "target_cn_index timeslice " << timeslice << " ts " << ts << " of " << i;
-    }
-    assert (false);
-    return -1;
-
-    //return timeslice % conn_.size();
+    return timeslice % conn_.size();
 }
 
 void InputChannelSender::on_connected(struct fid_domain* pd)
