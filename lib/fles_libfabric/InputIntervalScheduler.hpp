@@ -65,6 +65,9 @@ public:
     // Get the number of current compute node connections
     uint32_t get_compute_connection_count();
 
+    // Get the last completed interval index
+    uint64_t get_last_completed_interval();
+
     // Log the transmission time of a timeslice
     void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
 

@@ -191,6 +191,7 @@ void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
 }
 
 void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo* interval_info){
+    if (actual_interval_meta_data_.contains(interval_info->index))return;
     interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
@@ -208,6 +209,11 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
                 << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds";
     }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
+}
+
+uint64_t InputIntervalScheduler::get_last_completed_interval(){
+    if (actual_interval_meta_data_.empty())return ConstVariables::MINUS_ONE;
+    return actual_interval_meta_data_.get_last_key();
 }
 
 uint64_t InputIntervalScheduler::get_expected_sent_ts_count(uint64_t interval){
