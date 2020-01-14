@@ -359,8 +359,7 @@ void InputTimesliceManager::generate_log_files(){
 	std::setw(25) << "CB" <<
 	std::setw(25) << "MR" <<"\n";
 
-    // TODO FIX: it was interval_info_.get(interval_info_.get_last_key())->end_ts
-    uint64_t last_ts = 0;
+    uint64_t last_ts = std::max(timeslice_IB_blocked_duration_log_.get_last_key(), std::max(timeslice_CB_blocked_duration_log_.get_last_key(), timeslice_MR_blocked_duration_log_.get_last_key()));
     for (uint64_t ts = 0 ; ts <= last_ts ; ts++){
 	blocked_duration_log_file << std::setw(25) << ts <<
 	    std::setw(25) << (ts % compute_count_) <<
