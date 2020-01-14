@@ -164,7 +164,7 @@ void InputChannelSender::sync_heartbeat()
 		InputSchedulerOrchestrator::log_sent_heartbeat_message(conn_[inactive]->get_send_heartbeat_message());
 	    }
 	}
-    }else{ // Send timeout message to all active connections (TODO UNLESS YOU HAVE ALREADY BEEN INFORMED)
+    }else{ // Send timeout message to all active connections
 	for (auto& conn: conn_){
 	    if (conn->request_finalize_flag() && !conn->done()){
 		mark_connection_completed(conn->index());
@@ -439,7 +439,7 @@ void InputChannelSender::connect()
     }
 }
 
-// TODO TO BE REMOVED
+// TODO TO BE REMOVED ... This is only used in the loop of sending timeslices in the operator() method
 int InputChannelSender::target_cn_index(uint64_t timeslice)
 {
     return timeslice % conn_.size();
@@ -680,7 +680,6 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {
-	// TODO
 	int cn = wr_id >> 8;
     } break;
 

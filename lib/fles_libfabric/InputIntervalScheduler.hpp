@@ -68,9 +68,6 @@ public:
     // Get the last completed interval index
     uint64_t get_last_completed_interval();
 
-    // Log the transmission time of a timeslice
-    void log_timeslice_transmit_time(uint64_t timeslice, uint32_t);
-
     //Generate log files of the stored data
     void generate_log_files();
 
@@ -98,12 +95,6 @@ private:
     // Get the expected number of sent timeslices so far of a particular interval
     uint64_t get_expected_sent_ts_count(uint64_t);
 
-    // Get the expected sent timeslice so far
-    uint64_t get_expected_last_sent_ts(uint64_t);
-
-    // Get the current round index of a particular interval
-    uint64_t get_interval_current_round_index(uint64_t);
-
     // Get the expected round index of a particular interval based on round duration
     uint64_t get_interval_expected_round_index(uint64_t);
 
@@ -118,9 +109,6 @@ private:
 
     // Check whether a specific ack theshold is reached to speedup sending rate to catch others
     bool is_ack_percentage_reached(uint64_t);
-
-    // Retrieve the time of the expected round of a particular interval based on the actual start time and duration
-    std::chrono::high_resolution_clock::time_point get_interval_time_to_expected_round(uint64_t);
 
     std::chrono::high_resolution_clock::time_point get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice);
 
@@ -152,11 +140,6 @@ private:
 
     // Check whether to generate log files
     bool enable_logging_;
-
-    /// LOGGING
-    SizedMap<std::pair<uint64_t, uint64_t>, std::pair<uint64_t, uint64_t>> round_proposed_actual_start_time_log_;
-
-
 
 };
 }

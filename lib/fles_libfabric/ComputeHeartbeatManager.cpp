@@ -94,11 +94,12 @@ std::pair<uint32_t, std::set<uint32_t>> ComputeHeartbeatManager::retrieve_missin
 }
 
 HeartbeatFailedNodeInfo* ComputeHeartbeatManager::get_decision_to_broadcast(){
-    // TODO remove L_(info) << "get_decision_to_broadcast: pending_completed_decisions_ " << pending_completed_decisions_.size();
     if (pending_completed_decisions_.empty())return nullptr;
     HeartbeatFailedNodeInfo* decision = pending_completed_decisions_[0];
+    if (true)
+    	L_(info) << "[c_" << index_ << "] The decision of failed node " << decision->index << " is broadcasting"
+	      	 << "[ts_trigger:" << decision->timeslice_trigger << ", last_desc=" << decision->last_completed_desc << "]";
     pending_completed_decisions_.erase(pending_completed_decisions_.begin());
-    // TODO REMOVE L_(info) << "get_decision_to_broadcast " << decision->index;
     return decision;
 }
 

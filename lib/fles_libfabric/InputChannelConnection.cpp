@@ -618,7 +618,6 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     if (done_) return;
     
     // heartbeat message is either ACK of inactive conn or request for info about failed connection
-    // TODO check if the same information is already transmitted
     if (!recv_heartbeat_message_.ack){// request message about information of a connection
 	assert(recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE);
 	HeartbeatFailedNodeInfo failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);

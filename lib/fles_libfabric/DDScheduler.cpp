@@ -81,7 +81,6 @@ uint64_t DDScheduler::get_last_completed_interval() {
 
 //Generate log files of the stored data
 void DDScheduler::generate_log_files(){
-    // TODO organize into small functions
     if (!enable_logging_) return;
 
     std::ofstream log_file;
@@ -134,14 +133,15 @@ DDScheduler::DDScheduler(uint32_t scheduler_index,
 }
 
 void DDScheduler::trigger_complete_interval(const uint64_t interval_index) {
+    if (actual_interval_meta_data_.contains(interval_index))return;
+
     if (pending_intervals_.contains(interval_index)) pending_intervals_.update(interval_index, pending_intervals_.get(interval_index)+1);
     else pending_intervals_.add(interval_index,1);
 
     // calculate the unified actual meta-data of the whole interval
     if (pending_intervals_.get(interval_index) == input_connection_count_){
 	calculate_interval_info(interval_index);
-	// TODO uncomment
-	//pending_intervals_.remove(interval_index);
+	pending_intervals_.remove(interval_index);
     }
 }
 
