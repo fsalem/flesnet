@@ -11,17 +11,18 @@ namespace tl_libfabric
 
 InputTimesliceManager::InputTimesliceManager(uint32_t scheduler_index, uint32_t compute_conn_count,
 	uint32_t interval_length, std::string log_directory, bool enable_logging):
-		compute_count_(compute_conn_count), scheduler_index_(scheduler_index),
-		interval_length_(interval_length), log_directory_(log_directory),
-		enable_logging_(enable_logging) {
+		compute_count_(compute_conn_count), virtual_compute_count_(compute_conn_count),
+		scheduler_index_(scheduler_index), interval_length_(interval_length),
+		log_directory_(log_directory), enable_logging_(enable_logging) {
 
     last_conn_desc_.resize(compute_count_, 0);
     last_conn_timeslice_.resize(compute_count_, ConstVariables::MINUS_ONE);
+    virtual_physical_compute_mapping_.resize(compute_count_);
     for (uint32_t i = 0 ; i< compute_count_ ; ++i){
 	conn_timeslice_info_.add(i, new SizedMap<uint64_t, TimesliceInfo*>());
 	conn_desc_timeslice_info_.add(i, new SizedMap<uint64_t, uint64_t>());
 	future_conn_timeslices_.add(i, new std::set<uint64_t>());
-
+	virtual_physical_compute_mapping_[i] = i;
     }
     refill_future_timeslices(interval_length_);
 }
@@ -29,12 +30,12 @@ InputTimesliceManager::InputTimesliceManager(uint32_t scheduler_index, uint32_t 
 
 void InputTimesliceManager::refill_future_timeslices(uint64_t up_to_timeslice){
     if (next_start_future_timeslice_ >= up_to_timeslice)return;
-    uint32_t comp_index = next_start_future_timeslice_%compute_count_;
+    uint32_t comp_index = next_start_future_timeslice_%virtual_compute_count_;
     for (uint64_t ts = next_start_future_timeslice_ ; ts < up_to_timeslice ; ++ts){
-	while (redistribution_decisions_log_.contains(comp_index))
-	    comp_index = (comp_index+1)%compute_count_;
-	future_conn_timeslices_.get(comp_index)->insert(ts);
-	comp_index = (comp_index+1)%compute_count_;
+	while (redistribution_decisions_log_.contains(virtual_physical_compute_mapping_[comp_index]))
+	    comp_index = (comp_index+1)%virtual_compute_count_;
+	future_conn_timeslices_.get(virtual_physical_compute_mapping_[comp_index])->insert(ts);
+	comp_index = (comp_index+1)%virtual_compute_count_;
     }
     next_start_future_timeslice_ = up_to_timeslice;
 }
@@ -294,12 +295,14 @@ std::pair<uint64_t, uint64_t> InputTimesliceManager::get_data_and_desc_of_last_t
     return get_data_and_desc_of_timeslice(compute_index, last_conn_timeslice_[compute_index]);
 }
 
+// TODO REWRITE THIS METHOD!!!
 std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info,
 							 const std::set<uint32_t> timeout_connections){
 
     assert (compute_count_ > timeout_connections.size());
     std::vector<uint64_t> undo_timeslices;
     if (next_start_future_timeslice_ <= (failed_node_info.timeslice_trigger+1)){
+	// Refill the future timeslices until the trigger to have all timeslices that should be distributed over other compute nodes
 	refill_future_timeslices(failed_node_info.timeslice_trigger+1);
     }else{
 	// Check if timeslice_trigger is already passed!! (return them back to the queue for the correct ordering)
@@ -309,7 +312,7 @@ std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(Heartb
 	// update the desc correspondingly
 	next_start_future_timeslice_ = failed_node_info.timeslice_trigger+1;
     }
-    /////////
+    //
     std::set<uint64_t>* failed_timeslice = future_conn_timeslices_.get(failed_node_info.index);
 
     // clean the conn_desc_timeslice_info_ and move them back to future timeslices
@@ -344,6 +347,31 @@ std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(Heartb
 	check_to_add_rescheduled_timeslices(i);
     }
     return undo_timeslices;
+}
+
+std::vector<uint64_t> InputTimesliceManager::update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency){
+    // Check whether any timeslice before start_timeslice is sent out
+    std::vector<uint64_t> undo_timeslices;
+    if (next_start_future_timeslice_ <= start_timeslice){
+    	refill_future_timeslices(start_timeslice);
+    }else{
+	// Check if timeslices after the start_timeslice is already sent out!! (return them back to the queue for the correct ordering)
+	std::vector<uint64_t> list = undo_transmitted_timeslices_after_trigger(start_timeslice-1);
+	undo_timeslices.insert(undo_timeslices.end(), list.begin(), list.end());
+	L_(info) << "[update_compute_distribution_frequency][start_timeslice=" << start_timeslice << "] undo after trigger " << undo_timeslices.size();
+	// update the desc correspondingly
+	next_start_future_timeslice_ = start_timeslice;
+    }
+    // TODO Add logging
+    virtual_compute_count_ = 0;
+    virtual_physical_compute_mapping_.clear();
+    for (uint32_t i = 0 ; i < compute_frequency.size() ; i++){
+	for (uint32_t j = 0 ; j < compute_frequency[i] ; j++) virtual_physical_compute_mapping_.push_back(i);
+	virtual_compute_count_+=compute_frequency[i];
+    }
+    refill_future_timeslices(last_timeslice+1);
+    return undo_timeslices;
+
 }
 
 void InputTimesliceManager::generate_log_files(){
@@ -399,40 +427,49 @@ void InputTimesliceManager::generate_log_files(){
     block_log_file.close();
 }
 
-void InputTimesliceManager::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){
+uint64_t InputTimesliceManager::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){
+    uint64_t duration = ConstVariables::ZERO;
     if (sent_completed){
 	if (timeslice_IB_blocked_start_log_.contains(timeslice)){
-	    timeslice_IB_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::high_resolution_clock::now() - timeslice_IB_blocked_start_log_.get(timeslice)).count());
+	    duration = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::high_resolution_clock::now() - timeslice_IB_blocked_start_log_.get(timeslice)).count();
+	    timeslice_IB_blocked_duration_log_.add(timeslice, duration);
 	    timeslice_IB_blocked_start_log_.remove(timeslice);
 	}
     }else{
 	timeslice_IB_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
+    return duration;
 }
 
-void InputTimesliceManager::log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed){
+uint64_t InputTimesliceManager::log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed){
+    uint64_t duration = ConstVariables::ZERO;
     if (sent_completed){
 	if (timeslice_CB_blocked_start_log_.contains(timeslice)){
-	    timeslice_CB_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::high_resolution_clock::now() - timeslice_CB_blocked_start_log_.get(timeslice)).count());
+	    duration = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::high_resolution_clock::now() - timeslice_CB_blocked_start_log_.get(timeslice)).count();
+	    timeslice_CB_blocked_duration_log_.add(timeslice, duration);
 	    timeslice_CB_blocked_start_log_.remove(timeslice);
 	}
     }else{
 	timeslice_CB_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
+    return duration;
 }
 
-void InputTimesliceManager::log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed){
+uint64_t InputTimesliceManager::log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed){
+    uint64_t duration = ConstVariables::ZERO;
     if (sent_completed){
 	if (timeslice_MR_blocked_start_log_.contains(timeslice)){
-	    timeslice_MR_blocked_duration_log_.add(timeslice, std::chrono::duration_cast<std::chrono::microseconds>(
-			std::chrono::high_resolution_clock::now() - timeslice_MR_blocked_start_log_.get(timeslice)).count());
+	    duration = std::chrono::duration_cast<std::chrono::microseconds>(
+		    std::chrono::high_resolution_clock::now() - timeslice_MR_blocked_start_log_.get(timeslice)).count();
+	    timeslice_MR_blocked_duration_log_.add(timeslice, duration);
 	    timeslice_MR_blocked_start_log_.remove(timeslice);
 	}
     }else{
 	timeslice_MR_blocked_start_log_.add(timeslice, std::chrono::high_resolution_clock::now());
     }
+    return duration;
 }
 
 

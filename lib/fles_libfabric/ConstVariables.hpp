@@ -22,6 +22,8 @@ struct ConstVariables {
 
     const static uint16_t MAX_DESCRIPTOR_ARRAY_SIZE = 10;
 
+    const static uint16_t MAX_COMPUTE_NODE_COUNT = 300;
+
     const static uint64_t HEARTBEAT_TIMEOUT = 1000000; // in microseconds
 
     const static uint64_t TIMESLICE_TIMEOUT = 200000000; // in microseconds

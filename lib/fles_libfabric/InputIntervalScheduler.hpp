@@ -42,7 +42,7 @@ public:
     void update_input_begin_time(std::chrono::high_resolution_clock::time_point);
 
     // Receive proposed interval meta-data from InputChannelConnections
-    void add_proposed_meta_data(const IntervalMetaData);
+    bool add_proposed_meta_data(const IntervalMetaData);
 
     // Return the actual interval meta-data to InputChannelConnections
     const IntervalMetaData* get_actual_meta_data(uint64_t);
@@ -54,7 +54,7 @@ public:
     void increament_sent_timeslices(uint64_t timeslice);
 
     // Undo the sent timeslices incremental
-    void undo_increament_sent_timeslices(uint64_t timeslice_trigger, std::vector<uint64_t> undo_timeslices);
+    void undo_increament_sent_timeslices(std::vector<uint64_t> undo_timeslices);
 
     // Increase the acked timeslices by one
     void increament_acked_timeslices(uint64_t);
@@ -67,6 +67,9 @@ public:
 
     // Get the last completed interval index
     uint64_t get_last_completed_interval();
+
+    // add the blockage duration of a compute node due to full compute buffer
+    void add_compute_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration);
 
     //Generate log files of the stored data
     void generate_log_files();

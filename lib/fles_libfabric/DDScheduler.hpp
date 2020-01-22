@@ -133,6 +133,12 @@ private:
     // Get average last timeslice of an interval
     uint64_t get_average_last_timeslice(uint64_t interval_index);
 
+    //Retrieve the sum of blockage duration of each compute node in an interval
+    std::vector<uint64_t> get_sum_blockage_durations(uint64_t interval_index);
+
+    // Retrieve the updated compute node distribution frequency for an interval
+    std::vector<uint64_t> get_updated_compute_distribution_frequency(uint64_t interval_index);
+
     // Get maximum round duration from the history
     uint64_t get_max_round_duration_history();
 

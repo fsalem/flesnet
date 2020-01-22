@@ -362,10 +362,10 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice, uint32_t cn)
         if (!conn_[cn]->write_request_available()){
             L_(debug) << "[" << input_index_ << "]"
         	     << "max # of writes to " << cn;
-            InputSchedulerOrchestrator::log_timeslice_MR_blocked(timeslice);
+            InputSchedulerOrchestrator::log_timeslice_MR_blocked(cn, timeslice);
             return false;
         }
-        InputSchedulerOrchestrator::log_timeslice_MR_blocked(timeslice, true);
+        InputSchedulerOrchestrator::log_timeslice_MR_blocked(cn, timeslice, true);
 
         // number of bytes to skip in advance (to avoid buffer wrap)
         uint64_t skip = conn_[cn]->skip_required(total_length);
@@ -374,7 +374,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice, uint32_t cn)
         if (conn_[cn]->check_for_buffer_space(total_length, 1)) {
             if (post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip)){
-		InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice, true);
+		InputSchedulerOrchestrator::log_timeslice_CB_blocked(cn, timeslice, true);
 
 		//conn_[cn]->inc_write_pointers(total_length, 1);
 		conn_[cn]->add_timeslice_data_address(total_length, 1);
@@ -386,10 +386,10 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice, uint32_t cn)
 		return true;
             }
         }else{
-            InputSchedulerOrchestrator::log_timeslice_CB_blocked(timeslice);
+            InputSchedulerOrchestrator::log_timeslice_CB_blocked(cn, timeslice);
         }
     }else{
-	InputSchedulerOrchestrator::log_timeslice_IB_blocked(timeslice);
+	InputSchedulerOrchestrator::log_timeslice_IB_blocked(cn, timeslice);
     }
 
     return false;

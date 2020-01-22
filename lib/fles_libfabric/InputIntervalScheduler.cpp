@@ -34,22 +34,28 @@ void InputIntervalScheduler::update_input_begin_time(std::chrono::high_resolutio
     }
 }
 
-void InputIntervalScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
-    if (!proposed_interval_meta_data_.contains(meta_data.interval_index)){
-	proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
-	if (true){
-	    L_(info) << "[i " << scheduler_index_ << "] "
-		      << "interval"
-		      << meta_data.interval_index
-		      << "[TSs "
-		      << meta_data.start_timeslice
-		      << " to "
-		      << meta_data.last_timeslice
-		      << " is proposed and should start after "
-		      << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
-		      << " us & take " << meta_data.interval_duration << " us";
-	}
+bool InputIntervalScheduler::add_proposed_meta_data(const IntervalMetaData meta_data){
+    if (proposed_interval_meta_data_.contains(meta_data.interval_index)) return false;
+
+    proposed_interval_meta_data_.add(meta_data.interval_index,new IntervalMetaData(meta_data));
+    if (true){
+	L_(info) << "[i " << scheduler_index_ << "] "
+		  << "interval"
+		  << meta_data.interval_index
+		  << "[TSs "
+		  << meta_data.start_timeslice
+		  << " to "
+		  << meta_data.last_timeslice
+		  << " is proposed and should start after "
+		  << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
+		  << " us & take " << meta_data.interval_duration << " us";
+	// TODO REMOVE
+	L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, compute count " << meta_data.compute_node_count;
+	    for (int i=0 ; i<meta_data.compute_node_count ; i++){
+		L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, freq[" << i<< "] " << meta_data.compute_nodes_distribution[i];
+	    }
     }
+    return true;
 }
 
 const IntervalMetaData* InputIntervalScheduler::get_actual_meta_data(uint64_t interval_index){
@@ -80,7 +86,7 @@ void InputIntervalScheduler::increament_sent_timeslices(uint64_t timeslice){
     }
 }
 
-void InputIntervalScheduler::undo_increament_sent_timeslices(uint64_t timeslice_trigger, std::vector<uint64_t> undo_timeslices){
+void InputIntervalScheduler::undo_increament_sent_timeslices(std::vector<uint64_t> undo_timeslices){
     assert (!interval_info_.empty());
     for (uint32_t i=0 ; i < undo_timeslices.size() ; i++){
 	InputIntervalInfo* interval = get_interval_of_timeslice(undo_timeslices[i]);
@@ -152,18 +158,21 @@ void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
 
 	// check if there is a gap in ts due to un-received meta-data
 	const InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
-	new_interval_info = new InputIntervalInfo(interval_index, proposed_meta_data->round_count, prev_interval->end_ts+1, proposed_meta_data->last_timeslice, proposed_meta_data->start_time, proposed_meta_data->interval_duration);
+	new_interval_info = new InputIntervalInfo(interval_index, proposed_meta_data->round_count, prev_interval->end_ts+1,
+		proposed_meta_data->last_timeslice, proposed_meta_data->start_time, proposed_meta_data->interval_duration, compute_count_);
     }else{
 	if (interval_info_.empty()){// first interval
 	    uint32_t round_count = floor(interval_length_/compute_count_);
-	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1, std::chrono::high_resolution_clock::now(), 0);
+	    new_interval_info = new InputIntervalInfo(interval_index, round_count, 0, (round_count*compute_count_)-1,
+		    std::chrono::high_resolution_clock::now(), 0, compute_count_);
 
 	}else{// following last proposed meta-data
 	    // TODO wait for the proposing!!!
 	    InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
 	    new_interval_info = new InputIntervalInfo(interval_index, prev_interval->round_count, prev_interval->end_ts+1,
 		    prev_interval->end_ts + (prev_interval->round_count*compute_count_),
-		    prev_interval->proposed_start_time + std::chrono::microseconds(prev_interval->proposed_duration), prev_interval->proposed_duration);
+		    prev_interval->proposed_start_time + std::chrono::microseconds(prev_interval->proposed_duration),
+		    prev_interval->proposed_duration, compute_count_);
 	}
     }
 
@@ -188,7 +197,7 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
     interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
-	    interval_info->actual_start_time,interval_info->actual_duration);
+	    interval_info->actual_start_time,interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
     if (true){
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
@@ -255,6 +264,13 @@ std::chrono::high_resolution_clock::time_point InputIntervalScheduler::get_expec
 std::chrono::high_resolution_clock::time_point InputIntervalScheduler::get_expected_round_sent_time(uint64_t interval, uint64_t round) {
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return current_interval->actual_start_time + std::chrono::microseconds(round * current_interval->duration_per_round);
+}
+
+void InputIntervalScheduler::add_compute_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration){
+    InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
+    assert (current_interval != nullptr);
+    assert (compute_index < compute_count_);
+    current_interval->sum_compute_blockage_durations_[compute_index] += duration;
 }
 
 void InputIntervalScheduler::generate_log_files(){

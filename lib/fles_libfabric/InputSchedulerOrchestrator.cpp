@@ -36,7 +36,10 @@ void InputSchedulerOrchestrator::generate_log_files(){
 
 //// InputIntervalScheduler Methods
 void InputSchedulerOrchestrator::add_proposed_meta_data(const IntervalMetaData meta_data){
-    interval_scheduler_->add_proposed_meta_data(meta_data);
+    if (interval_scheduler_->add_proposed_meta_data(meta_data)){
+	std::vector<uint32_t> dist (meta_data.compute_nodes_distribution, meta_data.compute_nodes_distribution + get_compute_connection_count());
+	update_compute_distribution_frequency(meta_data.start_timeslice, meta_data.last_timeslice, dist);
+    }
 }
 
 const IntervalMetaData* InputSchedulerOrchestrator::get_actual_meta_data(uint64_t interval_index){
@@ -131,7 +134,7 @@ void InputSchedulerOrchestrator::consider_reschedule_decision(HeartbeatFailedNod
 	}else break;
     }
     std::vector<uint64_t> undo_timeslices = timeslice_manager_->consider_reschedule_decision(failed_node_info, retrieve_timeout_connections());
-    interval_scheduler_->undo_increament_sent_timeslices(failed_node_info.timeslice_trigger, undo_timeslices);
+    interval_scheduler_->undo_increament_sent_timeslices(undo_timeslices);
     sent_timeslices -= undo_timeslices.size();
     L_(debug) << "Undo " << undo_timeslices.size() << " .... new sent_timeslices = " << sent_timeslices;
     // TODO
@@ -144,15 +147,25 @@ bool InputSchedulerOrchestrator::is_decision_considered(uint32_t connection_id){
     return timeslice_manager_->is_decision_considered(connection_id);
 }
 
-void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed){
+void InputSchedulerOrchestrator::update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency){
+    assert (compute_frequency.size() == get_compute_connection_count());
+    std::vector<uint64_t> undo_timeslices = timeslice_manager_->update_compute_distribution_frequency(start_timeslice, last_timeslice, compute_frequency);
+    interval_scheduler_->undo_increament_sent_timeslices(undo_timeslices);
+    sent_timeslices -= undo_timeslices.size();
+}
+
+void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){
     timeslice_manager_->log_timeslice_IB_blocked(timeslice, sent_completed);
 }
 
-void InputSchedulerOrchestrator::log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed){
-    timeslice_manager_->log_timeslice_CB_blocked(timeslice, sent_completed);
+void InputSchedulerOrchestrator::log_timeslice_CB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){
+    uint64_t duration = timeslice_manager_->log_timeslice_CB_blocked(timeslice, sent_completed);
+    if (sent_completed && duration > ConstVariables::ZERO){
+	interval_scheduler_->add_compute_buffer_blockage_duration(compute_index, timeslice, duration);
+    }
 }
 
-void InputSchedulerOrchestrator::log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed){
+void InputSchedulerOrchestrator::log_timeslice_MR_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){
     timeslice_manager_->log_timeslice_MR_blocked(timeslice, sent_completed);
 }
 
@@ -234,6 +247,7 @@ uint64_t InputSchedulerOrchestrator::start_index_desc;
 uint64_t InputSchedulerOrchestrator::sent_timeslices;
 bool InputSchedulerOrchestrator::SHOW_LOGS_ = false;
 uint64_t InputSchedulerOrchestrator::last_timeslice_trigger;
+bool InputSchedulerOrchestrator::FREQUENCY_UPDATED_ = false;
 
 uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(){
     uint64_t timeslice = sent_timeslices-2;

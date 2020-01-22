@@ -79,14 +79,17 @@ public:
     // Inform the TimesliceManager about the decision of the failed node and returns the rescheduled transmitted timeslices
     std::vector<uint64_t> consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info, const std::set<uint32_t> timeout_connections);
 
+    // Update the distribution rate on compute nodes and returns the rescheduled transmitted timeslices
+    std::vector<uint64_t> update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency);
+
     //Generate log files of the stored data
     void generate_log_files();
 
-    void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
+    uint64_t log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
 
-    void log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed=false);
+    uint64_t log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed=false);
 
-    void log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed=false);
+    uint64_t log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed=false);
 
     bool is_decision_considered(uint32_t connection_id){return redistribution_decisions_log_.contains(connection_id);}
 
@@ -117,6 +120,12 @@ private:
 
     // The number of compute connections
     uint32_t compute_count_;
+
+    // The number of virtual compute connections according to scheduler frequency
+    uint32_t virtual_compute_count_;
+
+    //
+    std::vector<uint32_t> virtual_physical_compute_mapping_;
 
     // Input Scheduler index
     uint32_t scheduler_index_;

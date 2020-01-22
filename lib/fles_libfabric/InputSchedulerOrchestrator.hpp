@@ -90,14 +90,18 @@ public:
 
     // Check whether the decision message is already received
     static bool is_decision_considered(uint32_t connection_id);
-    //
-    static void log_timeslice_IB_blocked(uint64_t timeslice, bool sent_completed=false);
+
+    // Redistribute the load over compute nodes unevenly
+    static void update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency);
 
     //
-    static void log_timeslice_CB_blocked(uint64_t timeslice, bool sent_completed=false);
+    static void log_timeslice_IB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed=false);
 
     //
-    static void log_timeslice_MR_blocked(uint64_t timeslice, bool sent_completed=false);
+    static void log_timeslice_CB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed=false);
+
+    //
+    static void log_timeslice_MR_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed=false);
 
 
 //// HeartbeatManager Methods
@@ -144,6 +148,7 @@ public:
     static bool SHOW_LOGS_;
     static uint64_t last_timeslice_trigger;
     static uint64_t get_up_to_timeslice_trigger();
+    static bool FREQUENCY_UPDATED_;
     //////
 private:
     static InputIntervalScheduler* interval_scheduler_;
