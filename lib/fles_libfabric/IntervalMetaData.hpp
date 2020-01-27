@@ -5,6 +5,7 @@
 #include "ConstVariables.hpp"
 #include <chrono>
 #include <vector>
+#include <assert.h>
 
 #pragma pack(1)
 
