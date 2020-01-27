@@ -432,14 +432,48 @@ uint32_t DDScheduler::get_last_compute_connection_count(){
 }
 
 std::vector<uint64_t> DDScheduler::get_updated_compute_distribution_frequency(uint64_t interval_index){
-    // TODO WRITE
     std::vector<uint64_t> dist(get_last_compute_connection_count(),1);
+    // TODO update the speedup_interval_count_ with the corresponding one (Ignoring the first two intervals which DDS does not have proposed meta-data)
+    if (actual_interval_meta_data_.empty() || actual_interval_meta_data_.size() <= speedup_interval_count_+1) return dist;
+
+    // Calculate the sum of blockage duration of set of previous intervals
+    std::vector<uint64_t> blockage_sum(get_last_compute_connection_count(),0);
+    SizedMap<uint64_t, IntervalMetaData*>::iterator iterator = actual_interval_meta_data_.get_end_iterator();
+    // TODO update the speedup_interval_count_ with the corresponding one
+    int count = speedup_interval_count_;
+    do{
+	--iterator;
+	--count;
+	for (uint32_t i=0 ; i<iterator->second->compute_node_count ; i++)
+	    blockage_sum[i] += iterator->second->compute_nodes_distribution[i];
+    }while(count > 0);
+
+    // Calculate Percentage of difference
+    uint64_t min_sum = *std::min_element(blockage_sum.begin(), blockage_sum.end())*1.0;
+    std::vector<double> percentage(get_last_compute_connection_count(),0.0);
+    for (uint32_t i=0 ; i<percentage.size(); i++)
+	percentage[i] = (blockage_sum[i]-min_sum)/(min_sum);
+
+    // Find the max percentage and update the distribution
+    double max_percentage = *std::max_element(percentage.begin(), percentage.end());
+    if (max_percentage >= 0.5){
+	for (uint32_t i=0 ; i<dist.size() ; i++)
+	    if (percentage[i] <= 0.25) dist[i] = 2;
+    }
+
+    // TODO Wrong calculations!!! It should be comparative analysis between the proposed and the actual!!
+
+    /*if (!proposed_interval_meta_data_.empty()){
+	IntervalMetaData* last_proposed = proposed_interval_meta_data_.get(proposed_interval_meta_data_.get_last_key());
+	for (int i=0 ; i<dist.size(); i++)
+	    dist[i] = last_proposed->compute_nodes_distribution[i];
+    }
     if (interval_index % 5 == 0){
 	uint32_t divide = interval_index / 5 ;
 	for (int i=0 ; i<dist.size() ; i+=2){
 	    dist[i]+=divide;
 	}
-    }
+    }*/
     return dist;
 }
 
