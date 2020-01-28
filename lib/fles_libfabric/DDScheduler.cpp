@@ -450,6 +450,7 @@ std::vector<uint64_t> DDScheduler::get_updated_compute_distribution_frequency(ui
 
     // Calculate Percentage of difference
     uint64_t min_sum = *std::min_element(blockage_sum.begin(), blockage_sum.end())*1.0;
+    if (min_sum == 0)min_sum = 1;
     std::vector<double> percentage(get_last_compute_connection_count(),0.0);
     for (uint32_t i=0 ; i<percentage.size(); i++)
 	percentage[i] = (blockage_sum[i]-min_sum)/(min_sum);
