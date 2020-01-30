@@ -137,7 +137,10 @@ private:
     std::vector<uint64_t> get_sum_blockage_durations(uint64_t interval_index);
 
     // Retrieve the updated compute node distribution frequency for an interval
-    std::vector<uint64_t> get_updated_compute_distribution_frequency(uint64_t interval_index);
+    std::vector<uint64_t> get_compute_distribution_frequency(uint64_t interval_index);
+
+    // Check whether the load balancer just finished and evaluate its results
+    bool is_balancer_phase_just_finished(uint64_t interval_index);
 
     // Get maximum round duration from the history
     uint64_t get_max_round_duration_history();
@@ -151,7 +154,11 @@ private:
     // Get the median duration of last set of durations
     uint64_t get_median_interval_duration_history();
 
+    //
     uint32_t get_last_compute_connection_count();
+
+    //
+    std::vector<uint64_t> retrieve_median_blockage_duration(uint64_t start_interval, uint64_t end_interval);
 
     // Proposed interval meta-data
     SizedMap<uint64_t, IntervalMetaData*> proposed_interval_meta_data_;
@@ -200,6 +207,18 @@ private:
 
     // The enhanced interval duration
     uint64_t enhanced_interval_duration_ = 0;
+
+    // Enhancement Timeslice distribution interval count
+    uint32_t balancer_interval_count_;
+
+    // The interval number when timeslice load balancer is started
+    uint64_t balancer_interval_index_ = 0;
+
+    // The trial distribution over compute nodes after applying the load balancer
+    std::vector<uint64_t> balancer_interval_distribution_;
+
+    // The default distribution over compute nodes
+    std::vector<uint64_t> default_interval_distribution_;
 
     // The log directory
     std::string log_directory_;
