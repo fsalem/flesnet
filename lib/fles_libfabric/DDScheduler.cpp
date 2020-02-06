@@ -461,7 +461,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
     // If the balancer is not running, calculate a new enhancement
     std::vector<uint64_t> blockage_duration_sum = retrieve_median_blockage_duration(last_completed_interval - balancer_interval_count_ - 1 , last_completed_interval);
     // Calculate Percentage of difference
-    uint64_t min_sum = blockage_duration_sum[0], max_sum = blockage_duration_sum[0];
+    int64_t min_sum = blockage_duration_sum[0], max_sum = blockage_duration_sum[0];
     uint32_t min_index = 0, max_index = 0;
     for (uint32_t i=1 ; i<blockage_duration_sum.size() ; i++){
 	if (blockage_duration_sum[i] < min_sum){
