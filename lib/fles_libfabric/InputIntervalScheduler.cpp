@@ -202,7 +202,7 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
 	// TODO remove
 	std::string IB = "", CB = "";
 	for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++){
-	    if (i != 0){IB+=","; CB=",";}
+	    if (i != 0){IB+=","; CB+=",";}
 	    IB += std::to_string(interval_info->sum_input_blockage_durations_[i]);
 	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i]);
 	}
