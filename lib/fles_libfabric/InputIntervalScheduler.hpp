@@ -71,6 +71,9 @@ public:
     // add the blockage duration of a compute node due to full compute buffer
     void add_compute_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration);
 
+    // add the blockage duration of a compute node due to full input buffer
+    void add_input_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration);
+
     //Generate log files of the stored data
     void generate_log_files();
 

@@ -122,17 +122,7 @@ void InputSchedulerOrchestrator::consider_reschedule_decision(HeartbeatFailedNod
     if (is_decision_considered(failed_node_info.index))return;
 
     mark_timeslices_acked(failed_node_info.index, failed_node_info.last_completed_desc);
-    L_(debug) << "consider_reschedule_decision of " << failed_node_info.index << " sent " << sent_timeslices
-    		 << " source desc " << data_source_desc;
-    uint64_t sent = sent_timeslices;
-    while(1){
-	uint64_t desc_offset = sent * timeslice_size + start_index_desc;
-	uint64_t desc_length = timeslice_size + overlap_size;
-	// check if microslice no. (desc_offset + desc_length - 1) is avail
-	if (data_source_desc >= desc_offset + desc_length){
-	    ++sent;
-	}else break;
-    }
+    L_(debug) << "consider_reschedule_decision of " << failed_node_info.index << " sent " << sent_timeslices;
     std::vector<uint64_t> undo_timeslices = timeslice_manager_->consider_reschedule_decision(failed_node_info, retrieve_timeout_connections());
     interval_scheduler_->undo_increament_sent_timeslices(undo_timeslices);
     sent_timeslices -= undo_timeslices.size();
@@ -155,7 +145,10 @@ void InputSchedulerOrchestrator::update_compute_distribution_frequency(uint64_t 
 }
 
 void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){
-    timeslice_manager_->log_timeslice_IB_blocked(timeslice, sent_completed);
+    uint64_t duration = timeslice_manager_->log_timeslice_IB_blocked(timeslice, sent_completed);
+    if (sent_completed && duration > ConstVariables::ZERO){
+    	interval_scheduler_->add_input_buffer_blockage_duration(compute_index, timeslice, duration);
+    }
 }
 
 void InputSchedulerOrchestrator::log_timeslice_CB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){

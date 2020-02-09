@@ -37,6 +37,7 @@ struct InputIntervalInfo {
     	duration_per_round = proposed_duration/round_count;
     	num_ts_per_round = (end_ts - start_ts + 1) /round_count;
     	sum_compute_blockage_durations_.resize(compute_count, 0);
+    	sum_input_blockage_durations_.resize(compute_count, 0);
     }
 
     uint64_t duration_per_ts = ConstVariables::ZERO;
@@ -44,6 +45,8 @@ struct InputIntervalInfo {
     uint64_t num_ts_per_round = ConstVariables::ZERO;
 
     std::vector<uint64_t> sum_compute_blockage_durations_;
+
+    std::vector<uint64_t> sum_input_blockage_durations_;
 };
 }
 

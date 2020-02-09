@@ -199,6 +199,13 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
     if (true){
+	// TODO remove
+	std::string IB = "", CB = "";
+	for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++){
+	    if (i != 0){IB+=","; CB=",";}
+	    IB += interval_info->sum_input_blockage_durations_[i];
+	    CB += interval_info->sum_compute_blockage_durations_[i];
+	}
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
                 << actual_metadata->interval_index
@@ -208,7 +215,8 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
                 << actual_metadata->last_timeslice
                 << "] is finished and delayed for "
                 << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
-                << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds";
+                << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds"
+		<< " IB [" << IB << "] CB [" << CB << "]";
     }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
 }
@@ -271,6 +279,13 @@ void InputIntervalScheduler::add_compute_buffer_blockage_duration(uint32_t compu
     assert (current_interval != nullptr);
     assert (compute_index < compute_count_);
     current_interval->sum_compute_blockage_durations_[compute_index] += duration;
+}
+
+void InputIntervalScheduler::add_input_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration){
+    InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
+    assert (current_interval != nullptr);
+    assert (compute_index < compute_count_);
+    current_interval->sum_input_blockage_durations_[compute_index] += duration;
 }
 
 void InputIntervalScheduler::generate_log_files(){
