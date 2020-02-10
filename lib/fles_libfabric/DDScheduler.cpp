@@ -271,7 +271,7 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
 
 
-    if (interval_dur_mean_difference > 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
+    if (interval_dur_mean_difference >= 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
 	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
 	speedup_interval_index_ = interval_index;
 	if (true)
