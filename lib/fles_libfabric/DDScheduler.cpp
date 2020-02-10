@@ -191,7 +191,7 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
 
 const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint64_t interval_index) {
     uint64_t last_interval = actual_interval_meta_data_.get_last_key();
-    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval), *last_proposed_interval_info;
+    const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
 
     uint64_t new_start_timeslice = (last_interval_info->last_timeslice+1) +
 	    (interval_index - last_interval_info->interval_index - 1) * (last_interval_info->last_timeslice - last_interval_info->start_timeslice + 1);
@@ -329,6 +329,18 @@ uint64_t DDScheduler::get_median_interval_duration(uint64_t interval_index) {
     return durations.size() % 2 == 0 ? (durations[mid_index-1]+durations[mid_index])/2 : durations[durations.size()/2];
 }
 
+uint64_t DDScheduler::get_median_interval_duration(uint64_t start_interval, uint64_t end_interval) {
+    std::vector<uint64_t> durations;
+    for (uint32_t interval = start_interval ; interval <= end_interval ; interval++){
+	if (!actual_interval_meta_data_.contains(interval))break;
+	durations.push_back(actual_interval_meta_data_.get(interval)->interval_duration);
+    }
+    assert (!durations.empty());
+    std::sort(durations.begin(), durations.end());
+    uint32_t mid_index = durations.size()/2;
+    return durations.size() % 2 == 0 ? (durations[mid_index-1]+durations[mid_index])/2 : durations[durations.size()/2];
+}
+
 uint32_t DDScheduler::get_average_round_count(uint64_t interval_index) {
     uint32_t round_count = 0;
     for (uint32_t i = 0; i<input_connection_count_ ; i++)
@@ -455,7 +467,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
     if (default_interval_distribution_.empty()) default_interval_distribution_.resize(get_last_compute_connection_count(), 1);
    // (interval_index-last_completed_interval) is the gap that DDS does not propose meta-data for
    if (actual_interval_meta_data_.size() <= balancer_interval_count_+ (interval_index-last_completed_interval) ||
-	   (balancer_interval_index_ != 0 && balancer_interval_index_ + 2*balancer_interval_count_ > interval_index))
+	   (balancer_interval_index_ != 0 && balancer_interval_index_ + balancer_interval_count_ > interval_index))
        return default_interval_distribution_;
 
     // If the balancer is not running, calculate a new enhancement
@@ -494,18 +506,29 @@ bool DDScheduler::is_balancer_phase_just_finished(uint64_t interval_index){
     // If a running enhancement is just finished
     if (balancer_interval_index_ != 0 && balancer_interval_index_+balancer_interval_count_ == interval_index){
 	uint64_t last_completed_interval = actual_interval_meta_data_.empty() ? 0 : actual_interval_meta_data_.get_last_key();
+	/* Solution #1
 	// Check whether the prev. enhancement gives better results
-	std::vector<uint64_t> old_blockage_duration_sum = retrieve_median_blockage_duration(balancer_interval_index_ - (last_completed_interval-balancer_interval_index_) - 1, balancer_interval_index_-1),
-		balancer_blockage_duration_sum = retrieve_median_blockage_duration(balancer_interval_index_, last_completed_interval);
+	std::vector<uint64_t> old_blockage_duration_median = retrieve_median_blockage_duration(balancer_interval_index_ - (last_completed_interval-balancer_interval_index_) - 1, balancer_interval_index_-1),
+		balancer_blockage_duration_median = retrieve_median_blockage_duration(balancer_interval_index_, last_completed_interval);
 	uint32_t count_diff = 0, count_better = 0;
 	for (uint32_t i=0 ; i<default_interval_distribution_.size() ; i++)
 	    if (default_interval_distribution_[i] != balancer_interval_distribution_[i]){
 		++count_diff;
-		if (old_blockage_duration_sum[i] >= balancer_blockage_duration_sum[i])++count_better;
+		if (old_blockage_duration_median[i] >= balancer_blockage_duration_median[i])++count_better;
 	    }
 	// If yes, keep it as the default
 	// TODO which percentage? 50%?
 	if ((count_better/count_diff*1.0) >= 0.5){
+	    L_(info) << "[" << scheduler_index_ << "][Enhanced distribution balancer] Updating the default distribution starting from " << interval_index;
+	    assert (default_interval_distribution_.size() == balancer_interval_distribution_.size());
+	    default_interval_distribution_ = balancer_interval_distribution_;
+	}
+	*/
+
+	/* Solution #2 by checking the median interval duration*/
+	uint64_t old_median_interval_duration = get_median_interval_duration(balancer_interval_index_ - (last_completed_interval-balancer_interval_index_) - 1, balancer_interval_index_-1),
+		 new_median_interval_duration = get_median_interval_duration(balancer_interval_index_, last_completed_interval);
+	if (new_median_interval_duration <= old_median_interval_duration){
 	    L_(info) << "[" << scheduler_index_ << "][Enhanced distribution balancer] Updating the default distribution starting from " << interval_index;
 	    assert (default_interval_distribution_.size() == balancer_interval_distribution_.size());
 	    default_interval_distribution_ = balancer_interval_distribution_;

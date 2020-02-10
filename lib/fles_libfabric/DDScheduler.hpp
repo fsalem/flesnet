@@ -124,6 +124,9 @@ private:
     // Get the median actual interval duration
     uint64_t get_median_interval_duration(uint64_t interval_index);
 
+    // Get the median actual interval duration of a range
+    uint64_t get_median_interval_duration(uint64_t start_interval, uint64_t end_interval);
+
     // Get average round count of an interval
     uint32_t get_average_round_count(uint64_t interval_index);
 
