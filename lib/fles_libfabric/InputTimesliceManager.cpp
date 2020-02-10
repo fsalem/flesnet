@@ -138,6 +138,11 @@ InputTimesliceManager* InputTimesliceManager::get_instance(){
 }
 
 uint64_t InputTimesliceManager::get_connection_next_timeslice(uint32_t compute_index){
+    if (future_conn_timeslices_.get(compute_index)->empty() &&
+    	    std::find(virtual_physical_compute_mapping_.begin(), virtual_physical_compute_mapping_.end(), compute_index)
+    		== virtual_physical_compute_mapping_.end()){
+	return ConstVariables::MINUS_ONE;
+    }
     if (future_conn_timeslices_.get(compute_index)->empty()){
 	refill_future_timeslices(next_start_future_timeslice_+interval_length_);
     }

@@ -60,7 +60,8 @@ uint64_t InputSchedulerOrchestrator::get_connection_next_timeslice(uint32_t comp
     if (is_connection_timed_out(compute_index))return ConstVariables::MINUS_ONE;
     // TODO TO BE UPDATED
     uint64_t next = timeslice_manager_->get_connection_next_timeslice(compute_index);
-    if (timeslice_trigger != ConstVariables::MINUS_ONE && next >= timeslice_trigger) return ConstVariables::MINUS_ONE;
+    if (next == ConstVariables::MINUS_ONE || (timeslice_trigger != ConstVariables::MINUS_ONE && next >= timeslice_trigger))
+	return ConstVariables::MINUS_ONE;
     return next;
 }
 
