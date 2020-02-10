@@ -132,9 +132,10 @@ DDScheduler::DDScheduler(uint32_t scheduler_index,
     history_size_(history_size), interval_length_(interval_length),
     speedup_difference_percentage_(speedup_difference_percentage),
     speedup_percentage_(speedup_percentage), speedup_interval_count_(speedup_interval_count),
-    balancer_interval_count_(speedup_interval_count),
+    balancer_interval_count_(speedup_interval_count/3), // TODO /3 ?
     log_directory_(log_directory), enable_logging_(enable_logging){
 
+    assert (balancer_interval_count_ < speedup_interval_count_/2);
     for (uint_fast16_t i=0 ; i<input_connection_count ; i++)
     	input_scheduler_info_.push_back(new InputSchedulerData());
 }
