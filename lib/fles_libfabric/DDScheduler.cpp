@@ -494,7 +494,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
 	// TODO check whether this is because of one extreme interval!
 	balancer_interval_index_ = interval_index;
 	balancer_interval_distribution_ = default_interval_distribution_;
-	if (balancer_interval_distribution_[max_index] > 1) --balancer_interval_distribution_[max_index];
+	if (balancer_interval_distribution_[max_index] > 0) --balancer_interval_distribution_[max_index];
 	else ++balancer_interval_distribution_[min_index];
 	return balancer_interval_distribution_;
     }
