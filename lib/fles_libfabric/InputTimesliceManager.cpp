@@ -370,10 +370,19 @@ std::vector<uint64_t> InputTimesliceManager::update_compute_distribution_frequen
     // TODO Add logging
     virtual_compute_count_ = 0;
     virtual_physical_compute_mapping_.clear();
-    for (uint32_t i = 0 ; i < compute_frequency.size() ; i++){
-	for (uint32_t j = 0 ; j < compute_frequency[i] ; j++) virtual_physical_compute_mapping_.push_back(i);
-	virtual_compute_count_+=compute_frequency[i];
+    bool frequencies_updated = true;
+    // Distribute timeslice frequencies in a round-robin scheme
+    while(frequencies_updated){
+	frequencies_updated = false;
+	for (uint32_t i = 0 ; i < compute_frequency.size() ; i++)
+	    if (compute_frequency[i] > 0){
+		virtual_physical_compute_mapping_.push_back(i);
+		--compute_frequency[i];
+		++virtual_compute_count_;
+		frequencies_updated = true;
+	    }
     }
+
     refill_future_timeslices(last_timeslice+1);
     return undo_timeslices;
 
