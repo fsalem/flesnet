@@ -468,7 +468,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
     if (default_interval_distribution_.empty()) default_interval_distribution_.resize(get_last_compute_connection_count(), 1);
    // (interval_index-last_completed_interval) is the gap that DDS does not propose meta-data for
    if (actual_interval_meta_data_.size() <= balancer_interval_count_+ (interval_index-last_completed_interval) ||
-	   (balancer_interval_index_ != 0 && balancer_interval_index_ + balancer_interval_count_ > interval_index))
+	   (balancer_interval_index_ != 0 && balancer_interval_index_ + 2*balancer_interval_count_ > interval_index))
        return default_interval_distribution_;
 
     // If the balancer is not running, calculate a new enhancement
