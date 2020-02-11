@@ -93,7 +93,8 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 		    duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - interval->actual_start_time).count();
 	    L_(info) << "[I:" << interval->index << "] c_" << compute_index << " sent " << count
 		     << " in " << duration
-		     << "ms(" << (count/(duration*1.0)) << " ts/ms)";
+		     << "ms(" << (count/(duration*1.0)) << " ts/ms)"
+		     << " ts " << timeslice << " next " << next_compute_timeslice;
 	}
     }
 
