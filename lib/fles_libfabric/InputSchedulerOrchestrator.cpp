@@ -89,7 +89,8 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 	assert (interval != nullptr);
 	uint64_t next_compute_timeslice = get_timeslice_by_descriptor(compute_index, desc+1);
 	if (timeslice > 9990 && timeslice < 10050)
-	    L_(info) << "C_ " << compute_index << " ts " << timeslice << " next " << next_compute_timeslice;
+	    L_(info) << "C_ " << compute_index << " ts " << timeslice << " next " << next_compute_timeslice
+		     << " up to " << up_to_descriptor_id << " cur " << desc << " last " << last_descriptor;
 	if (next_compute_timeslice != ConstVariables::MINUS_ONE && next_compute_timeslice > interval->end_ts){
 	    uint64_t count = timeslice_manager_->get_count_timeslices_of_interval(compute_index, interval->start_ts, interval->end_ts),
 		    duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - interval->actual_start_time).count();
