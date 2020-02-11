@@ -84,6 +84,18 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 	    continue;
 	}
 	interval_scheduler_->increament_acked_timeslices(timeslice);
+	// TODO to be removed or re-written
+	InputIntervalInfo* interval = interval_scheduler_->get_interval_of_timeslice(timeslice);
+	assert (interval != nullptr);
+	uint64_t next_compute_timeslice = get_timeslice_by_descriptor(compute_index, desc+1);
+	assert (next_compute_timeslice != ConstVariables::MINUS_ONE);
+	if (next_compute_timeslice > interval->end_ts){
+	    uint64_t count = timeslice_manager_->get_count_timeslices_of_interval(compute_index, interval->start_ts, interval->end_ts),
+		    duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - interval->actual_start_time).count();
+	    L_(info) << "[I:" << interval->index << "] c_" << compute_index << " sent " << count
+		     << " in " << duration
+		     << "us(" << (count/duration) << ")";
+	}
     }
 
     uint64_t avg_latency = timeslice_manager_->acknowledge_timeslices_completion(compute_index, up_to_descriptor_id);

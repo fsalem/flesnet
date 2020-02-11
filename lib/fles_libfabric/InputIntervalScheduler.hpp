@@ -77,6 +77,8 @@ public:
     //Generate log files of the stored data
     void generate_log_files();
 
+    // TODO remove this and uncomment it in the private section
+    InputIntervalInfo* get_interval_of_timeslice(uint64_t);
 private:
 
     struct TimesliceInfo{
@@ -105,7 +107,7 @@ private:
     uint64_t get_interval_expected_round_index(uint64_t);
 
     // Get the interval info of a particular timeslice
-    InputIntervalInfo* get_interval_of_timeslice(uint64_t);
+    //InputIntervalInfo* get_interval_of_timeslice(uint64_t);
 
     // Check whether all timeslices of a particular interval are sent out
     bool is_interval_sent_completed(uint64_t);

@@ -284,6 +284,19 @@ uint64_t InputTimesliceManager::get_last_connection_descriptor_index(uint32_t co
     return last_conn_desc_[compute_index];
 }
 
+uint64_t InputTimesliceManager::get_count_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts){
+    uint64_t count = 0;
+    SizedMap<uint64_t, TimesliceInfo*>* timesliceInfos = conn_timeslice_info_.get(compute_index);
+    if (timesliceInfos->empty())return count;
+
+    SizedMap<uint64_t, TimesliceInfo*>::iterator timesliceInfo_it = timesliceInfos->get_end_iterator();
+    do{
+	--timesliceInfo_it;
+	if (timesliceInfo_it->first >= start_ts && timesliceInfo_it->first <= end_ts)++count;
+    }while (timesliceInfo_it != timesliceInfos->get_begin_iterator());
+    return count;
+}
+
 std::pair<uint64_t, uint64_t> InputTimesliceManager::get_data_and_desc_of_timeslice(uint32_t compute_index, uint32_t timeslice){
     if (!conn_timeslice_info_.get(compute_index)->contains(timeslice)){
 	L_(fatal) << "compute index " << compute_index << " timeslice " << timeslice << " last conn_timeslice " << last_conn_timeslice_[compute_index]

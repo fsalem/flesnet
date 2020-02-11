@@ -70,6 +70,9 @@ public:
     // Get last descriptor of a connection
     uint64_t get_last_connection_descriptor_index(uint32_t compute_index);
 
+    // Get the count of timeslices of an interval
+    uint64_t get_count_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts);
+
     // Return the data size and the descriptor index of a timeslice
     std::pair<uint64_t, uint64_t> get_data_and_desc_of_timeslice(uint32_t compute_index, uint32_t timeslice);
 
