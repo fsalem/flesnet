@@ -337,7 +337,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice, uint32_t cn)
     }
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
-	InputSchedulerOrchestrator::log_timeslice_IB_blocked(timeslice, true);
+	InputSchedulerOrchestrator::log_timeslice_IB_blocked(cn, timeslice, true);
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
