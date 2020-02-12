@@ -200,11 +200,12 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
 	    interval_info->actual_start_time,interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
     if (true){
 	// TODO remove
-	std::string IB = "", CB = "";
+	std::string IB = "", CB = "", diff = "";
 	for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++){
-	    if (i != 0){IB+=","; CB+=",";}
+	    if (i != 0){IB+=","; CB+=","; diff +=",";}
 	    IB += std::to_string(interval_info->sum_input_blockage_durations_[i]);
-	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i]);
+	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i])
+	    diff += std::to_string(interval_info->sum_compute_blockage_durations_[i] - interval_info->sum_input_blockage_durations_[i]);
 	}
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
@@ -216,7 +217,7 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
                 << "] is finished and delayed for "
                 << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
                 << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds"
-		<< " IB [" << IB << "] CB [" << CB << "]";
+		<< " IB [" << IB << "] CB [" << CB << "] ==> [" << diff << "]";
     }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
 }
