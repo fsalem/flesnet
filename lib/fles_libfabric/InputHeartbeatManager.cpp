@@ -92,6 +92,7 @@ int32_t InputHeartbeatManager::get_new_timeout_connection(){
 	    inactive_connection_.erase(conn);
 	    return *conn;
 	}
+	++conn;
     }
     return -1;
 }
