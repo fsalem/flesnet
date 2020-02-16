@@ -434,12 +434,12 @@ void ComputeNodeConnection::on_complete_heartbeat_recv(){
     // inactive heartbeat message
     if (recv_heartbeat_message_.failure_info.index == ConstVariables::MINUS_ONE){
 	assert (!recv_heartbeat_message_.ack);
-	send_heartbeat_message_.message_id = recv_heartbeat_message_.message_id;
-	send_heartbeat_message_.ack = true;
-	send_heartbeat_message_.failure_info.index = ConstVariables::MINUS_ONE;
-	post_send_heartbeat_message();
+	send_heartbeat(recv_heartbeat_message_.message_id, nullptr, true);
     }else{ // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
-	DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
+	HeartbeatFailedNodeInfo* failednode_info = DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
+	if (failednode_info != nullptr){
+	    send_heartbeat(recv_heartbeat_message_.message_id, failednode_info, true);
+	}
     }
     post_recv_heartbeat_message();
 }

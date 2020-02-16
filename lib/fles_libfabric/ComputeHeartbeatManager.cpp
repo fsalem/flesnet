@@ -50,10 +50,10 @@ ComputeHeartbeatManager* ComputeHeartbeatManager::get_instance(){
     return instance_;
 }
 
-void ComputeHeartbeatManager::log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info){
+HeartbeatFailedNodeInfo* ComputeHeartbeatManager::log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info){
     if (completed_decisions_log_.contains(failure_info.index)){
 	L_(warning) << "[" << index_ << "] heartbeat_failure from " << connection_id << " is received after taking the decision!!!";
-	return;
+	return completed_decisions_log_.get(failure_info.index);
     }
     if (!collected_failure_info_.contains(failure_info.index)){
 	collected_failure_info_.add(failure_info.index,new std::vector<FailureRequestedInfo*>(connection_count_, nullptr));
@@ -61,7 +61,7 @@ void ComputeHeartbeatManager::log_heartbeat_failure(uint32_t connection_id, Hear
     }
     std::vector<FailureRequestedInfo*>* collected_info = collected_failure_info_.get(failure_info.index);
     if ((*collected_info)[connection_id] == nullptr)(*collected_info)[connection_id] = new FailureRequestedInfo();
-    if ((*collected_info)[connection_id]->failure_info != nullptr)return ;
+    if ((*collected_info)[connection_id]->failure_info != nullptr)return nullptr;
     (*collected_info)[connection_id]->failure_info = new HeartbeatFailedNodeInfo(failure_info.index, failure_info.last_completed_desc, failure_info.timeslice_trigger);
     (*collected_info)[connection_id]->info_requested = true;
     uint32_t collected_so_far = collected_decisions_count_.get(failure_info.index) + 1;
@@ -72,6 +72,7 @@ void ComputeHeartbeatManager::log_heartbeat_failure(uint32_t connection_id, Hear
     }else{
 	collected_decisions_count_.update(failure_info.index, collected_so_far);
     }
+    return nullptr;
 }
 
 std::pair<uint32_t, std::set<uint32_t>> ComputeHeartbeatManager::retrieve_missing_info_from_connections(){

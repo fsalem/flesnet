@@ -434,7 +434,9 @@ void Connection::send_heartbeat(uint64_t message_id, HeartbeatFailedNodeInfo* fa
     send_heartbeat_message_.message_id = message_id;
     send_heartbeat_message_.ack = ack;
     if (failure_info == nullptr){
-	send_heartbeat_message_.failure_info.index == ConstVariables::MINUS_ONE;
+	send_heartbeat_message_.failure_info.index = ConstVariables::MINUS_ONE;
+	send_heartbeat_message_.failure_info.last_completed_desc = ConstVariables::MINUS_ONE;
+	send_heartbeat_message_.failure_info.timeslice_trigger = ConstVariables::MINUS_ONE;
     }else{
 	send_heartbeat_message_.failure_info.index = failure_info->index;
 	send_heartbeat_message_.failure_info.last_completed_desc = failure_info->last_completed_desc;

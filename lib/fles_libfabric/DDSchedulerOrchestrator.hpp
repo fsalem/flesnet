@@ -67,7 +67,7 @@ public:
 //// ComputeHeartbeatManager Methods
 
     // log the arrival of failure node message
-    static void log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
+    static HeartbeatFailedNodeInfo* log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
 
     // A list of input connections to inform about a compute node failure <failed node, list of connections>
     static std::pair<uint32_t, std::set<uint32_t>> retrieve_missing_info_from_connections();
