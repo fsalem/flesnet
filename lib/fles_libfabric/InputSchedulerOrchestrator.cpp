@@ -90,7 +90,7 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 	uint64_t next_compute_timeslice = get_timeslice_by_descriptor(compute_index, desc+1);
 	if (next_compute_timeslice == ConstVariables::MINUS_ONE)next_compute_timeslice = timeslice + get_compute_connection_count();
 	if (next_compute_timeslice > interval->end_ts){
-	    uint64_t count = timeslice_manager_->get_count_timeslices_of_interval(compute_index, interval->start_ts, interval->end_ts);
+	    uint64_t count = timeslice_manager_->count_timeslices_of_interval(compute_index, interval->start_ts, interval->end_ts);
 	    double duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - interval->actual_start_time).count();
 	    L_(info) << "[I:" << interval->index << "] c_" << compute_index << " sent " << count
 		     << " in " << duration
@@ -229,7 +229,7 @@ HeartbeatFailedNodeInfo InputSchedulerOrchestrator::get_timed_out_connection(int
 	failure_info.index = timeout_conn;
 	failure_info.last_completed_desc = get_last_acked_descriptor(timeout_conn);
 	// TODO last possible timeslice
-	failure_info.timeslice_trigger = get_up_to_timeslice_trigger();
+	failure_info.timeslice_trigger = get_up_to_timeslice_trigger(timeout_conn);
 	// TODO info.timeslice_trigger = timeslice_manager_->get_last_timeslice_before_blockage(timeout_conn);
 	// TODO stop transmitting TSs until receiving an ACK
 	InputSchedulerOrchestrator::timeslice_trigger = failure_info.timeslice_trigger;
@@ -256,7 +256,7 @@ bool InputSchedulerOrchestrator::SHOW_LOGS_ = false;
 uint64_t InputSchedulerOrchestrator::last_timeslice_trigger;
 bool InputSchedulerOrchestrator::FREQUENCY_UPDATED_ = false;
 
-uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(){
+uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(uint32_t failed_compute_index){
     uint64_t timeslice = sent_timeslices-2;
     while(1){
 	uint64_t desc_offset = (timeslice) * timeslice_size + start_index_desc;
@@ -272,6 +272,14 @@ uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(){
 	--timeslice;
     }
 
+    InputIntervalInfo current_interval = interval_scheduler_->get_current_interval_info();
+    uint64_t failed_compute_timeslices = timeslice_manager_->count_unacked_timeslices_of_interval(failed_compute_index, current_interval.start_ts, current_interval.end_ts)
+	    + timeslice_manager_->count_future_timeslices_of_interval(failed_compute_index, current_interval.start_ts, current_interval.end_ts);
+    uint64_t ack_sent_remaining_gap = interval_scheduler_->get_ack_sent_remaining_gap(current_interval.index);
+    L_(debug) << "failed_compute_timeslices " << failed_compute_timeslices << " ack_sent_remaining_gap " << ack_sent_remaining_gap << " up to " << timeslice;
+    if (failed_compute_timeslices >= ack_sent_remaining_gap){
+	return std::min(timeslice, current_interval.end_ts);
+    }
     return timeslice;
 }
 }

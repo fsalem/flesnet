@@ -163,7 +163,7 @@ void InputTimesliceManager::log_timeslice_transmit_time(uint32_t compute_index, 
     timeslice_info->transmit_time = std::chrono::high_resolution_clock::now();
     assert(conn_timeslice_info_.get(compute_index)->add(timeslice, timeslice_info));
     assert(conn_desc_timeslice_info_.get(compute_index)->add(descriptor_index, timeslice));
-    future_conn_timeslices_.get(compute_index)->erase(future_conn_timeslices_.get(compute_index)->find(timeslice));
+    future_conn_timeslices_.get(compute_index)->erase(timeslice);
     ++last_conn_desc_[compute_index];
     last_conn_timeslice_[compute_index] = timeslice;
 
@@ -284,7 +284,7 @@ uint64_t InputTimesliceManager::get_last_connection_descriptor_index(uint32_t co
     return last_conn_desc_[compute_index];
 }
 
-uint64_t InputTimesliceManager::get_count_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts){
+uint64_t InputTimesliceManager::count_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts){
     uint64_t count = 0;
     SizedMap<uint64_t, TimesliceInfo*>* timesliceInfos = conn_timeslice_info_.get(compute_index);
     if (timesliceInfos->empty())return count;
@@ -294,6 +294,39 @@ uint64_t InputTimesliceManager::get_count_timeslices_of_interval(uint32_t comput
 	--timesliceInfo_it;
 	if (timesliceInfo_it->first >= start_ts && timesliceInfo_it->first <= end_ts)++count;
     }while (timesliceInfo_it != timesliceInfos->get_begin_iterator());
+    return count;
+}
+
+uint64_t InputTimesliceManager::count_unacked_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts){
+    refill_future_timeslices(end_ts+1);
+    uint64_t count = 0;
+    SizedMap<uint64_t, uint64_t>* desc_timeslices = conn_desc_timeslice_info_.get(compute_index);
+    if (desc_timeslices->empty()) return 0;
+
+    if (desc_timeslices->get_begin_iterator()->second >= start_ts && (--desc_timeslices->get_end_iterator())->second <= end_ts)
+	return desc_timeslices->size();
+
+    SizedMap<uint64_t, uint64_t>::iterator desc_timeslice_it = desc_timeslices->get_end_iterator();
+    do{
+	--desc_timeslice_it;
+	if (desc_timeslice_it->second >= start_ts && desc_timeslice_it->second <= end_ts)++count;
+    }while (desc_timeslice_it != desc_timeslices->get_begin_iterator());
+
+    return count;
+}
+
+uint64_t InputTimesliceManager::count_future_timeslices_of_interval(uint32_t compute_index, uint64_t start_ts, uint64_t end_ts){
+    refill_future_timeslices(end_ts+1);
+    uint64_t count = 0;
+    std::set<uint64_t> future_timeslices = (*future_conn_timeslices_.get(compute_index));
+    if (future_timeslices.empty()) return 0;
+
+    if (*future_timeslices.begin() >= start_ts && *(--future_timeslices.end()) <= end_ts)
+	return future_timeslices.size();
+
+    for (uint64_t ts:future_timeslices){
+	if (ts >= start_ts && ts <= end_ts)++count;
+    }
     return count;
 }
 

@@ -147,7 +147,7 @@ public:
     static uint64_t sent_timeslices;
     static bool SHOW_LOGS_;
     static uint64_t last_timeslice_trigger;
-    static uint64_t get_up_to_timeslice_trigger();
+    static uint64_t get_up_to_timeslice_trigger(uint32_t failed_compute_index);
     static bool FREQUENCY_UPDATED_;
     //////
 private:

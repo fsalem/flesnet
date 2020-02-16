@@ -142,12 +142,25 @@ uint32_t InputIntervalScheduler::get_compute_connection_count(){
     return compute_count_;
 }
 
+uint64_t InputIntervalScheduler::get_ack_sent_remaining_gap(uint64_t interval_index){
+    if (interval_info_.contains(interval_index)){
+	InputIntervalInfo* current_interval = interval_info_.get(interval_index);
+	return (current_interval->end_ts - current_interval->start_ts + 1)*(1.0 - minimum_ack_percentage_to_start_new_interval_);
+    }
+    if (proposed_interval_meta_data_.contains(interval_index)){
+	IntervalMetaData* next_interval = proposed_interval_meta_data_.get(interval_index);
+	return (next_interval->last_timeslice - next_interval->start_timeslice + 1)*(1.0 - minimum_ack_percentage_to_start_new_interval_);
+    }
+    return ConstVariables::MINUS_ONE;
+}
+
 // PRIVATE
 InputIntervalScheduler::InputIntervalScheduler(uint32_t scheduler_index, uint32_t compute_conn_count,
 	uint32_t interval_length, std::string log_directory, bool enable_logging):
     		scheduler_index_(scheduler_index), compute_count_(compute_conn_count),
 		interval_length_(interval_length), log_directory_(log_directory),
 		enable_logging_(enable_logging) {
+    minimum_ack_percentage_to_start_new_interval_ = 1.00;
 }
 
 void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
@@ -196,6 +209,12 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
     if (actual_interval_meta_data_.contains(interval_info->index))return;
     interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
+
+    std::vector<uint64_t> normalized_blockage_durations(interval_info->sum_compute_blockage_durations_.size());
+    for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++)
+	normalized_blockage_durations[i] = interval_info->sum_compute_blockage_durations_[i]/
+		    (interval_info->sum_input_blockage_durations_[i] != 0 ? interval_info->sum_input_blockage_durations_[i] : 1);
+
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
 	    interval_info->actual_start_time,interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
     if (true){
@@ -204,8 +223,8 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
 	for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++){
 	    if (i != 0){IB+=","; CB+=","; diff +=",";}
 	    IB += std::to_string(interval_info->sum_input_blockage_durations_[i]);
-	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i])
-	    diff += std::to_string(interval_info->sum_compute_blockage_durations_[i] - interval_info->sum_input_blockage_durations_[i]);
+	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i]);
+	    diff += std::to_string(normalized_blockage_durations[i]);
 	}
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
@@ -222,11 +241,6 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
 }
 
-uint64_t InputIntervalScheduler::get_last_completed_interval(){
-    if (actual_interval_meta_data_.empty())return ConstVariables::MINUS_ONE;
-    return actual_interval_meta_data_.get_last_key();
-}
-
 uint64_t InputIntervalScheduler::get_expected_sent_ts_count(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     if (current_interval->duration_per_ts == 0)return (current_interval->end_ts-current_interval->start_ts+1);
@@ -238,6 +252,10 @@ uint64_t InputIntervalScheduler::get_expected_sent_ts_count(uint64_t interval){
 uint64_t InputIntervalScheduler::get_interval_expected_round_index(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     return get_expected_sent_ts_count(interval) / current_interval->num_ts_per_round;
+}
+
+InputIntervalInfo InputIntervalScheduler::get_current_interval_info(){
+    return (*interval_info_.get(interval_info_.get_last_key()));
 }
 
 InputIntervalInfo* InputIntervalScheduler::get_interval_of_timeslice(uint64_t timeslice){
@@ -262,7 +280,8 @@ bool InputIntervalScheduler::is_interval_sent_ack_completed(uint64_t interval){
 bool InputIntervalScheduler::is_ack_percentage_reached(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
     // TODO change the percentage to be configurable
-    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >= 0.95 ? true: false;
+    return (current_interval->count_acked_ts*1.0)/((current_interval->end_ts-current_interval->start_ts+1)*1.0) >=
+	    minimum_ack_percentage_to_start_new_interval_ ? true: false;
 }
 
 std::chrono::high_resolution_clock::time_point InputIntervalScheduler::get_expected_ts_sent_time(uint64_t interval, uint64_t timeslice){

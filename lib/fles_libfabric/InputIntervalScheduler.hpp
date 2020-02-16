@@ -65,14 +65,17 @@ public:
     // Get the number of current compute node connections
     uint32_t get_compute_connection_count();
 
-    // Get the last completed interval index
-    uint64_t get_last_completed_interval();
+    // Get the gap between ack and sent before start a new interval
+    uint64_t get_ack_sent_remaining_gap(uint64_t interval_index);
 
     // add the blockage duration of a compute node due to full compute buffer
     void add_compute_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration);
 
     // add the blockage duration of a compute node due to full input buffer
     void add_input_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration);
+
+    // Get the intervalinfo
+    InputIntervalInfo get_current_interval_info();
 
     //Generate log files of the stored data
     void generate_log_files();
@@ -148,6 +151,8 @@ private:
 
     // Check whether to generate log files
     bool enable_logging_;
+
+    double minimum_ack_percentage_to_start_new_interval_;
 
 };
 }
