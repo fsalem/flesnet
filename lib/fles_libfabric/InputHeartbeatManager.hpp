@@ -83,6 +83,11 @@ private:
     InputHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging);
 
+    // Check whether a connection should be inactive
+    bool check_whether_connection_inactive(uint32_t connection_id);
+
+    // Check whether a connection should be timed out
+    bool check_whether_connection_timed_out(uint32_t connection_id);
 
     // The singleton instance for this class
     static InputHeartbeatManager* instance_;
