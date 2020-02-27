@@ -166,7 +166,7 @@ public:
 		    char buffer[256];
 		    ne = fi_cq_readerr(cqs_[i], &err, 0);
 		    // err == 0 --> Success
-		    if (err.err != 0 /*&& err.err != 5*/){
+		    if (err.err != 0 && err.err != 5){
 			L_(fatal) << fi_strerror(err.err);
 			L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
 						    buffer, 256)
