@@ -462,7 +462,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
     if (default_interval_distribution_.empty()) default_interval_distribution_.resize(get_last_compute_connection_count(), 1);
 
     // If a running enhancement is just finished
-    if (is_balancer_phase_just_finished(interval_index))
+    if (is_balancer_phase_just_finished(interval_index) || true)
 	return default_interval_distribution_;
 
     uint64_t last_completed_interval = actual_interval_meta_data_.empty() ? 0 : actual_interval_meta_data_.get_last_key();
