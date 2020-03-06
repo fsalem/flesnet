@@ -69,17 +69,26 @@ public:
     // log the arrival of failure node message
     static HeartbeatFailedNodeInfo* log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
 
+    // Check whether a decision of a failed connection is ready
+    static bool is_failed_node_decision_ready(uint32_t failed_connection_id);
+
     // A list of input connections to inform about a compute node failure <failed node, list of connections>
     static std::pair<uint32_t, std::set<uint32_t>> retrieve_missing_info_from_connections();
 
-    // Get a decision about a failed compute node to broadcast to input nodes
-    static HeartbeatFailedNodeInfo* get_decision_to_broadcast();
+    // Get a decision about a particular failed compute node
+    static HeartbeatFailedNodeInfo* get_decision_of_failed_connection(uint32_t failed_connection_id);
 
     // Log the acknowledge of receiving a decision
-    static void log_decision_ack(uint32_t connection_id);
+    static void log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id);
 
     // Log when the finalize message is sent
     static void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
+
+    // Log sent heartbeat message
+    static void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
+
+    // get next message id sequence
+    static uint64_t get_next_heartbeat_message_id();
 
     // Retrieve Connections that are not received any finalize ACK for a timeout period
     static std::vector<uint32_t> retrieve_long_waiting_finalized_connections();

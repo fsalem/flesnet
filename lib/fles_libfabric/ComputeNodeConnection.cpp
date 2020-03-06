@@ -318,7 +318,7 @@ void ComputeNodeConnection::on_complete_recv()
 		      << " undo " << desc;
 	    DDSchedulerOrchestrator::undo_log_contribution_arrival(index_, desc);
 	}
-	DDSchedulerOrchestrator::log_decision_ack(index_);
+	DDSchedulerOrchestrator::log_decision_ack(index_, recv_status_message_.failed_index);
 	cn_wp_ = recv_status_message_.wp;
     }
     write_received_descriptors();
@@ -431,16 +431,15 @@ void ComputeNodeConnection::on_complete_heartbeat_recv(){
 		  << ", DESC=" << recv_heartbeat_message_.failure_info.last_completed_desc
 		  << ", TS=" << recv_heartbeat_message_.failure_info.timeslice_trigger << ")";
     }
-    // inactive heartbeat message
-    if (recv_heartbeat_message_.failure_info.index == ConstVariables::MINUS_ONE){
-	assert (!recv_heartbeat_message_.ack);
-	send_heartbeat(recv_heartbeat_message_.message_id, nullptr, true);
-    }else{ // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
-	HeartbeatFailedNodeInfo* failednode_info = DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
-	if (failednode_info != nullptr){
-	    send_heartbeat(recv_heartbeat_message_.message_id, failednode_info, true);
-	}
+
+    HeartbeatFailedNodeInfo* failednode_info = nullptr;
+    // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
+    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE){
+	failednode_info = DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
     }
+
+    if (!recv_heartbeat_message_.ack)
+	send_heartbeat(recv_heartbeat_message_.message_id, failednode_info, true);
     post_recv_heartbeat_message();
 }
 }

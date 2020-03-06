@@ -57,13 +57,8 @@ public:
     // Retrieve Connections that are not received any finalize ACK for a timeout period
     std::vector<uint32_t> retrieve_long_waiting_finalized_connections();
 
-    uint32_t get_decision_ack_size() {return decision_ack_log_.size();}
     //Generate log files of the stored data
     //void generate_log_files();
-
-    // TODO TO BE REMOVED
-    uint64_t get_last_timeslice_decision() {if (completed_decisions_log_.empty())return ConstVariables::MINUS_ONE;
-    else return completed_decisions_log_.get(completed_decisions_log_.get_last_key())->timeslice_trigger;}
 
 private:
 

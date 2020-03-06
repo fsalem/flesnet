@@ -58,12 +58,7 @@ uint64_t DDSchedulerOrchestrator::get_last_completed_interval() {
 //// ComputeTimesliceManager Methods
 
 void DDSchedulerOrchestrator::log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
-    bool decision_ack_received = (heartbeat_manager_->get_decision_ack_size() == ConstVariables::ZERO ? true : false);
-    timeslice_manager_->log_contribution_arrival(connection_id, timeslice, decision_ack_received);
-    // TODO TO BE REMOVED
-    uint64_t last_decision = heartbeat_manager_->get_last_timeslice_decision();
-    //if (last_decision != ConstVariables::MINUS_ONE && last_decision + 1000 < timeslice)
-	//SHOW_LOG_ = false;
+	timeslice_manager_->log_contribution_arrival(connection_id, timeslice);
 }
 
 bool DDSchedulerOrchestrator::undo_log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
@@ -88,26 +83,34 @@ HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::log_heartbeat_failure(uint32_t
     // TODO SHOW_LOG_ = true;
 }
 
+bool DDSchedulerOrchestrator::is_failed_node_decision_ready(uint32_t failed_connection_id){
+    return heartbeat_manager_->is_decision_ready(failed_connection_id);
+}
+
 std::pair<uint32_t, std::set<uint32_t>> DDSchedulerOrchestrator::retrieve_missing_info_from_connections(){
     return heartbeat_manager_->retrieve_missing_info_from_connections();
 }
 
-HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::get_decision_to_broadcast(){
-    return heartbeat_manager_->get_decision_to_broadcast();
+HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::get_decision_of_failed_connection(uint32_t failed_connection_id){
+    return heartbeat_manager_->get_decision_of_failed_connection(failed_connection_id);
 }
 
 // Log the acknowledge of receiving a decision
-void DDSchedulerOrchestrator::log_decision_ack(uint32_t connection_id){
-    heartbeat_manager_->log_decision_ack(connection_id);
-    if (heartbeat_manager_->get_decision_ack_size() == ConstVariables::ZERO){
-	timeslice_manager_->update_timeslice_completion();
-    }
+void DDSchedulerOrchestrator::log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id){
+    heartbeat_manager_->log_decision_ack(connection_id, failed_connection_id);
 }
 
 void DDSchedulerOrchestrator::log_finalize_connection(uint32_t connection_id, bool ack_received){
     heartbeat_manager_->log_finalize_connection(connection_id, ack_received);
 }
 
+void DDSchedulerOrchestrator::log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message){
+    heartbeat_manager_->log_sent_heartbeat_message(connection_id, message);
+}
+
+uint64_t DDSchedulerOrchestrator::get_next_heartbeat_message_id(){
+    return heartbeat_manager_->get_next_heartbeat_message_id();
+}
 std::vector<uint32_t> DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections(){
     return heartbeat_manager_->retrieve_long_waiting_finalized_connections();
 }

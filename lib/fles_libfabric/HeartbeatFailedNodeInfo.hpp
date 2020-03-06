@@ -11,11 +11,11 @@ struct HeartbeatFailedNodeInfo {
     // Index of the
     uint32_t index = ConstVariables::MINUS_ONE;
     // Last completed descriptor of this failed node
-    uint64_t last_completed_desc = ConstVariables::ZERO;
+    uint64_t last_completed_desc = ConstVariables::MINUS_ONE;
     // When this info is sent out from:
     // (1) an input process: the timeslice that other compute nodes will be blocked starting from it
     // (2) a compute process: the last timeslice to be sent before distributing the contributions of the failed node
-    uint64_t timeslice_trigger = ConstVariables::ZERO;
+    uint64_t timeslice_trigger = ConstVariables::MINUS_ONE;
 
     HeartbeatFailedNodeInfo(){}
     HeartbeatFailedNodeInfo(uint32_t index, uint64_t desc, uint64_t trigger):

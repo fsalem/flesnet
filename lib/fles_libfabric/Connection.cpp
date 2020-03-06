@@ -361,7 +361,7 @@ void Connection::post_recv_heartbeat_message()
 
 void Connection::post_send_heartbeat_message()
 {
-    if (false) {
+    if (true) {
         L_(info) << "[i" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "POST SEND heartbeat message ("

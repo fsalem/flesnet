@@ -85,6 +85,8 @@ public:
 
     const InputChannelStatusMessage& recv_status_message() const { return recv_status_message_; }
 
+    const HeartbeatMessage& recv_heartbeat_message() const {return recv_heartbeat_message_;}
+
     virtual std::unique_ptr<std::vector<uint8_t>> get_private_data() override;
 
     struct BufferStatus {
