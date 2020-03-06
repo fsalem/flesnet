@@ -43,6 +43,7 @@ struct InputChannelStatusMessage {
     uint8_t descriptor_count = 0;
 
     bool sync_after_scheduling_decision = false;
+    uint32_t failed_index = ConstVariables::MINUS_ONE;
 
 };
 }

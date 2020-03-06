@@ -155,13 +155,13 @@ void InputChannelSender::sync_data_source(bool schedule)
 void InputChannelSender::sync_heartbeat()
 {
     InputSchedulerOrchestrator::data_source_desc = data_source_.get_write_index().desc;
-    HeartbeatFailedNodeInfo failed_connection = InputSchedulerOrchestrator::get_timed_out_connection();
-    if (failed_connection.index == ConstVariables::MINUS_ONE){ // Check inactive connections
+    HeartbeatFailedNodeInfo* failed_connection = InputSchedulerOrchestrator::get_timed_out_connection();
+    if (failed_connection->index == ConstVariables::MINUS_ONE){ // Check inactive connections
 	std::vector<uint32_t> inactive_conns = InputSchedulerOrchestrator::retrieve_new_inactive_connections();
 	for (uint32_t inactive: inactive_conns){
 	    if (!conn_[inactive]->done()){
 		conn_[inactive]->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id());
-		InputSchedulerOrchestrator::log_sent_heartbeat_message(conn_[inactive]->get_send_heartbeat_message());
+		InputSchedulerOrchestrator::log_sent_heartbeat_message(inactive, conn_[inactive]->get_send_heartbeat_message());
 	    }
 	}
     }else{ // Send timeout message to all active connections
@@ -170,8 +170,8 @@ void InputChannelSender::sync_heartbeat()
 		mark_connection_completed(conn->index());
 	    }else{
 		if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index()) && !conn->done()){
-		    conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), &failed_connection);
-		    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->get_send_heartbeat_message());
+		    conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), failed_connection);
+		    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->index(), conn->get_send_heartbeat_message());
 		}
 	    }
 	}
@@ -657,25 +657,29 @@ void InputChannelSender::on_completion(uint64_t wr_id)
 
     case ID_HEARTBEAT_RECEIVE_STATUS: {
 	int cn = wr_id >> 8;
+	
+	// TODO to be written in a better way
 	InputSchedulerOrchestrator::data_source_desc = data_source_.get_write_index().desc;
-	bool is_decision_considered = true;
+	bool was_decision_considered = true, is_decision_considered = false;
 	// Updating data source before re-arranging timeslice
-	if (conn_[cn]->get_recv_heartbeat_message().ack &&
-		conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE){
-
-	    is_decision_considered = InputSchedulerOrchestrator::is_decision_considered(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
-	    uint64_t last_desc = conn_[conn_[cn]->get_recv_heartbeat_message().failure_info.index]->cn_ack_desc();
-	    update_data_source(conn_[cn]->get_recv_heartbeat_message().failure_info.index, last_desc, conn_[cn]->get_recv_heartbeat_message().failure_info.last_completed_desc);
+	if (conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE){
+	    was_decision_considered = InputSchedulerOrchestrator::is_decision_considered(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
 	}
+
     	conn_[cn]->on_complete_heartbeat_recv();
+
+    	is_decision_considered = InputSchedulerOrchestrator::is_decision_considered(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
     	// update the cn_wp after performing timeslice re-arrangment
-    	if (conn_[cn]->get_recv_heartbeat_message().ack &&
-		    conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE &&
-		    !is_decision_considered){
-    	    for (auto& conn:conn_)
+    	if (conn_[cn]->get_recv_heartbeat_message().failure_info.index != ConstVariables::MINUS_ONE &&
+		    !was_decision_considered && is_decision_considered){
+
+    	    uint64_t last_desc = conn_[conn_[cn]->get_recv_heartbeat_message().failure_info.index]->cn_ack_desc();
+	    update_data_source(conn_[cn]->get_recv_heartbeat_message().failure_info.index, last_desc, conn_[cn]->get_recv_heartbeat_message().failure_info.last_completed_desc);
+
+	    for (auto& conn:conn_)
     		if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index()))
-    		    conn->update_cn_wp_after_failure_action();
-    	mark_connection_completed(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+    		    conn->update_cn_wp_after_failure_action(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+	    mark_connection_completed(conn_[cn]->get_recv_heartbeat_message().failure_info.index);
     	}
     } break;
 

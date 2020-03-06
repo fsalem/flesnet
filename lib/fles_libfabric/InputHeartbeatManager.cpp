@@ -21,11 +21,8 @@ InputHeartbeatManager* InputHeartbeatManager::get_instance(){
 
 InputHeartbeatManager::InputHeartbeatManager(uint32_t index, uint32_t init_connection_count,
 	    std::string log_directory, bool enable_logging):
-		index_(index),
-		connection_count_(init_connection_count),
-		log_directory_(log_directory),
-		enable_logging_(enable_logging){
-    assert( init_connection_count > 0);
+		HeartbeatManager(index, init_connection_count, log_directory, enable_logging){
+
     uint64_t timeout = ConstVariables::HEARTBEAT_TIMEOUT;
     for (uint32_t conn = 0 ; conn < init_connection_count ; ++conn){
 	connection_heartbeat_time_.push_back(new ConnectionHeartbeatInfo());
@@ -139,15 +136,6 @@ void InputHeartbeatManager::mark_connection_timed_out(uint32_t connection_id){
 	inactive_connection_.erase(inactive_connection_.find(connection_id));
 
     timed_out_connection_.insert(connection_id);
-}
-
-void InputHeartbeatManager::log_sent_heartbeat_message(HeartbeatMessage message){
-    heartbeat_message_log_.insert(message);
-}
-
-uint64_t InputHeartbeatManager::get_next_heartbeat_message_id(){
-    if (heartbeat_message_log_.empty())return ConstVariables::ZERO;
-    return (--heartbeat_message_log_.end())->message_id+1;
 }
 
 uint32_t InputHeartbeatManager::get_active_connection_count(){

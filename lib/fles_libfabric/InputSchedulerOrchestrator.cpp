@@ -203,8 +203,8 @@ void InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_i
     heartbeat_manager_->mark_connection_timed_out(connection_id);
 }
 
-void InputSchedulerOrchestrator::log_sent_heartbeat_message(HeartbeatMessage message){
-    heartbeat_manager_->log_sent_heartbeat_message(message);
+void InputSchedulerOrchestrator::log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message){
+    heartbeat_manager_->log_sent_heartbeat_message(connection_id, message);
 }
 
 uint64_t InputSchedulerOrchestrator::get_next_heartbeat_message_id(){
@@ -220,19 +220,19 @@ uint32_t InputSchedulerOrchestrator::get_timeout_connection_count(){
 }
 //// Methods combine data from different objects
 
-HeartbeatFailedNodeInfo InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
+HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
     if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
     else mark_connection_timed_out(timeout_conn);
 
-    HeartbeatFailedNodeInfo failure_info = HeartbeatFailedNodeInfo();
+    HeartbeatFailedNodeInfo* failure_info = new HeartbeatFailedNodeInfo();
     if (timeout_conn != -1){
-	failure_info.index = timeout_conn;
-	failure_info.last_completed_desc = get_last_acked_descriptor(timeout_conn);
+	failure_info->index = timeout_conn;
+	failure_info->last_completed_desc = get_last_acked_descriptor(timeout_conn);
 	// TODO last possible timeslice
-	failure_info.timeslice_trigger = get_up_to_timeslice_trigger(timeout_conn);
+	failure_info->timeslice_trigger = get_up_to_timeslice_trigger(timeout_conn);
 	// TODO info.timeslice_trigger = timeslice_manager_->get_last_timeslice_before_blockage(timeout_conn);
 	// TODO stop transmitting TSs until receiving an ACK
-	InputSchedulerOrchestrator::timeslice_trigger = failure_info.timeslice_trigger;
+	InputSchedulerOrchestrator::timeslice_trigger = failure_info->timeslice_trigger;
 	//-----
     }
     return failure_info;

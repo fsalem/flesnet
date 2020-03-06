@@ -3,7 +3,7 @@
 #pragma once
 
 #include "SizedMap.hpp"
-#include "HeartbeatMessage.hpp"
+#include "HeartbeatManager.hpp"
 
 #include <vector>
 #include <set>
@@ -22,7 +22,7 @@ namespace tl_libfabric
 /**
  * Singleton Heart Beat manager that DFS uses to detect the failure of a connection
  */
-class InputHeartbeatManager
+class InputHeartbeatManager : public HeartbeatManager
 {
 public:
     // Initialize the instance and retrieve it
@@ -56,12 +56,6 @@ public:
     // Mark connection as timedout
     void mark_connection_timed_out(uint32_t connection_id);
 
-    // Log sent heartbeat message
-    void log_sent_heartbeat_message(HeartbeatMessage message);
-
-    // get next message id sequence
-    uint64_t get_next_heartbeat_message_id();
-
     // Get the number of active connections
     uint32_t get_active_connection_count();
 
@@ -92,12 +86,6 @@ private:
     // The singleton instance for this class
     static InputHeartbeatManager* instance_;
 
-    // Compute process index
-    uint32_t index_;
-
-    // The number of input connections
-    uint32_t connection_count_;
-
     // Time of the last received message from a connection
     std::vector<ConnectionHeartbeatInfo*> connection_heartbeat_time_;
 
@@ -106,16 +94,5 @@ private:
 
     // List of the inactive connections
     std::set<uint32_t> inactive_connection_;
-
-    // Sent message log
-    std::set<HeartbeatMessage> heartbeat_message_log_;
-
-    // The log directory
-    std::string log_directory_;
-
-    bool enable_logging_;
-
-    // LOGGING
-
 };
 }

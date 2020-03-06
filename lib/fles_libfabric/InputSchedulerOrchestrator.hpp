@@ -124,7 +124,7 @@ public:
     static void mark_connection_timed_out(uint32_t connection_id);
 
     // Log sent heartbeat message
-    static void log_sent_heartbeat_message(HeartbeatMessage message);
+    static void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
 
     // get next message id sequence
     static uint64_t get_next_heartbeat_message_id();
@@ -136,7 +136,7 @@ public:
     static uint32_t get_timeout_connection_count();
 
 //// Methods combine data from different objects
-    static HeartbeatFailedNodeInfo get_timed_out_connection(int32_t timeout_conn = -1);
+    static HeartbeatFailedNodeInfo* get_timed_out_connection(int32_t timeout_conn = -1);
 
     // TODO TO BE REMOVED
     static uint64_t timeslice_trigger;

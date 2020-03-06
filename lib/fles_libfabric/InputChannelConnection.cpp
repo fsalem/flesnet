@@ -92,8 +92,11 @@ bool InputChannelConnection::send_data(struct iovec* sge, void** desc,
     if (last_timeslice_info.first != cn_wp_data){
     	L_(fatal) << "Incorrect cn_wp_data before sending timeslice " << timeslice
     		    << " to " << index_ << "--------- ts " << timeslice
-		    << " cn_wp_.data = " << cn_wp_.data << " cn_wp_pending_.data = " << cn_wp_pending_.data
-    	            << " last_timeslice_info.first = " << last_timeslice_info.first;
+		    << " cn_wp_.data = " << cn_wp_.data << " cn_wp_.desc = " << cn_wp_.desc
+		    << " cn_wp_pending_.data = " << cn_wp_pending_.data << " cn_wp_pending_.desc = " << cn_wp_pending_.desc
+    	            << " last_timeslice_info.first = " << last_timeslice_info.first
+		    << " last_timeslice_info.second = " << last_timeslice_info.second;
+
     	assert(false);
     }
     cn_wp_data += skip;
@@ -617,26 +620,32 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     }
     if (done_) return;
     
-    // heartbeat message is either ACK of inactive conn or request for info about failed connection
-    if (!recv_heartbeat_message_.ack){// request message about information of a connection
-	assert(recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE);
-	HeartbeatFailedNodeInfo failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
-	send_heartbeat(recv_heartbeat_message_.message_id, &failed_conn, true);
+    HeartbeatFailedNodeInfo* failed_conn = nullptr;
+
+    // heartbeat message request for info about failed connection
+    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
+	    recv_heartbeat_message_.failure_info.timeslice_trigger == ConstVariables::MINUS_ONE){
+	failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
     }
     // Info to start re-distribution
-    if (recv_heartbeat_message_.ack &&
-	    recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE){
+    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
+	    recv_heartbeat_message_.failure_info.timeslice_trigger != ConstVariables::MINUS_ONE){
 	InputSchedulerOrchestrator::consider_reschedule_decision(recv_heartbeat_message_.failure_info);
     }
 
     InputSchedulerOrchestrator::log_heartbeat(index_);
 
+    if (!recv_heartbeat_message_.ack)
+	send_heartbeat(recv_heartbeat_message_.message_id, failed_conn, true);
+
     post_recv_heartbeat_message();
 }
 
-void InputChannelConnection::update_cn_wp_after_failure_action(){
+void InputChannelConnection::update_cn_wp_after_failure_action(uint32_t failed_connection_id){
     std::pair<uint64_t, uint64_t> last_transmitted_timeslice_info = InputSchedulerOrchestrator::get_data_and_desc_of_last_timeslice(index_);
     std::pair<uint64_t, uint64_t> last_rdma_acked_timeslice_info = InputSchedulerOrchestrator::get_data_and_desc_of_last_rdma_acked_timeslice(index_);
+    L_(info) << "[" << index_ << "] update_cn_wp_after_failure_action last transmitted " << last_transmitted_timeslice_info.first << "," << last_transmitted_timeslice_info.second
+	     << " last rdma " << last_rdma_acked_timeslice_info.first << "," << last_rdma_acked_timeslice_info.second;
     if (last_rdma_acked_timeslice_info.first < cn_wp_.data){
 	L_(debug) << "[c" << remote_index_ << "] "
   		  << "[" << index_ << "] "
@@ -662,6 +671,7 @@ void InputChannelConnection::update_cn_wp_after_failure_action(){
 	data_acked_ = true;
     }
     send_status_message_.sync_after_scheduling_decision = true;
+    send_status_message_.failed_index = failed_connection_id;
     try_sync_buffer_positions();
 }
 

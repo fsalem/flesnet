@@ -108,7 +108,7 @@ public:
     void ack_complete_interval_info();
 
     /// update the cn_wp after scheduler redistribution decision
-    void update_cn_wp_after_failure_action();
+    void update_cn_wp_after_failure_action(uint32_t failed_connection_id);
 
     void add_timeslice_data_address(uint64_t data_size, uint64_t desc_size);
 
