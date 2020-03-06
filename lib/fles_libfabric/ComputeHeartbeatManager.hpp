@@ -4,7 +4,7 @@
 
 #include "ConstVariables.hpp"
 #include "SizedMap.hpp"
-#include "HeartbeatMessage.hpp"
+#include "HeartbeatManager.hpp"
 
 #include <vector>
 #include <set>
@@ -23,7 +23,7 @@ namespace tl_libfabric
 /**
  * Singleton Heart Beat manager that DFS uses to detect the failure of a connection
  */
-class ComputeHeartbeatManager
+class ComputeHeartbeatManager : public HeartbeatManager
 {
 public:
     // Initialize the instance and retrieve it
@@ -36,14 +36,20 @@ public:
     // log the arrival of failure node message
     HeartbeatFailedNodeInfo* log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info);
 
+    // Check whether a connection is marked as timeout
+    bool is_connection_timeout(uint32_t connection_id);
+
+    // Check whether a decision is ready for a failed connection
+    bool is_decision_ready(uint32_t failed_connection_id);
+
     // A list of input connections to inform about a compute node failure <failed node, list of connections>
     std::pair<uint32_t, std::set<uint32_t>> retrieve_missing_info_from_connections();
 
-    // Get a decision about a failed compute node to broadcast to input nodes
-    HeartbeatFailedNodeInfo* get_decision_to_broadcast();
+    // Get a decision about a particular failed compute node
+    HeartbeatFailedNodeInfo* get_decision_of_failed_connection(uint32_t failed_connection_id);
 
     // Log the acknowledge of receiving a decision
-    void log_decision_ack(uint32_t connection_id);
+    void log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id);
 
     // Log when the finalize message is sent
     void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
@@ -80,20 +86,11 @@ private:
     // The singleton instance for this class
     static ComputeHeartbeatManager* instance_;
 
-    // Compute process index
-    uint32_t index_;
-
-    // The number of input connections
-    uint32_t connection_count_;
-
     // A list of a failed node and the response of each input node
     SizedMap<uint32_t, std::vector<FailureRequestedInfo*>*> collected_failure_info_;
 
     // The decisions that are still in the collection process <failed node, collected count>
     SizedMap<uint32_t, uint32_t> collected_decisions_count_;
-
-    // A list of completed decisions but not broadcasted yet <failed node, decision>
-    std::vector<HeartbeatFailedNodeInfo*> pending_completed_decisions_;
 
     SizedMap<uint32_t, HeartbeatFailedNodeInfo*> completed_decisions_log_;
 
@@ -103,13 +100,6 @@ private:
     // Monitor the acknowledgment of the ACK messages when finalize message is sent
     // With RxM, sometimes the ack completion events are not received if the remote connection is already closed!
     SizedMap<uint32_t, FinalizeConnectionInfo*> finalize_connection_log_;
-
-    // The log directory
-    std::string log_directory_;
-
-    bool enable_logging_;
-
-    // LOGGING
 
 };
 }
