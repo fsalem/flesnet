@@ -488,7 +488,27 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
     case ID_HEARTBEAT_RECEIVE_STATUS: {
 	int cn = wr_id >> 8;
+
+// TODO TO be written in a better way
+	// Check whether a decision is ready after this message to broadcast
+	const HeartbeatMessage recv_heartbeat_message = conn_[cn]->recv_heartbeat_message();
+	bool before_failed_node_decision_taken = false, after_failed_node_decision_taken = false;
+	if (recv_heartbeat_message.failure_info.index != ConstVariables::MINUS_ONE)
+	    before_failed_node_decision_taken = DDSchedulerOrchestrator::is_failed_node_decision_ready(recv_heartbeat_message.failure_info.index);
+
 	conn_[cn]->on_complete_heartbeat_recv();
+
+	if (recv_heartbeat_message.failure_info.index != ConstVariables::MINUS_ONE)
+	    after_failed_node_decision_taken = DDSchedulerOrchestrator::is_failed_node_decision_ready(recv_heartbeat_message.failure_info.index);
+
+	if (!before_failed_node_decision_taken && after_failed_node_decision_taken){
+	    HeartbeatFailedNodeInfo* failednode_info = DDSchedulerOrchestrator::get_decision_of_failed_connection(recv_heartbeat_message.failure_info.index);
+	    assert(failednode_info != nullptr);
+	    for (auto& connection : conn_){
+		connection->send_heartbeat(DDSchedulerOrchestrator::get_next_heartbeat_message_id(), failednode_info);
+		DDSchedulerOrchestrator::log_sent_heartbeat_message(connection->index(), connection->get_send_heartbeat_message());
+	    }
+	}
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {
@@ -587,23 +607,17 @@ void TimesliceBuilder::process_completed_timeslices(){
 }
 
 void TimesliceBuilder::sync_heartbeat(){
-    HeartbeatFailedNodeInfo* decision = DDSchedulerOrchestrator::get_decision_to_broadcast();
-    if (decision != nullptr){
-	for (auto& conn:conn_){
-	    // TODO check message id
-	    conn->send_heartbeat(1, decision, true);
-	}
-    }else{
-	std::pair<uint32_t, std::set<uint32_t>> missing_info = DDSchedulerOrchestrator::retrieve_missing_info_from_connections();
-	if (missing_info.first != ConstVariables::MINUS_ONE){
-	    decision = new HeartbeatFailedNodeInfo();
-	    decision->index = missing_info.first;
-	    std::set<uint32_t>::iterator it = missing_info.second.begin();
-	    while (it != missing_info.second.end()){
-		conn_[*it]->send_heartbeat(2, decision);
-		++it;
-
-	    }
+    std::pair<uint32_t, std::set<uint32_t>> missing_info = DDSchedulerOrchestrator::retrieve_missing_info_from_connections();
+    if (missing_info.first != ConstVariables::MINUS_ONE){
+	HeartbeatFailedNodeInfo* decision = new HeartbeatFailedNodeInfo();
+	decision->index = missing_info.first;
+	decision->last_completed_desc = ConstVariables::MINUS_ONE;
+	decision->timeslice_trigger = ConstVariables::MINUS_ONE;
+	std::set<uint32_t>::iterator it = missing_info.second.begin();
+	while (it != missing_info.second.end()){
+	    conn_[*it]->send_heartbeat(DDSchedulerOrchestrator::get_next_heartbeat_message_id(), decision);
+	    DDSchedulerOrchestrator::log_sent_heartbeat_message(conn_[*it]->index(), conn_[*it]->get_send_heartbeat_message());
+	    ++it;
 	}
     }
 
