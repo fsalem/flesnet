@@ -160,8 +160,7 @@ void InputChannelSender::sync_heartbeat()
 	std::vector<uint32_t> inactive_conns = InputSchedulerOrchestrator::retrieve_new_inactive_connections();
 	for (uint32_t inactive: inactive_conns){
 	    if (!conn_[inactive]->done()){
-		conn_[inactive]->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id());
-		InputSchedulerOrchestrator::log_sent_heartbeat_message(inactive, conn_[inactive]->get_send_heartbeat_message());
+		conn_[inactive]->send_heartbeat();
 	    }
 	}
     }else{ // Send timeout message to all active connections
@@ -170,8 +169,7 @@ void InputChannelSender::sync_heartbeat()
 		mark_connection_completed(conn->index());
 	    }else{
 		if (!InputSchedulerOrchestrator::is_connection_timed_out(conn->index()) && !conn->done()){
-		    conn->send_heartbeat(InputSchedulerOrchestrator::get_next_heartbeat_message_id(), failed_connection);
-		    InputSchedulerOrchestrator::log_sent_heartbeat_message(conn->index(), conn->get_send_heartbeat_message());
+		    conn->send_heartbeat(failed_connection);
 		}
 	    }
 	}

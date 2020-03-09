@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "SchedulerOrchestrator.hpp"
 #include "InputHeartbeatManager.hpp"
 #include "InputIntervalScheduler.hpp"
 #include "InputTimesliceManager.hpp"
@@ -17,7 +18,7 @@ namespace tl_libfabric
 /**
  * Singleton and Facade layer of the Input Scheduler that could be used in InputChannelSender and InputChannelConnections
  */
-class InputSchedulerOrchestrator
+class InputSchedulerOrchestrator : public SchedulerOrchestrator
 {
 public:
 ////Common Methods
@@ -122,12 +123,6 @@ public:
 
     // Mark connection as timedout
     static void mark_connection_timed_out(uint32_t connection_id);
-
-    // Log sent heartbeat message
-    static void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
-
-    // get next message id sequence
-    static uint64_t get_next_heartbeat_message_id();
 
     // Get the number of active connections
     static uint32_t get_active_connection_count();

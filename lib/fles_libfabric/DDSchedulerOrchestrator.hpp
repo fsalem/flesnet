@@ -6,6 +6,7 @@
 #include "DDScheduler.hpp"
 #include "ComputeTimesliceManager.hpp"
 #include "ComputeHeartbeatManager.hpp"
+#include "SchedulerOrchestrator.hpp"
 
 
 namespace tl_libfabric
@@ -13,7 +14,7 @@ namespace tl_libfabric
 /**
  *  Facade layer of Distributed Deterministic Scheduler for compute nodes
  */
-class DDSchedulerOrchestrator
+class DDSchedulerOrchestrator : public SchedulerOrchestrator
 {
 public:
 //// Common Methods
@@ -83,12 +84,6 @@ public:
 
     // Log when the finalize message is sent
     static void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
-
-    // Log sent heartbeat message
-    static void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
-
-    // get next message id sequence
-    static uint64_t get_next_heartbeat_message_id();
 
     // Retrieve Connections that are not received any finalize ACK for a timeout period
     static std::vector<uint32_t> retrieve_long_waiting_finalized_connections();

@@ -20,7 +20,7 @@
 namespace tl_libfabric
 {
 /**
- * Singleton Heart Beat manager that DFS uses to detect the failure of a connection
+ * Singleton Heartbeat manager that DFS uses to detect the failure of a connection
  */
 class HeartbeatManager
 {
@@ -32,16 +32,28 @@ public:
     // get next message id sequence
     uint64_t get_next_heartbeat_message_id();
 
-    //Generate log files of the stored data
-    //virtual void generate_log_files() = 0;
-
 protected:
 
     struct HeartbeatMessageInfo{
-	std::chrono::high_resolution_clock::time_point transmit_time;
 	HeartbeatMessage message;
+	std::chrono::high_resolution_clock::time_point transmit_time;
 	bool acked = false;
 	uint32_t dest_connection;
+
+	bool operator< (const HeartbeatMessageInfo &right) const
+	{
+	    return message.message_id < right.message.message_id;
+	}
+
+	bool operator> (const HeartbeatMessageInfo &right) const
+	{
+	    return message.message_id > right.message.message_id;
+	}
+
+	bool operator== (const HeartbeatMessageInfo &right) const
+	{
+	    return message.message_id == right.message.message_id;
+	}
     };
 
    HeartbeatManager(uint32_t index, uint32_t init_connection_count,
@@ -54,10 +66,17 @@ protected:
     uint32_t connection_count_;
 
     // Sent message log
-    std::set<HeartbeatMessageInfo*> heartbeat_message_log_;
+    std::set<HeartbeatMessageInfo> heartbeat_message_log_;
+
+    // Pending heartbeat messages to send
+
 
     // The log directory
     std::string log_directory_;
+
+    // TODO
+    // Max history size of the logs
+    uint64_t max_history_size_;
 
     bool enable_logging_;
 };

@@ -312,7 +312,7 @@ void ComputeNodeConnection::on_complete_recv()
     }
     if (recv_status_message_.sync_after_scheduling_decision){
 	for (uint64_t desc = recv_status_message_.wp.desc ; desc < cn_wp_.desc ; ++desc){
-	    L_(debug) << "[c" << remote_index_ << "] "
+	    L_(info) << "[c" << remote_index_ << "] "
 		      << "[" << index_ << "] "
 		      << "COMPLETE RECEIVE status message"
 		      << " undo " << desc;
@@ -439,7 +439,7 @@ void ComputeNodeConnection::on_complete_heartbeat_recv(){
     }
 
     if (!recv_heartbeat_message_.ack)
-	send_heartbeat(recv_heartbeat_message_.message_id, failednode_info, true);
+	send_heartbeat(failednode_info, recv_heartbeat_message_.message_id, true);
     post_recv_heartbeat_message();
 }
 }

@@ -636,7 +636,7 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     InputSchedulerOrchestrator::log_heartbeat(index_);
 
     if (!recv_heartbeat_message_.ack)
-	send_heartbeat(recv_heartbeat_message_.message_id, failed_conn, true);
+	send_heartbeat(failed_conn, recv_heartbeat_message_.message_id, true);
 
     post_recv_heartbeat_message();
 }

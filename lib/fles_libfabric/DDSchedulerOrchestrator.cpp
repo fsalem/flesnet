@@ -24,8 +24,7 @@ void DDSchedulerOrchestrator::initialize(uint32_t scheduler_index,
 	log_directory, enable_logging);
     heartbeat_manager_ = ComputeHeartbeatManager::get_instance(scheduler_index, input_scheduler_count,
 	    log_directory, enable_logging);
-
-
+    SchedulerOrchestrator::initialize(heartbeat_manager_);
 }
 
 void DDSchedulerOrchestrator::update_clock_offset(uint32_t input_index, std::chrono::high_resolution_clock::time_point local_time, const uint64_t median_latency, const uint64_t interval_index){
@@ -104,13 +103,6 @@ void DDSchedulerOrchestrator::log_finalize_connection(uint32_t connection_id, bo
     heartbeat_manager_->log_finalize_connection(connection_id, ack_received);
 }
 
-void DDSchedulerOrchestrator::log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message){
-    heartbeat_manager_->log_sent_heartbeat_message(connection_id, message);
-}
-
-uint64_t DDSchedulerOrchestrator::get_next_heartbeat_message_id(){
-    return heartbeat_manager_->get_next_heartbeat_message_id();
-}
 std::vector<uint32_t> DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections(){
     return heartbeat_manager_->retrieve_long_waiting_finalized_connections();
 }

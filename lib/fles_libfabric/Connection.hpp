@@ -8,6 +8,7 @@
 #include "RequestIdentifier.hpp"
 #include "LibfabricContextPool.hpp"
 #include "HeartbeatMessage.hpp"
+#include "SchedulerOrchestrator.hpp"
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>
@@ -123,7 +124,7 @@ public:
     uint64_t total_recv_requests() const { return total_recv_requests_; }
 
     /// Send heartbeat message
-    void send_heartbeat(uint64_t message_id, HeartbeatFailedNodeInfo* failure_info = nullptr, bool ack = false);
+    void send_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr, uint64_t message_id = ConstVariables::MINUS_ONE, bool ack = false);
 
     /// Get the last state of the send_heartbeat_message
     const HeartbeatMessage get_send_heartbeat_message(){ return send_heartbeat_message_;}

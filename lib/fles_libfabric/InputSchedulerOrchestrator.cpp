@@ -13,6 +13,7 @@ void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index, uint32_t c
     interval_scheduler_ = InputIntervalScheduler::get_instance(scheduler_index, compute_conn_count, interval_length, log_directory, enable_logging);
     timeslice_manager_ = InputTimesliceManager::get_instance(scheduler_index, compute_conn_count, interval_length, log_directory, enable_logging);
     heartbeat_manager_ = InputHeartbeatManager::get_instance(scheduler_index, compute_conn_count, log_directory, enable_logging);
+    SchedulerOrchestrator::initialize(heartbeat_manager_);
 }
 
 void InputSchedulerOrchestrator::update_compute_connection_count(uint32_t compute_count){
@@ -201,14 +202,6 @@ bool InputSchedulerOrchestrator::is_connection_timed_out(uint32_t connection_id)
 
 void InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_id){
     heartbeat_manager_->mark_connection_timed_out(connection_id);
-}
-
-void InputSchedulerOrchestrator::log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message){
-    heartbeat_manager_->log_sent_heartbeat_message(connection_id, message);
-}
-
-uint64_t InputSchedulerOrchestrator::get_next_heartbeat_message_id(){
-    return heartbeat_manager_->get_next_heartbeat_message_id();
 }
 
 uint32_t InputSchedulerOrchestrator::get_active_connection_count(){
