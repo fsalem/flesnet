@@ -26,6 +26,9 @@ public:
     // get next message id sequence
     static uint64_t get_next_heartbeat_message_id();
 
+    // Acknowledge the arrival of a sent hearbeat message
+    static void acknowledge_heartbeat_message(uint64_t message_id);
+
 //// Variables
 private:
     static HeartbeatManager* heartbeat_manager_;

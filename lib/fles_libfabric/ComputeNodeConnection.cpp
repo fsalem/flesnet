@@ -440,6 +440,8 @@ void ComputeNodeConnection::on_complete_heartbeat_recv(){
 
     if (!recv_heartbeat_message_.ack)
 	send_heartbeat(failednode_info, recv_heartbeat_message_.message_id, true);
+    else
+    	SchedulerOrchestrator::acknowledge_heartbeat_message(recv_heartbeat_message_.message_id);
     post_recv_heartbeat_message();
 }
 }

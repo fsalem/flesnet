@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "SizedMap.hpp"
 #include "HeartbeatManager.hpp"
 
 #include <vector>

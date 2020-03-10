@@ -4,8 +4,8 @@
 
 #include "SizedMap.hpp"
 #include "HeartbeatMessage.hpp"
+#include "ConstVariables.hpp"
 
-#include <vector>
 #include <set>
 #include <math.h>
 #include <string>
@@ -32,28 +32,20 @@ public:
     // get next message id sequence
     uint64_t get_next_heartbeat_message_id();
 
+    // Log the time that the heartbeat message is acked
+    void ack_message_received(uint64_t messsage_id);
+
+    // Count the unacked messages of a particular connection
+    uint32_t count_unacked_messages(uint32_t connection_id);
+
 protected:
 
     struct HeartbeatMessageInfo{
 	HeartbeatMessage message;
 	std::chrono::high_resolution_clock::time_point transmit_time;
+	std::chrono::high_resolution_clock::time_point completion_time;
 	bool acked = false;
 	uint32_t dest_connection;
-
-	bool operator< (const HeartbeatMessageInfo &right) const
-	{
-	    return message.message_id < right.message.message_id;
-	}
-
-	bool operator> (const HeartbeatMessageInfo &right) const
-	{
-	    return message.message_id > right.message.message_id;
-	}
-
-	bool operator== (const HeartbeatMessageInfo &right) const
-	{
-	    return message.message_id == right.message.message_id;
-	}
     };
 
    HeartbeatManager(uint32_t index, uint32_t init_connection_count,
@@ -65,18 +57,14 @@ protected:
     // The number of input connections
     uint32_t connection_count_;
 
-    // Sent message log
-    std::set<HeartbeatMessageInfo> heartbeat_message_log_;
+    // Sent message log <message_id, message_info>
+    SizedMap<uint64_t, HeartbeatMessageInfo*> heartbeat_message_log_;
 
-    // Pending heartbeat messages to send
-
+    // Not acked messages log
+    SizedMap<uint32_t, std::set<uint64_t>*> unacked_sent_messages_;
 
     // The log directory
     std::string log_directory_;
-
-    // TODO
-    // Max history size of the logs
-    uint64_t max_history_size_;
 
     bool enable_logging_;
 };

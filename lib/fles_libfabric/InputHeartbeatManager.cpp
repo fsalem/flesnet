@@ -68,8 +68,11 @@ void InputHeartbeatManager::log_new_latency(uint32_t connection_id, uint64_t lat
 std::vector<uint32_t> InputHeartbeatManager::retrieve_new_inactive_connections(){
     std::vector<uint32_t> conns;
     for (uint32_t i = 0 ; i < connection_heartbeat_time_.size() ; i++){
-	if (check_whether_connection_inactive(i) && inactive_connection_.find(i) == inactive_connection_.end()){
-	    inactive_connection_.insert(i);
+	if (check_whether_connection_inactive(i) &&
+		count_unacked_messages(i) < ConstVariables::HEARTBEAT_INACTIVE_RETRY_COUNT){
+	    if (inactive_connection_.find(i) == inactive_connection_.end()){
+		inactive_connection_.insert(i);
+	    }
 	    conns.push_back(i);
 	}
     }
@@ -83,7 +86,9 @@ const std::set<uint32_t> InputHeartbeatManager::retrieve_timeout_connections(){
 int32_t InputHeartbeatManager::get_new_timeout_connection(){
     std::set<uint32_t>::iterator conn = inactive_connection_.begin();
     while (conn != inactive_connection_.end()){
-	if (check_whether_connection_timed_out(*conn) && timed_out_connection_.find(*conn) == timed_out_connection_.end()){
+	if (check_whether_connection_timed_out(*conn) &&
+		count_unacked_messages(*conn) >= ConstVariables::HEARTBEAT_INACTIVE_RETRY_COUNT &&
+		timed_out_connection_.find(*conn) == timed_out_connection_.end()){
 	    timed_out_connection_.insert(*conn);
 	    // remove the entry from inactive_connections
 	    inactive_connection_.erase(conn);

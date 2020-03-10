@@ -22,6 +22,10 @@ uint64_t SchedulerOrchestrator::get_next_heartbeat_message_id(){
     return heartbeat_manager_->get_next_heartbeat_message_id();
 }
 
+void SchedulerOrchestrator::acknowledge_heartbeat_message(uint64_t message_id){
+    heartbeat_manager_->ack_message_received(message_id);
+}
+
 //// Variables
 
 HeartbeatManager* SchedulerOrchestrator::heartbeat_manager_ = nullptr;
