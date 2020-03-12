@@ -89,9 +89,6 @@ int32_t InputHeartbeatManager::get_new_timeout_connection(){
 	if (check_whether_connection_timed_out(*conn) &&
 		count_unacked_messages(*conn) >= ConstVariables::HEARTBEAT_INACTIVE_RETRY_COUNT &&
 		timed_out_connection_.find(*conn) == timed_out_connection_.end()){
-	    timed_out_connection_.insert(*conn);
-	    // remove the entry from inactive_connections
-	    inactive_connection_.erase(conn);
 	    return *conn;
 	}
 	++conn;
@@ -134,13 +131,20 @@ bool InputHeartbeatManager::check_whether_connection_timed_out(uint32_t connecti
     return false;
 }
 
-void InputHeartbeatManager::mark_connection_timed_out(uint32_t connection_id){
+HeartbeatFailedNodeInfo* InputHeartbeatManager::mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc, uint64_t timeslice_trigger){
     assert (connection_id < connection_heartbeat_time_.size());
-    if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()) return;
+    if (timed_out_connection_.find(connection_id) != timed_out_connection_.end()) return timeout_node_info_.get(connection_id);
     if (inactive_connection_.find(connection_id) != inactive_connection_.end())
 	inactive_connection_.erase(inactive_connection_.find(connection_id));
 
     timed_out_connection_.insert(connection_id);
+
+    HeartbeatFailedNodeInfo* failure_info = new HeartbeatFailedNodeInfo();
+    failure_info->index = connection_id;
+    failure_info->last_completed_desc = last_desc;
+    failure_info->timeslice_trigger = timeslice_trigger;
+    timeout_node_info_.add(connection_id, failure_info);
+    return failure_info;
 }
 
 uint32_t InputHeartbeatManager::get_active_connection_count(){

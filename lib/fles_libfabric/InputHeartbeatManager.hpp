@@ -53,7 +53,7 @@ public:
     bool is_connection_timed_out(uint32_t connection_id);
 
     // Mark connection as timedout
-    void mark_connection_timed_out(uint32_t connection_id);
+    HeartbeatFailedNodeInfo* mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc, uint64_t timeslice_trigger);
 
     // Get the number of active connections
     uint32_t get_active_connection_count();
@@ -93,5 +93,8 @@ private:
 
     // List of the inactive connections
     std::set<uint32_t> inactive_connection_;
+
+    // Failed connection index and its corresponding HeartbeatFailedNodeInfo objectß
+    SizedMap<uint32_t, HeartbeatFailedNodeInfo*> timeout_node_info_;
 };
 }

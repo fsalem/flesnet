@@ -200,8 +200,8 @@ bool InputSchedulerOrchestrator::is_connection_timed_out(uint32_t connection_id)
     return heartbeat_manager_->is_connection_timed_out(connection_id);
 }
 
-void InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_id){
-    heartbeat_manager_->mark_connection_timed_out(connection_id);
+HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc, uint64_t timeslice_trigger){
+    return heartbeat_manager_->mark_connection_timed_out(connection_id, last_desc, timeslice_trigger);
 }
 
 uint32_t InputSchedulerOrchestrator::get_active_connection_count(){
@@ -215,20 +215,15 @@ uint32_t InputSchedulerOrchestrator::get_timeout_connection_count(){
 
 HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
     if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
-    else mark_connection_timed_out(timeout_conn);
 
-    HeartbeatFailedNodeInfo* failure_info = new HeartbeatFailedNodeInfo();
-    if (timeout_conn != -1){
-	failure_info->index = timeout_conn;
-	failure_info->last_completed_desc = get_last_acked_descriptor(timeout_conn);
-	// TODO last possible timeslice
-	failure_info->timeslice_trigger = get_up_to_timeslice_trigger(timeout_conn);
-	// TODO info.timeslice_trigger = timeslice_manager_->get_last_timeslice_before_blockage(timeout_conn);
+    if (timeout_conn != -1) {
+	HeartbeatFailedNodeInfo* failure_info = mark_connection_timed_out(timeout_conn,
+		get_last_acked_descriptor(timeout_conn), get_up_to_timeslice_trigger(timeout_conn));
 	// TODO stop transmitting TSs until receiving an ACK
 	InputSchedulerOrchestrator::timeslice_trigger = failure_info->timeslice_trigger;
-	//-----
+	return failure_info;
     }
-    return failure_info;
+    return new HeartbeatFailedNodeInfo();
 }
 
 //// Variables
