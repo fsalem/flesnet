@@ -29,7 +29,8 @@ void ComputeHeartbeatManager::calculate_failure_decision(uint32_t failed_node){
     }
     L_(info) << "Decision of " << decision_info->index << " desc " << decision_info->last_completed_desc << " trigger " << decision_info->timeslice_trigger;
     completed_decisions_log_.add(decision_info->index ,decision_info);
-    decision_ack_log_.add(decision_info->index, new std::set<uint32_t>());
+    if (!decision_ack_log_.contains(decision_info->index))
+	decision_ack_log_.add(decision_info->index, new std::set<uint32_t>());
 }
 
 ComputeHeartbeatManager* ComputeHeartbeatManager::get_instance(uint32_t index, uint32_t init_connection_count,
@@ -104,14 +105,14 @@ HeartbeatFailedNodeInfo* ComputeHeartbeatManager::get_decision_of_failed_connect
 }
 
 void ComputeHeartbeatManager::log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id){
-    if (decision_ack_log_.contains(failed_connection_id)){
-	// If already a completed decision is created, then this ack is redundant after deleting the entry of decision_ack_log_
-	if (completed_decisions_log_.contains(failed_connection_id)){
-	    L_(warning) << "[" << index_ << "] log_decision_ack from " << connection_id << " is received completing and deleting the decision_ack_log";
-	    return;
-	}else{ // Early decision ack is received from creating the decision on this local compute node
-	    decision_ack_log_.add(failed_connection_id, new std::set<uint32_t>());
-	}
+    // If already a completed decision is created, then this ack is redundant after deleting the entry of decision_ack_log_
+    if (completed_decisions_log_.contains(failed_connection_id)){
+	L_(warning) << "[" << index_ << "] log_decision_ack from " << connection_id << " is received completing and deleting the decision_ack_log";
+	return;
+    }
+    // Early decision ack is received from creating the decision on this local compute node
+    if (!decision_ack_log_.contains(failed_connection_id)){
+	decision_ack_log_.add(failed_connection_id, new std::set<uint32_t>());
     }
 
     std::set<uint32_t>* ack_list = decision_ack_log_.get(failed_connection_id);
