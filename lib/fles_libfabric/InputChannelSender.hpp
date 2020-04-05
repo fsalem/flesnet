@@ -199,6 +199,7 @@ private:
     // LOGGING
     std::map<uint64_t, std::chrono::high_resolution_clock::time_point> ts_transmit_time_;
     std::map<uint64_t, double> ts_rdma_ack_duration_;
+    std::vector<uint64_t> next_ts_;
     //
 	void generate_log_files();
     //

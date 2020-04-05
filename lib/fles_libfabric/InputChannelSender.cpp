@@ -41,6 +41,9 @@ InputChannelSender::InputChannelSender(
     } else {
         connection_oriented_ = false;
     }
+    next_ts_.resize(compute_hostnames.size());
+    for (int i=0 ; i<next_ts_.size() ; i++)
+    	next_ts_[i] = i;
 }
 
 InputChannelSender::~InputChannelSender()
@@ -218,14 +221,21 @@ void InputChannelSender::operator()()
         sync_buffer_positions();
         sync_data_source(true);
         report_status();
+        uint32_t cur_index = 0;
         while (timeslice < max_timeslice_number_ && !abort_) {
-            if (try_send_timeslice(timeslice)) {
+            /*if (try_send_timeslice(timeslice)) {
             	ts_transmit_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(timeslice, std::chrono::high_resolution_clock::now()));
                 timeslice++;
+            }*/
+            if (next_ts_[cur_index] < max_timeslice_number_ && try_send_timeslice(next_ts_[cur_index])) {
+            	ts_transmit_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(next_ts_[cur_index], std::chrono::high_resolution_clock::now()));
+                timeslice++;
+                next_ts_[cur_index] += conn_.size();
             }
             poll_completion();
             data_source_.proceed();
             scheduler_.timer();
+            cur_index = (cur_index+1)%conn_.size();
         }
 
         // wait for pending send completions
