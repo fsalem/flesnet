@@ -8,6 +8,8 @@
 #include <chrono>
 #include <log.hpp>
 #include <rdma/fi_domain.h>
+#include <iomanip>
+#include <fstream>
 
 namespace tl_libfabric
 {
@@ -218,6 +220,7 @@ void InputChannelSender::operator()()
         report_status();
         while (timeslice < max_timeslice_number_ && !abort_) {
             if (try_send_timeslice(timeslice)) {
+            	ts_transmit_time_.insert(std::pair<uint64_t, std::chrono::high_resolution_clock::time_point>(timeslice, std::chrono::high_resolution_clock::now()));
                 timeslice++;
             }
             poll_completion();
@@ -254,6 +257,7 @@ void InputChannelSender::operator()()
             poll_cm_events();
         }
 
+        generate_log_files();
         summary();
     } catch (std::exception& e) {
         L_(fatal) << "exception in InputChannelSender: " << e.what();
@@ -536,6 +540,13 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
 
+        std::map<uint64_t, std::chrono::high_resolution_clock::time_point>::iterator transmit_time = ts_transmit_time_.find(ts);
+        assert (transmit_time != ts_transmit_time_.end());
+        double dur = std::chrono::duration_cast<std::chrono::microseconds>(
+        			std::chrono::high_resolution_clock::now() - transmit_time->second)
+                                     .count();
+        ts_rdma_ack_duration_.insert(std::pair<uint64_t, double>(ts, dur));
+
         uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
         if (ts != acked_ts) {
             // transmission has been reordered, store completion information
@@ -600,4 +611,28 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         throw LibfabricException("wc for unknown wr_id");
     }
 }
+
+void InputChannelSender::generate_log_files(){
+    /////////////////////////////////////////////////////////////////
+
+    std::ofstream block_log_file;
+    block_log_file.open(std::to_string(input_index_)+".input.ts_info.out");
+
+    block_log_file << std::setw(25) << "Timeslice"
+        << std::setw(25) << "Compute Index"
+        << std::setw(25) << "RDMA ACK duration" << "\n";
+
+    std::map<uint64_t, double>::iterator it = ts_rdma_ack_duration_.begin();
+
+    while (it != ts_rdma_ack_duration_.end()){
+        block_log_file << std::setw(25) << it->first
+                << std::setw(25) << target_cn_index(it->first)
+                << std::setw(25) << it->second
+                << "\n";
+        it++;
+    }
+    block_log_file.flush();
+    block_log_file.close();
+}
+
 }

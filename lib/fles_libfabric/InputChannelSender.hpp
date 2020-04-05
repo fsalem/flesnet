@@ -14,6 +14,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace tl_libfabric
 {
@@ -194,5 +195,12 @@ private:
 
     SendBufferStatus previous_send_buffer_status_desc_ = SendBufferStatus();
     SendBufferStatus previous_send_buffer_status_data_ = SendBufferStatus();
+
+    // LOGGING
+    std::map<uint64_t, std::chrono::high_resolution_clock::time_point> ts_transmit_time_;
+    std::map<uint64_t, double> ts_rdma_ack_duration_;
+    //
+	void generate_log_files();
+    //
 };
 }
