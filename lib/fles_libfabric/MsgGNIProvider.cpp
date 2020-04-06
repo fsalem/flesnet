@@ -34,15 +34,7 @@ struct fi_info* MsgGNIProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    /*hints->caps =
-        FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
-    hints->ep_attr->type = FI_EP_MSG;
-    hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
-    hints->domain_attr->threading = FI_THREAD_SAFE;
-    hints->domain_attr->mr_mode = FI_MR_BASIC;
-    hints->fabric_attr->prov_name = strdup("gni");*/
-
-    int res = fi_getinfo(FI_VERSION(1, 1), local_host_name.c_str(), nullptr, 0,
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
                          hints, &info);
 
     if (!res) {
@@ -75,7 +67,7 @@ void MsgGNIProvider::accept(struct fid_pep* pep,
     struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "gni");
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FI_VERSION(1, 1), hostname.c_str(), port_s.c_str(),
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
                          FI_SOURCE, hints, &accept_info);
 
     if (res) {
@@ -125,17 +117,9 @@ void MsgGNIProvider::connect(fid_ep* ep, uint32_t /*max_send_wr*/,
         const void* param, size_t param_len,
         void* addr)
 {
-	uint32_t count = 0;
-
-	int res = 1;
-	while (count < MAX_CONNECT_RETRY && res){
-		res = fi_connect(ep, addr, param, param_len);
-		if (res) {
-			L_(warning) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
-		}
-		count++;
-	}
+	int res = fi_connect(ep, addr, param, param_len);
 	if (res) {
+		L_(fatal) << "fi_connect failed: " << res << "=" << fi_strerror(-res);
 		throw LibfabricException("fi_connect failed");
 	}
 }

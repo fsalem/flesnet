@@ -1,5 +1,4 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
-
 #pragma once
 
 #include <memory>
@@ -13,23 +12,23 @@
 namespace tl_libfabric
 {
 
-class MsgGNIProvider : public Provider
+class RxMVerbsProvider : public Provider
 {
     struct fi_info* info_ = nullptr;
     struct fid_fabric* fabric_ = nullptr;
 
 public:
-    MsgGNIProvider(struct fi_info* info);
+    RxMVerbsProvider(struct fi_info* info);
 
-    MsgGNIProvider(const MsgGNIProvider&) = delete;
-    void operator=(const MsgGNIProvider&) = delete;
+    RxMVerbsProvider(const RxMVerbsProvider&) = delete;
+    void operator=(const RxMVerbsProvider&) = delete;
 
-    /// The GNIProvider default destructor.
-    ~MsgGNIProvider();
+    /// The RxMVerbsProvider default destructor.
+    ~RxMVerbsProvider();
 
-    virtual bool has_av() const { return false; };
-    virtual bool has_eq_at_eps() const { return true; };
-    virtual bool is_connection_oriented() const { return true; };
+    virtual bool has_av() const { return true; };
+    virtual bool has_eq_at_eps() const { return false; };
+    virtual bool is_connection_oriented() const { return false; };
 
     struct fi_info* get_info() override
     {
@@ -38,9 +37,9 @@ public:
     }
 
     virtual void set_hostnames_and_services(
-        struct fid_av* /*av*/, const std::vector<std::string>& /*compute_hostnames*/,
-        const std::vector<std::string>& /*compute_services*/,
-        std::vector<fi_addr_t>& /*fi_addrs*/) override{};
+        struct fid_av* av, const std::vector<std::string>& compute_hostnames,
+        const std::vector<std::string>& compute_services,
+        std::vector<fi_addr_t>& fi_addrs) override;
 
     struct fid_fabric* get_fabric() override { return fabric_; };
 
