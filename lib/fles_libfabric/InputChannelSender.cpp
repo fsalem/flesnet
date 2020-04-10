@@ -174,6 +174,7 @@ void InputChannelSender::sync_heartbeat()
 	    }
 	}
     }
+    // TODO 1 second?
     scheduler_.add(std::bind(&InputChannelSender::sync_heartbeat, this), std::chrono::system_clock::now() + std::chrono::seconds(1));
 }
 

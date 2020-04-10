@@ -71,6 +71,9 @@ uint64_t InputIntervalScheduler::get_last_timeslice_to_send(){
 	     << " count_acked_ts " << current_interval->count_acked_ts
 	     << " start_ts " << current_interval->start_ts
 	     << " end_ts " << current_interval->end_ts;
+    if (current_interval->count_sent_ts == 0 &&
+	    current_interval->proposed_start_time > std::chrono::high_resolution_clock::now())
+	return current_interval->index > 0 ? current_interval->start_ts - 1 : 0;
     uint64_t next_round = get_interval_expected_round_index(current_interval->index)+1;
     return std::min(current_interval->start_ts + (next_round*current_interval->num_ts_per_round) - 1, current_interval->end_ts);
 }
@@ -216,7 +219,7 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
 		    (interval_info->sum_input_blockage_durations_[i] != 0 ? interval_info->sum_input_blockage_durations_[i] : 1);
 
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
-	    interval_info->actual_start_time,interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
+	    interval_info->actual_start_time, interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
     if (true){
 	// TODO remove
 	std::string IB = "", CB = "", diff = "";
