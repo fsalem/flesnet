@@ -272,7 +272,7 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
 
 
-    if (interval_dur_mean_difference >= 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
+    if (speedup_percentage_ > 0 && interval_dur_mean_difference >= 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
 	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
 	speedup_interval_index_ = interval_index;
 	if (true)
@@ -303,7 +303,7 @@ uint64_t DDScheduler::get_duration_statistics(uint64_t interval_index, bool aver
     for (uint32_t i = 1; i<input_connection_count_ ; i++) {
 	tmp_duration = input_scheduler_info_[i]->interval_info_.get(interval_index).interval_duration;
 	if (min_duration > tmp_duration) min_duration = tmp_duration;
-	if (max_duration > tmp_duration) max_duration = tmp_duration;
+	if (max_duration < tmp_duration) max_duration = tmp_duration;
     }
     if (average) return (min_duration + max_duration)/2;
     return min ? min_duration : max_duration;
