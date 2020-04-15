@@ -249,7 +249,9 @@ uint64_t InputIntervalScheduler::get_expected_sent_ts_count(uint64_t interval){
     if (current_interval->duration_per_ts == 0)return (current_interval->end_ts-current_interval->start_ts+1);
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     if (now < current_interval->actual_start_time) return 0;
-    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts;
+    uint64_t max_interval_ts_count = current_interval->end_ts - current_interval->start_ts + 1;
+    return std::min(max_interval_ts_count,
+	    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts);
 }
 
 uint64_t InputIntervalScheduler::get_interval_expected_round_index(uint64_t interval){

@@ -376,21 +376,25 @@ std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(Heartb
 	failed_conn_desc_timeslice_info->remove(failed_conn_desc_timeslice_info->get_begin_iterator()->first);
     }
 
-    L_(debug) << "Number of failed timeslices is " << failed_timeslice->size() << " trigger timeslice " << failed_node_info.timeslice_trigger << " ... [0] " << *failed_timeslice->begin()
+	// TODO REMOVE
+    if (!failed_timeslice->empty())
+	L_(debug) << "Number of failed timeslices is " << failed_timeslice->size() << " trigger timeslice " << failed_node_info.timeslice_trigger << " ... [0] " << *failed_timeslice->begin()
 	     << " [n-1] " << *(--failed_timeslice->end());
 
     // Distribute failed_timeslices over other active connections in a temporary array
-    std::vector<std::set<uint64_t>*> movable_ts(compute_count_, nullptr);
-    uint32_t compute_index = 0;
-    while (!failed_timeslice->empty()){
-	while (timeout_connections.find(compute_index) != timeout_connections.end()) compute_index = (compute_index+1)%compute_count_;
-	if (movable_ts[compute_index] == nullptr) movable_ts[compute_index] = new std::set<uint64_t>();
-	movable_ts[compute_index]->insert((*failed_timeslice->begin()));
-	//L_(info) << "ts "<< (*failed_timeslice->begin()) << " of CN " << failed_node_info.index << " moved to " << compute_index;
-	failed_timeslice->erase((*failed_timeslice->begin()));
-	compute_index = (compute_index+1)%compute_count_;
+    if (!failed_timeslice->empty()){
+	std::vector<std::set<uint64_t>*> movable_ts(compute_count_, nullptr);
+	uint32_t compute_index = 0;
+	while (!failed_timeslice->empty()){
+	    while (timeout_connections.find(compute_index) != timeout_connections.end()) compute_index = (compute_index+1)%compute_count_;
+	    if (movable_ts[compute_index] == nullptr) movable_ts[compute_index] = new std::set<uint64_t>();
+	    movable_ts[compute_index]->insert((*failed_timeslice->begin()));
+	    //L_(info) << "ts "<< (*failed_timeslice->begin()) << " of CN " << failed_node_info.index << " moved to " << compute_index;
+	    failed_timeslice->erase((*failed_timeslice->begin()));
+	    compute_index = (compute_index+1)%compute_count_;
+	}
+	to_be_moved_timeslices_.add(failed_node_info.timeslice_trigger, movable_ts);
     }
-    to_be_moved_timeslices_.add(failed_node_info.timeslice_trigger, movable_ts);
 
     redistribution_decisions_log_.add(failed_node_info.index, failed_node_info.timeslice_trigger);
     for (uint32_t i=0 ; i < compute_count_ ; ++i){

@@ -101,7 +101,7 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
     }
 
     uint64_t avg_latency = timeslice_manager_->acknowledge_timeslices_completion(compute_index, up_to_descriptor_id);
-    if (avg_latency > 0) heartbeat_manager_->log_new_latency(compute_index, avg_latency);
+    // TODO if (avg_latency > 0) heartbeat_manager_->log_new_latency(compute_index, avg_latency);
 }
 
 bool InputSchedulerOrchestrator::is_timeslice_rdma_acked(uint32_t compute_index, uint64_t timeslice){
@@ -214,6 +214,8 @@ uint32_t InputSchedulerOrchestrator::get_timeout_connection_count(){
 //// Methods combine data from different objects
 
 HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
+    if (timeout_conn != -1 && is_decision_considered(timeout_conn))
+	return new HeartbeatFailedNodeInfo(timeout_conn);
     if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
 
     if (timeout_conn != -1) {
@@ -263,11 +265,13 @@ uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(uint32_t failed
     InputIntervalInfo current_interval = interval_scheduler_->get_current_interval_info();
     uint64_t failed_compute_timeslices = timeslice_manager_->count_unacked_timeslices_of_interval(failed_compute_index, current_interval.start_ts, current_interval.end_ts)
 	    + timeslice_manager_->count_future_timeslices_of_interval(failed_compute_index, current_interval.start_ts, current_interval.end_ts);
-    uint64_t ack_sent_remaining_gap = interval_scheduler_->get_ack_sent_remaining_gap(current_interval.index);
-    L_(debug) << "failed_compute_timeslices " << failed_compute_timeslices << " ack_sent_remaining_gap " << ack_sent_remaining_gap << " up to " << timeslice;
-    if (failed_compute_timeslices >= ack_sent_remaining_gap){
-	return std::min(timeslice, current_interval.end_ts);
-    }
-    return timeslice;
+    if (failed_compute_timeslices == 0)return timeslice;
+    return std::min(timeslice, current_interval.end_ts);
+    //uint64_t ack_sent_remaining_gap = interval_scheduler_->get_ack_sent_remaining_gap(current_interval.index);
+    //L_(debug) << "failed_compute_timeslices " << failed_compute_timeslices << " ack_sent_remaining_gap " << ack_sent_remaining_gap << " up to " << timeslice;
+    //if (failed_compute_timeslices >= ack_sent_remaining_gap){
+	//return std::min(timeslice, current_interval.end_ts);
+    //}
+    //return timeslice;
 }
 }

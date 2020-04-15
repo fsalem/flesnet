@@ -18,6 +18,7 @@ struct HeartbeatFailedNodeInfo {
     uint64_t timeslice_trigger = ConstVariables::MINUS_ONE;
 
     HeartbeatFailedNodeInfo(){}
+    HeartbeatFailedNodeInfo(uint32_t index): index(index){}
     HeartbeatFailedNodeInfo(uint32_t index, uint64_t desc, uint64_t trigger):
 	index(index), last_completed_desc(desc), timeslice_trigger(trigger){}
     bool operator< (const HeartbeatFailedNodeInfo &right) const
