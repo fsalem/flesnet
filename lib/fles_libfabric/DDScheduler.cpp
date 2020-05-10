@@ -55,10 +55,10 @@ void DDScheduler::add_actual_meta_data(uint32_t input_index, IntervalMetaData me
 
     if (input_scheduler_info_[input_index]->interval_info_.contains(meta_data.interval_index)) return;
     /// TODO REMOVE
-    L_(info) << "[" << input_index << "][" << meta_data.interval_index << "] add_actual_meta_data, compute count " << meta_data.compute_node_count;
-    for (int i=0 ; i<meta_data.compute_node_count ; i++){
-	L_(info) << "[" << input_index << "][" << meta_data.interval_index << "] add_actual_meta_data, blockage[" << i<< "] " << meta_data.compute_nodes_distribution[i];
-    }
+    //L_(info) << "[" << input_index << "][" << meta_data.interval_index << "] add_actual_meta_data, compute count " << meta_data.compute_node_count;
+    //for (int i=0 ; i<meta_data.compute_node_count ; i++){
+    //	L_(info) << "[" << input_index << "][" << meta_data.interval_index << "] add_actual_meta_data, blockage[" << i<< "] " << meta_data.compute_nodes_distribution[i];
+    //}
     ///
 
     meta_data.start_time += std::chrono::microseconds(input_scheduler_info_[input_index]->clock_offset);
@@ -163,6 +163,7 @@ void DDScheduler::calculate_interval_info(uint64_t interval_index) {
     uint64_t average_start_timeslice = get_average_start_timeslice(interval_index);
     uint64_t average_last_timeslice = get_average_last_timeslice(interval_index);
     std::vector<uint64_t> blockage_duration = get_sum_blockage_durations(interval_index);
+    compute_node_count_ = blockage_duration.size();
     actual_interval_meta_data_.add(interval_index,
 	    new IntervalMetaData(interval_index, average_round_count, average_start_timeslice, average_last_timeslice,
 				average_start_time, median_interval_duration, blockage_duration));
@@ -197,7 +198,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint64_t new_start_timeslice = (last_interval_info->last_timeslice+1) +
 	    (interval_index - last_interval_info->interval_index - 1) * (last_interval_info->last_timeslice - last_interval_info->start_timeslice + 1);
 
-    uint32_t compute_count = get_last_compute_connection_count();
+    uint32_t active_compute_count = compute_node_count_ - compute_node_timeout_count_;
 
     /*uint64_t new_round_duration = get_enhanced_round_duration(interval_index);
     uint32_t round_count = std::ceil(interval_length_*1000000.0/(new_round_duration*1.0));
@@ -205,11 +206,12 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint64_t new_interval_duration = new_round_duration*round_count;
 */
 
+    uint64_t median_interval_duration = get_median_interval_duration_history();
     uint64_t new_interval_duration = get_enhanced_interval_duration(interval_index);
-    uint32_t round_count = floor(interval_length_/compute_count);
+    uint32_t round_count = floor(interval_length_/active_compute_count);
     round_count = round_count == 0 ? 1 : round_count;
 
-    std::chrono::high_resolution_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(new_interval_duration * (interval_index - last_interval));
+    std::chrono::high_resolution_clock::time_point new_start_time = last_interval_info->start_time + std::chrono::microseconds(median_interval_duration * (interval_index - last_interval));
     // This is commented because it slows down the injection rate specially during the slow start and after the network congection
     /*if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.get_last_key()+1 == interval_index) {
 	last_proposed_interval_info = proposed_interval_meta_data_.get(proposed_interval_meta_data_.get_last_key());
@@ -219,7 +221,7 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
 
     std::vector<uint64_t> frequency = get_compute_distribution_frequency(interval_index);
 
-    IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*compute_count) - 1,
+    IntervalMetaData* new_interval_metadata = new IntervalMetaData(interval_index, round_count, new_start_timeslice, new_start_timeslice + (round_count*active_compute_count) - 1,
 						new_start_time, new_interval_duration, frequency);
     proposed_interval_meta_data_.add(interval_index, new_interval_metadata);
 
@@ -268,18 +270,32 @@ uint64_t DDScheduler::get_enhanced_interval_duration(uint64_t interval_index) {
     if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_ >= interval_index) // in speeding up phase
     	return enhanced_interval_duration_;
 
+    if (stabilizing_interval_index_ != 0 && stabilizing_interval_index_+(speedup_interval_count_*2) >= interval_index)
+	return last_stable_enhanced_interval_duration_;
+
     uint64_t median_interval_duration = get_median_interval_duration_history();
     double interval_dur_mean_difference = get_mean_interval_duration_difference_distory();
 
 
     if (speedup_percentage_ > 0 && interval_dur_mean_difference >= 0 && interval_dur_mean_difference/median_interval_duration*100.0 <= speedup_difference_percentage_) {
-	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100);
+	if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_+1 == interval_index){
+	    last_stable_enhanced_interval_duration_ = enhanced_interval_duration_;
+	}
+	enhanced_interval_duration_ = median_interval_duration - (median_interval_duration*speedup_percentage_/100.0);
 	speedup_interval_index_ = interval_index;
 	if (true)
 	    L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
 		    << " starting speeding up for " << speedup_interval_count_ << " intervals[median: " << median_interval_duration << ", enhanced: " << enhanced_interval_duration_ << "]";
 
 	return enhanced_interval_duration_;
+    }
+    if (speedup_interval_index_ != 0 && speedup_interval_index_+speedup_interval_count_+1 == interval_index){
+	stabilizing_interval_index_ = interval_index;
+	speedup_interval_index_ = interval_index;
+	if (true)
+		L_(info) << "[" << scheduler_index_ << "] interval " << interval_index
+			<< " starting Stabilizing phase for " << speedup_interval_count_*2 << " intervals[median: " << median_interval_duration << ", proposed: " << last_stable_enhanced_interval_duration_ << "]";
+
     }
     return median_interval_duration;
 
@@ -361,6 +377,13 @@ uint64_t DDScheduler::get_average_last_timeslice(uint64_t interval_index) {
     for (uint32_t i = 0; i<input_connection_count_ ; i++)
 	last_timeslice += input_scheduler_info_[i]->interval_info_.get(interval_index).last_timeslice;
     return last_timeslice/input_connection_count_;
+}
+
+uint32_t DDScheduler::get_average_compute_node_count(uint64_t interval_index) {
+    uint32_t node_count = 0;
+    for (uint32_t i = 0; i<input_connection_count_ ; i++)
+	node_count += input_scheduler_info_[i]->interval_info_.get(interval_index).compute_node_count;
+    return node_count/input_connection_count_;
 }
 
 uint64_t DDScheduler::get_max_round_duration_history() {
@@ -447,11 +470,6 @@ uint64_t DDScheduler::get_median_interval_duration_history() {
     return durations.size() % 2 == 0 ? (durations[durations.size()/2] + durations[(durations.size()/2)-1])/2 : durations[durations.size()/2] ;
 }
 
-uint32_t DDScheduler::get_last_compute_connection_count(){
-    const IntervalMetaData* meta_data = actual_interval_meta_data_.get(actual_interval_meta_data_.get_last_key());
-    return (meta_data->last_timeslice - meta_data->start_timeslice+1)/meta_data->round_count;
-}
-
 std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t interval_index){
 
     // Check whether a new distribution phase is already running
@@ -459,7 +477,7 @@ std::vector<uint64_t> DDScheduler::get_compute_distribution_frequency(uint64_t i
     if (balancer_interval_index_ != 0 && balancer_interval_index_+balancer_interval_count_ > interval_index) // in trial load balancing phase
 	return balancer_interval_distribution_;
 
-    if (default_interval_distribution_.empty()) default_interval_distribution_.resize(get_last_compute_connection_count(), 1);
+    if (default_interval_distribution_.empty()) default_interval_distribution_.resize(compute_node_count_, 1);
 
     // If a running enhancement is just finished
     if (is_balancer_phase_just_finished(interval_index) || true)
@@ -541,7 +559,7 @@ bool DDScheduler::is_balancer_phase_just_finished(uint64_t interval_index){
 }
 
 std::vector<uint64_t> DDScheduler::retrieve_median_blockage_duration(uint64_t start_interval, uint64_t end_interval){
-    std::vector<std::vector<uint64_t>> blockage_list(get_last_compute_connection_count());
+    std::vector<std::vector<uint64_t>> blockage_list(compute_node_count_);
     SizedMap<uint64_t, IntervalMetaData*>::iterator iterator = actual_interval_meta_data_.get_iterator(start_interval);
     assert (iterator != actual_interval_meta_data_.get_end_iterator());
     while (iterator->first >= start_interval && iterator->first <= end_interval){
@@ -550,7 +568,7 @@ std::vector<uint64_t> DDScheduler::retrieve_median_blockage_duration(uint64_t st
 	++iterator;
     }
 
-    std::vector<uint64_t> blockage_sum(get_last_compute_connection_count());
+    std::vector<uint64_t> blockage_sum(compute_node_count_);
     for (uint32_t i=0 ; i<blockage_list.size() ; i++){
 	std::sort(blockage_list[i].begin(), blockage_list[i].end());
 	blockage_sum[i] = blockage_list[i][(blockage_list[i].size()/2)];
@@ -565,6 +583,16 @@ std::vector<uint64_t> DDScheduler::get_sum_blockage_durations(uint64_t interval_
 	for (uint32_t j = 0; j<blockage_durations.size() ; j++)
 	    blockage_durations[j] += input_scheduler_info_[i]->interval_info_.get(interval_index).compute_nodes_distribution[j];
     return blockage_durations;
+}
+
+void DDScheduler::update_compute_node_timeout_count(uint32_t timeout_count){
+    assert (timeout_count >= compute_node_timeout_count_);
+    if (compute_node_timeout_count_ != timeout_count){
+	compute_node_timeout_count_ = timeout_count;
+	enhanced_interval_duration_ = get_median_interval_duration_history();
+	speedup_interval_index_ = proposed_interval_meta_data_.get_last_key() + 1; // start speeding up from the next timeslice
+    }
+
 }
 
 DDScheduler* DDScheduler::instance_ = nullptr;

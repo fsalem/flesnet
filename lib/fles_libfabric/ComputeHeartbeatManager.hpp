@@ -57,6 +57,9 @@ public:
     // Retrieve Connections that are not received any finalize ACK for a timeout period
     std::vector<uint32_t> retrieve_long_waiting_finalized_connections();
 
+    // Get the count of timeout connections
+    uint32_t get_timeout_connection_count();
+
     //Generate log files of the stored data
     //void generate_log_files();
 

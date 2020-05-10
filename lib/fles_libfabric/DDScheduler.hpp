@@ -54,6 +54,9 @@ public:
     // Check what is the last completed interval
     uint64_t get_last_completed_interval();
 
+    // Update the timeout connection count
+    void update_compute_node_timeout_count(uint32_t timeout_count);
+
     //Generate log files of the stored data
     void generate_log_files();
 
@@ -136,6 +139,9 @@ private:
     // Get average last timeslice of an interval
     uint64_t get_average_last_timeslice(uint64_t interval_index);
 
+    // Get average last timeslice of an interval
+    uint32_t get_average_compute_node_count(uint64_t interval_index);
+
     //Retrieve the sum of blockage duration of each compute node in an interval
     std::vector<uint64_t> get_sum_blockage_durations(uint64_t interval_index);
 
@@ -156,9 +162,6 @@ private:
 
     // Get the median duration of last set of durations
     uint64_t get_median_interval_duration_history();
-
-    //
-    uint32_t get_last_compute_connection_count();
 
     //
     std::vector<uint64_t> retrieve_median_blockage_duration(uint64_t start_interval, uint64_t end_interval);
@@ -211,6 +214,12 @@ private:
     // The enhanced interval duration
     uint64_t enhanced_interval_duration_ = 0;
 
+    // The last stable enhanced interval duration
+    uint64_t last_stable_enhanced_interval_duration_ = 0;
+
+    // The interval number when stabilizing is started
+    uint64_t stabilizing_interval_index_ = 0;
+
     // Enhancement Timeslice distribution interval count
     uint32_t balancer_interval_count_;
 
@@ -222,6 +231,12 @@ private:
 
     // The default distribution over compute nodes
     std::vector<uint64_t> default_interval_distribution_;
+
+    // The total count of active & timeout compute nodes
+    uint32_t compute_node_count_;
+
+    // The total count of timeout compute nodes
+    uint32_t compute_node_timeout_count_ = 0;
 
     // The log directory
     std::string log_directory_;

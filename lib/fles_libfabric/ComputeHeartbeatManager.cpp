@@ -61,12 +61,12 @@ HeartbeatFailedNodeInfo* ComputeHeartbeatManager::log_heartbeat_failure(uint32_t
     (*collected_info)[connection_id]->info_requested = true;
     uint32_t collected_so_far = collected_decisions_count_.get(failure_info.index) + 1;
     if (collected_so_far == connection_count_){
-	collected_decisions_count_.remove(failure_info.index);
-	calculate_failure_decision(failure_info.index);
-	collected_failure_info_.remove(failure_info.index);
-    }else{
-	collected_decisions_count_.update(failure_info.index, collected_so_far);
+		collected_decisions_count_.remove(failure_info.index);
+		calculate_failure_decision(failure_info.index);
+		collected_failure_info_.remove(failure_info.index);
+		return completed_decisions_log_.get(failure_info.index);
     }
+    collected_decisions_count_.update(failure_info.index, collected_so_far);
     return nullptr;
 }
 
@@ -148,6 +148,10 @@ std::vector<uint32_t> ComputeHeartbeatManager::retrieve_long_waiting_finalized_c
 	++it;
     }
     return conns;
+}
+
+uint32_t ComputeHeartbeatManager::get_timeout_connection_count(){
+    return collected_failure_info_.size();
 }
 
 ComputeHeartbeatManager* ComputeHeartbeatManager::instance_ = nullptr;

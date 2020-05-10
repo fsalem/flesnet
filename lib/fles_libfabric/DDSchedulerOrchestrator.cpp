@@ -79,7 +79,11 @@ bool DDSchedulerOrchestrator::is_timeslice_timed_out(uint64_t timeslice){
 //// ComputeHeartbeatManager
 HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::log_heartbeat_failure(uint32_t connection_id, HeartbeatFailedNodeInfo failure_info){
     // TODO SHOW_LOG_ = true;
-    return heartbeat_manager_->log_heartbeat_failure(connection_id, failure_info);
+    HeartbeatFailedNodeInfo* failure_decision = heartbeat_manager_->log_heartbeat_failure(connection_id, failure_info);
+    if (failure_decision != nullptr){
+		interval_scheduler_->update_compute_node_timeout_count(heartbeat_manager_->get_timeout_connection_count());
+    }
+    return failure_decision;
 }
 
 bool DDSchedulerOrchestrator::is_failed_node_decision_ready(uint32_t failed_connection_id){
