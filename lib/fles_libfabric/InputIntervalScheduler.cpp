@@ -50,10 +50,10 @@ bool InputIntervalScheduler::add_proposed_meta_data(const IntervalMetaData meta_
 		  << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
 		  << " us & take " << meta_data.interval_duration << " us";
 	// TODO REMOVE
-	L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, compute count " << meta_data.compute_node_count;
-	    for (int i=0 ; i<meta_data.compute_node_count ; i++){
-		L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, freq[" << i<< "] " << meta_data.compute_nodes_distribution[i];
-	    }
+	//L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, compute count " << meta_data.compute_node_count;
+	//for (int i=0 ; i<meta_data.compute_node_count ; i++){
+	//    L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, freq[" << i<< "] " << meta_data.compute_nodes_distribution[i];
+	//}
     }
     return true;
 }
