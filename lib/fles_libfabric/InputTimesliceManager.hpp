@@ -102,6 +102,8 @@ public:
 
     bool is_decision_considered(uint32_t connection_id){return redistribution_decisions_log_.contains(connection_id);}
 
+    bool get_failure_decision(uint32_t connection_id){return redistribution_decisions_log_.contains(connection_id);}
+
 private:
 
     struct TimesliceInfo{

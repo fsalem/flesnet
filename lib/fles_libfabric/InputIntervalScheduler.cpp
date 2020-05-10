@@ -174,8 +174,18 @@ void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
 
 	// check if there is a gap in ts due to un-received meta-data
 	const InputIntervalInfo* prev_interval = interval_info_.get(interval_index-1);
-	new_interval_info = new InputIntervalInfo(interval_index, proposed_meta_data->round_count, prev_interval->end_ts+1,
-		proposed_meta_data->last_timeslice, proposed_meta_data->start_time, proposed_meta_data->interval_duration, compute_count_);
+
+	uint64_t start_timeslice = prev_interval->end_ts+1,
+		 last_timeslice = proposed_meta_data->last_timeslice;
+	uint32_t ts_count = (last_timeslice - start_timeslice + 1);
+	uint32_t round_count = proposed_meta_data->round_count;
+	if (ts_count % get_compute_connection_count() != 0){
+	    round_count = (ts_count % get_compute_connection_count());
+	    last_timeslice = start_timeslice + (round_count*get_compute_connection_count()) - 1;
+	}
+
+	new_interval_info = new InputIntervalInfo(interval_index, round_count, start_timeslice,	last_timeslice,
+		proposed_meta_data->start_time, proposed_meta_data->interval_duration, compute_count_);
     }else{
 	if (interval_info_.empty()){// first interval
 	    uint32_t round_count = floor(interval_length_/compute_count_);
