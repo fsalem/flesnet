@@ -248,7 +248,7 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
                 << actual_metadata->last_timeslice
                 << "] is finished and delayed for "
                 << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
-                << " us & took " << actual_metadata->interval_duration << " us in " << interval_info->rounds_counter << " rounds"
+                << " us & took " << actual_metadata->interval_duration << " us [proposed: " << interval_info->proposed_duration << "] in " << interval_info->rounds_counter << " rounds"
 		<< " IB [" << IB << "] CB [" << CB << "] ==> [" << diff << "]";
     }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
