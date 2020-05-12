@@ -48,7 +48,8 @@ bool InputIntervalScheduler::add_proposed_meta_data(const IntervalMetaData meta_
 		  << meta_data.last_timeslice
 		  << " is proposed and should start after "
 		  << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
-		  << " us & take " << meta_data.interval_duration << " us";
+		  << " us & take " << meta_data.interval_duration
+		  << " us in " << meta_data.round_count << " rounds";
 	// TODO REMOVE
 	//L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, compute count " << meta_data.compute_node_count;
 	//for (int i=0 ; i<meta_data.compute_node_count ; i++){
@@ -163,7 +164,7 @@ InputIntervalScheduler::InputIntervalScheduler(uint32_t scheduler_index, uint32_
     		scheduler_index_(scheduler_index), compute_count_(compute_conn_count),
 		interval_length_(interval_length), log_directory_(log_directory),
 		enable_logging_(enable_logging) {
-    minimum_ack_percentage_to_start_new_interval_ = 1.00;
+    minimum_ack_percentage_to_start_new_interval_ = 0.95;
 }
 
 void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
