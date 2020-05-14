@@ -181,7 +181,7 @@ void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
 	uint32_t ts_count = (last_timeslice - start_timeslice + 1);
 	uint32_t round_count = proposed_meta_data->round_count;
 	if (ts_count % get_compute_connection_count() != 0){
-	    round_count = (ts_count % get_compute_connection_count());
+	    round_count = (ts_count / get_compute_connection_count());
 	    last_timeslice = start_timeslice + (round_count*get_compute_connection_count()) - 1;
 	}
 
@@ -261,12 +261,14 @@ uint64_t InputIntervalScheduler::get_expected_sent_ts_count(uint64_t interval){
     std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
     if (now < current_interval->actual_start_time) return 0;
     uint64_t max_interval_ts_count = current_interval->end_ts - current_interval->start_ts + 1;
+    assert (current_interval->duration_per_ts > 0);
     return std::min(max_interval_ts_count,
 	    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - current_interval->actual_start_time).count() / current_interval->duration_per_ts);
 }
 
 uint64_t InputIntervalScheduler::get_interval_expected_round_index(uint64_t interval){
     InputIntervalInfo* current_interval = interval_info_.get(interval);
+    assert (current_interval->num_ts_per_round > 0);
     return get_expected_sent_ts_count(interval) / current_interval->num_ts_per_round;
 }
 
@@ -313,14 +315,12 @@ std::chrono::high_resolution_clock::time_point InputIntervalScheduler::get_expec
 void InputIntervalScheduler::add_compute_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration){
     InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
     assert (current_interval != nullptr);
-    assert (compute_index < compute_count_);
     current_interval->sum_compute_blockage_durations_[compute_index] += duration;
 }
 
 void InputIntervalScheduler::add_input_buffer_blockage_duration(uint32_t compute_index, uint64_t timeslice, uint64_t duration){
     InputIntervalInfo* current_interval = get_interval_of_timeslice(timeslice);
     assert (current_interval != nullptr);
-    assert (compute_index < compute_count_);
     current_interval->sum_input_blockage_durations_[compute_index] += duration;
 }
 
