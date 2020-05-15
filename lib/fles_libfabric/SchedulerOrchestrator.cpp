@@ -26,6 +26,14 @@ void SchedulerOrchestrator::acknowledge_heartbeat_message(uint64_t message_id){
     heartbeat_manager_->ack_message_received(message_id);
 }
 
+void SchedulerOrchestrator::add_pending_heartbeat_message(uint32_t connection_id, HeartbeatMessage* message){
+    heartbeat_manager_->add_pending_message(connection_id, message);
+}
+
+HeartbeatMessage* SchedulerOrchestrator::get_pending_heartbeat_message(uint32_t connection_id){
+    return heartbeat_manager_->get_pending_message(connection_id);
+}
+
 //// Variables
 
 HeartbeatManager* SchedulerOrchestrator::heartbeat_manager_ = nullptr;

@@ -73,9 +73,11 @@ public:
 
     void inc_ack_pointers(uint64_t ack_pos);
 
-    void on_complete_recv();
+    /// Handle Libfabric receive completion notification.
+    virtual void on_complete_recv() override;
 
-    void on_complete_send();
+    /// Handle Libfabric send completion notification.
+    virtual void on_complete_send() override;
 
     void on_complete_send_finalize();
 

@@ -89,8 +89,17 @@ public:
 
     virtual bool try_sync_buffer_positions() = 0;
 
-    ///
+    /// Handle Libfabric receive completion notification.
+    virtual void on_complete_recv() = 0;
+
+    /// Handle Libfabric send completion notification.
+    virtual void on_complete_send() = 0;
+
+    /// Handle Libfabric receive hearbeat completion notification.
     virtual void on_complete_heartbeat_recv() = 0;
+
+    /// Handle Libfabric send hearbeat completion notification.
+    void on_complete_heartbeat_send();
 
     /// Post a receive work request (WR) to the receive queue
     virtual void post_recv_heartbeat_message();
@@ -123,8 +132,10 @@ public:
     /// Retrieve the total number of RECV work requests.
     uint64_t total_recv_requests() const { return total_recv_requests_; }
 
-    /// Send heartbeat message
-    void send_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr, uint64_t message_id = ConstVariables::MINUS_ONE, bool ack = false);
+    /// Prepare heartbeat message
+    void prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr, uint64_t message_id = ConstVariables::MINUS_ONE, bool ack = false);
+
+    void send_heartbeat(HeartbeatMessage* message);
 
     /// Get the last state of the send_heartbeat_message
     const HeartbeatMessage get_send_heartbeat_message(){ return send_heartbeat_message_;}
@@ -187,6 +198,9 @@ protected:
 
     /// To prevent reusing the buffer while injecting sync messages
     bool send_buffer_available_ = true;
+
+    /// To prevent reusing the buffer while injecting heartbeat messages
+    bool heartbeat_send_buffer_available_ = true;
 
     /// Send Heartbeat message buffer
     HeartbeatMessage send_heartbeat_message_ = HeartbeatMessage();

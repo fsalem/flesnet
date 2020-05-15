@@ -29,6 +29,12 @@ public:
     // Acknowledge the arrival of a sent hearbeat message
     static void acknowledge_heartbeat_message(uint64_t message_id);
 
+    // Add new pending heartbeat message
+    static void add_pending_heartbeat_message(uint32_t connection_id, HeartbeatMessage* message);
+
+    // Get one of the pending messages, if there
+    static HeartbeatMessage* get_pending_heartbeat_message(uint32_t connection_id);
+
 //// Variables
 private:
     static HeartbeatManager* heartbeat_manager_;

@@ -505,13 +505,14 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 	    HeartbeatFailedNodeInfo* failednode_info = DDSchedulerOrchestrator::get_decision_of_failed_connection(recv_heartbeat_message.failure_info.index);
 	    assert(failednode_info != nullptr);
 	    for (auto& connection : conn_){
-		connection->send_heartbeat(failednode_info);
+		connection->prepare_heartbeat(failednode_info);
 	    }
 	}
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {
 	int cn = wr_id >> 8;
+	conn_[cn]->on_complete_heartbeat_send();
     } break;
 
     default:
@@ -614,7 +615,7 @@ void TimesliceBuilder::sync_heartbeat(){
 	decision->timeslice_trigger = ConstVariables::MINUS_ONE;
 	std::set<uint32_t>::iterator it = missing_info.second.begin();
 	while (it != missing_info.second.end()){
-	    conn_[*it]->send_heartbeat(decision);
+	    conn_[*it]->prepare_heartbeat(decision);
 	    ++it;
 	}
     }

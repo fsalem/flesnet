@@ -58,10 +58,10 @@ public:
     void on_complete_write();
 
     /// Handle Libfabric receive completion notification.
-    void on_complete_recv();
+    virtual void on_complete_recv() override;
 
     /// Handle Libfabric send completion notification.
-    void on_complete_send();
+    virtual void on_complete_send() override;
 
     virtual void setup_mr(struct fid_domain* pd) override;
     virtual void setup() override;

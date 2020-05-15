@@ -15,6 +15,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <vector>
 
 
 namespace tl_libfabric
@@ -37,6 +38,12 @@ public:
 
     // Count the unacked messages of a particular connection
     uint32_t count_unacked_messages(uint32_t connection_id);
+
+    // Add new pending messages
+    void add_pending_message(uint32_t connection_id, HeartbeatMessage* message);
+
+    // Get one of the pending messages, if there
+    HeartbeatMessage* get_pending_message(uint32_t connection_id);
 
 protected:
 
@@ -62,6 +69,10 @@ protected:
 
     // Not acked messages log
     SizedMap<uint32_t, std::set<uint64_t>*> unacked_sent_messages_;
+
+    //Pending messages to be sent
+    std::vector<std::vector<HeartbeatMessage*>> pending_messages_;
+
 
     // The log directory
     std::string log_directory_;

@@ -15,6 +15,7 @@ HeartbeatManager::HeartbeatManager(uint32_t index, uint32_t init_connection_coun
 		enable_logging_(enable_logging){
     for (uint32_t i=0 ; i<init_connection_count ; i++)
 	unacked_sent_messages_.add(i, new std::set<uint64_t>());
+    pending_messages_.resize(init_connection_count);
 }
 
 void HeartbeatManager::log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message){
@@ -48,5 +49,18 @@ void HeartbeatManager::ack_message_received(uint64_t messsage_id){
 uint32_t HeartbeatManager::count_unacked_messages(uint32_t connection_id){
     assert (unacked_sent_messages_.size() > connection_id);
     return unacked_sent_messages_.get(connection_id)->size();
+}
+
+void HeartbeatManager::add_pending_message(uint32_t connection_id, HeartbeatMessage* message){
+    assert (connection_id < pending_messages_.size());
+    pending_messages_[connection_id].push_back(message);
+}
+
+HeartbeatMessage* HeartbeatManager::get_pending_message(uint32_t connection_id){
+    assert (connection_id < pending_messages_.size());
+    if (pending_messages_[connection_id].empty())return nullptr;
+    HeartbeatMessage* head_message = pending_messages_[connection_id][0];
+    pending_messages_[connection_id].erase(pending_messages_[connection_id].begin());
+    return head_message;
 }
 }

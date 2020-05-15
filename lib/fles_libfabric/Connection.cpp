@@ -166,7 +166,7 @@ void Connection::on_disconnected(struct fi_eq_cm_entry* /* event */)
     if (ep_ != nullptr){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    	fi_close((::fid_t)ep_);
+    	// TODO fi_close((::fid_t)ep_);
 #pragma GCC diagnostic pop
     }
     ep_ = nullptr;
@@ -371,7 +371,7 @@ void Connection::post_send_heartbeat_message()
 		  << " failed desc " << send_heartbeat_message_.failure_info.last_completed_desc
 		  << " failed trigger " << send_heartbeat_message_.failure_info.timeslice_trigger << ")";
     }
-
+    heartbeat_send_buffer_available_ = false;
     post_send_msg(&heartbeat_send_wr);
 }
 
@@ -430,23 +430,56 @@ bool Connection::post_recv_msg(const struct fi_msg_tagged* wr)
     return true;
 }
 
-void Connection::send_heartbeat(HeartbeatFailedNodeInfo* failure_info, uint64_t message_id, bool ack){
+void Connection::prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info, uint64_t message_id, bool ack){
+    HeartbeatMessage* message = new HeartbeatMessage();
     if (message_id == ConstVariables::MINUS_ONE)
-	message_id = SchedulerOrchestrator::get_next_heartbeat_message_id();
-    send_heartbeat_message_.message_id = message_id;
-    send_heartbeat_message_.ack = ack;
+	message->message_id = SchedulerOrchestrator::get_next_heartbeat_message_id();
+    else
+	message->message_id = message_id;
+    message->ack = ack;
     if (failure_info == nullptr){
-	send_heartbeat_message_.failure_info.index = ConstVariables::MINUS_ONE;
-	send_heartbeat_message_.failure_info.last_completed_desc = ConstVariables::MINUS_ONE;
-	send_heartbeat_message_.failure_info.timeslice_trigger = ConstVariables::MINUS_ONE;
+	message->failure_info.index = ConstVariables::MINUS_ONE;
+	message->failure_info.last_completed_desc = ConstVariables::MINUS_ONE;
+	message->failure_info.timeslice_trigger = ConstVariables::MINUS_ONE;
     }else{
-	send_heartbeat_message_.failure_info.index = failure_info->index;
-	send_heartbeat_message_.failure_info.last_completed_desc = failure_info->last_completed_desc;
-	send_heartbeat_message_.failure_info.timeslice_trigger = failure_info->timeslice_trigger;
+	message->failure_info.index = failure_info->index;
+	message->failure_info.last_completed_desc = failure_info->last_completed_desc;
+	message->failure_info.timeslice_trigger = failure_info->timeslice_trigger;
     }
+
+    if (heartbeat_send_buffer_available_){
+	send_heartbeat(message);
+    }else{
+	SchedulerOrchestrator::add_pending_heartbeat_message(index_, message);
+    }
+
+    // TODO this should be moved to send_heartbeat but would cause no progress in case of failure because the completion will
+    // be never received and therefore, no log_sent_heartbeat_message will be called, which is essential to mark connection timeout!
     if (!ack){
-	SchedulerOrchestrator::log_sent_heartbeat_message(index_, get_send_heartbeat_message());
+	SchedulerOrchestrator::log_sent_heartbeat_message(index_, *message);
     }
+
+}
+
+void Connection::send_heartbeat(HeartbeatMessage* message){
+    send_heartbeat_message_.message_id = message->message_id;
+    send_heartbeat_message_.ack = message->ack;
+    send_heartbeat_message_.failure_info.index = message->failure_info.index;
+    send_heartbeat_message_.failure_info.last_completed_desc = message->failure_info.last_completed_desc;
+    send_heartbeat_message_.failure_info.timeslice_trigger = message->failure_info.timeslice_trigger;
     post_send_heartbeat_message();
+}
+
+void Connection::on_complete_heartbeat_send()
+{
+    if (true) {
+	L_(info) << "[i" << remote_index_ << "] "
+		  << "[" << index_ << "] "
+		  << "on_complete_heartbeat_send, send_heartbeat_message_.message_id="
+		  << send_heartbeat_message_.message_id;
+    }
+    heartbeat_send_buffer_available_ = true;
+    HeartbeatMessage* message = SchedulerOrchestrator::get_pending_heartbeat_message(index_);
+    if (message != nullptr) send_heartbeat(message);
 }
 }
