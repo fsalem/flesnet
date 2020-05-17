@@ -39,7 +39,7 @@ void InputSchedulerOrchestrator::generate_log_files(){
 void InputSchedulerOrchestrator::add_proposed_meta_data(const IntervalMetaData meta_data){
     if (interval_scheduler_->add_proposed_meta_data(meta_data)){
 	std::vector<uint32_t> dist (meta_data.compute_nodes_distribution, meta_data.compute_nodes_distribution + get_compute_connection_count());
-	update_compute_distribution_frequency(meta_data.start_timeslice, meta_data.last_timeslice, dist);
+	//update_compute_distribution_frequency(meta_data.start_timeslice, meta_data.last_timeslice, dist);
     }
 }
 
@@ -217,7 +217,7 @@ uint32_t InputSchedulerOrchestrator::get_timeout_connection_count(){
 
 HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::get_timed_out_connection(int32_t timeout_conn){
     if (timeout_conn != -1 && is_decision_considered(timeout_conn))
-	return new HeartbeatFailedNodeInfo(timeout_conn);
+	return mark_connection_timed_out(timeout_conn);
     if (timeout_conn == -1) timeout_conn = get_new_timeout_connection();
 
     if (timeout_conn != -1) {

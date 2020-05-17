@@ -122,7 +122,7 @@ public:
     static bool is_connection_timed_out(uint32_t connection_id);
 
     // Mark connection as timedout
-    static HeartbeatFailedNodeInfo* mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc, uint64_t timeslice_trigger);
+    static HeartbeatFailedNodeInfo* mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc = ConstVariables::MINUS_ONE, uint64_t timeslice_trigger = ConstVariables::MINUS_ONE);
 
     // Get the number of active connections
     static uint32_t get_active_connection_count();
