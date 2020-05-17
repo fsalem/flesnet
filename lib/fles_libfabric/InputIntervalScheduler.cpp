@@ -182,12 +182,14 @@ void InputIntervalScheduler::create_new_interval_info(uint64_t interval_index){
 
 	uint64_t start_timeslice = prev_interval->end_ts+1,
 		 last_timeslice = proposed_meta_data->last_timeslice;
+	assert (last_timeslice > start_timeslice);
 	uint32_t ts_count = (last_timeslice - start_timeslice + 1);
 	uint32_t round_count = proposed_meta_data->round_count;
-	if (ts_count % get_compute_connection_count() != 0){
+	// TODO
+	/*if (ts_count % get_compute_connection_count() != 0){
 	    round_count = (ts_count / get_compute_connection_count());
 	    last_timeslice = start_timeslice + (round_count*get_compute_connection_count()) - 1;
-	}
+	}*/
 
 	new_interval_info = new InputIntervalInfo(interval_index, round_count, start_timeslice,	last_timeslice,
 		proposed_meta_data->start_time, proposed_meta_data->interval_duration, compute_count_);
