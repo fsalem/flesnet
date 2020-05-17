@@ -195,8 +195,14 @@ const IntervalMetaData* DDScheduler::calculate_proposed_interval_meta_data(uint6
     uint64_t last_interval = actual_interval_meta_data_.get_last_key();
     const IntervalMetaData* last_interval_info = actual_interval_meta_data_.get(last_interval);
 
-    uint64_t new_start_timeslice = (last_interval_info->last_timeslice+1) +
+    uint64_t new_start_timeslice = 0;
+
+    if (!proposed_interval_meta_data_.empty() && proposed_interval_meta_data_.contains(interval_index-1))
+	new_start_timeslice = proposed_interval_meta_data_.get(interval_index-1)->last_timeslice+1;
+    else
+	new_start_timeslice = (last_interval_info->last_timeslice+1) +
 	    (interval_index - last_interval_info->interval_index - 1) * (last_interval_info->last_timeslice - last_interval_info->start_timeslice + 1);
+
 
     uint32_t active_compute_count = compute_node_count_ - compute_node_timeout_count_;
 
