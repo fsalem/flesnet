@@ -339,12 +339,22 @@ void InputChannelConnection::on_complete_recv()
 		  << " for " << recv_status_message_.proposed_interval_metadata.interval_duration
 		  << " finalize " << recv_status_message_.final;
     }
+
     if (recv_status_message_.final) {
         done_ = true;
         return;
     }
 
-    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {
+    if (recv_status_message_.ack.desc > send_status_message_.wp.desc){
+    	L_(warning) << "[i" << remote_index_ << "] "
+                    << "[" << index_ << "] "
+                    << "receive completion, unmatched new cn_ack_.desc="
+                    << recv_status_message_.ack.desc
+		    << " latest send status "
+		    << send_status_message_.wp.desc;
+    }
+
+    if (recv_status_message_.ack.desc <= send_status_message_.wp.desc && cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {
     	cn_ack_ = recv_status_message_.ack;
     }
     if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
@@ -678,7 +688,8 @@ void InputChannelConnection::update_cn_wp_after_failure_action(uint32_t failed_c
 	}
 	data_changed_ = true;
     }
-    while (!pending_descriptors_.empty() && pending_descriptors_[pending_descriptors_.size()-1].ts_desc < last_transmitted_timeslice_info.second - 1)
+
+    while (!pending_descriptors_.empty() && pending_descriptors_[pending_descriptors_.size()-1].ts_desc > last_transmitted_timeslice_info.second)
     {
 	timeslice_data_address_.erase(--timeslice_data_address_.end());
 	pending_descriptors_.erase(--pending_descriptors_.end());

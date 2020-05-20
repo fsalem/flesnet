@@ -702,9 +702,9 @@ void InputChannelSender::update_compute_schedulers() {
 
 void InputChannelSender::update_data_source(uint32_t compute_index, uint64_t old_desc, uint64_t new_desc){
     for (uint64_t desc = old_desc+1 ; desc <= new_desc ; ++desc){
-                uint64_t ts = InputSchedulerOrchestrator::get_timeslice_by_descriptor(compute_index, desc);
-                uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
-
+	uint64_t ts = InputSchedulerOrchestrator::get_timeslice_by_descriptor(compute_index, desc);
+	uint64_t acked_ts = (acked_desc_ - start_index_desc_) / timeslice_size_;
+	assert (ts != ConstVariables::MINUS_ONE);
 	if (ts != acked_ts) {
 	// transmission has been reordered, store completion information
 	    ack_.at(ts) = ts;
