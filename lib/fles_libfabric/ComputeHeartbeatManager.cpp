@@ -85,7 +85,7 @@ std::pair<uint32_t, std::set<uint32_t>> ComputeHeartbeatManager::retrieve_missin
     failed_node_pending_connections.first = ConstVariables::MINUS_ONE;
     if (!collected_failure_info_.empty()){
 	std::vector<FailureRequestedInfo*> failure_data = (*collected_failure_info_.get_begin_iterator()->second);
-	for (int i=0 ; i < failure_data.size() ; i++){
+	for (uint32_t i=0 ; i < failure_data.size() ; i++){
 	    if (failure_data[i] == nullptr)failure_data[i] = new FailureRequestedInfo();
 	    if (!failure_data[i]->info_requested){
 		failed_node_pending_connections.first = collected_failure_info_.get_begin_iterator()->first;
@@ -106,21 +106,31 @@ HeartbeatFailedNodeInfo* ComputeHeartbeatManager::get_decision_of_failed_connect
 
 void ComputeHeartbeatManager::log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id){
     // If already a completed decision is created, then this ack is redundant after deleting the entry of decision_ack_log_
-    if (completed_decisions_log_.contains(failed_connection_id)){
+    if (completed_decision_acked_log_.find(failed_connection_id) != completed_decision_acked_log_.end()){
 	L_(warning) << "[" << index_ << "] log_decision_ack from " << connection_id << " is received completing and deleting the decision_ack_log";
 	return;
     }
-    // Early decision ack is received from creating the decision on this local compute node
+    // Early decision ack is received before creating the decision on this local compute node
     if (!decision_ack_log_.contains(failed_connection_id)){
 	decision_ack_log_.add(failed_connection_id, new std::set<uint32_t>());
     }
 
     std::set<uint32_t>* ack_list = decision_ack_log_.get(failed_connection_id);
-    if (ack_list->find(connection_id) == ack_list->end())
+    if (ack_list->find(connection_id) == ack_list->end()){
 	ack_list->insert(connection_id);
-    if (ack_list->size() == connection_count_)
-	decision_ack_log_.remove(failed_connection_id);
+	L_(info) << "[log_decision_ack]" << " failed conn " << failed_connection_id << ": conn " << connection_id << " acked the decision";
+    }
 
+    if (ack_list->size() == connection_count_){
+	completed_decision_acked_log_.insert(failed_connection_id);
+	assert(decision_ack_log_.remove(failed_connection_id));
+	L_(info) << "[log_decision_ack]" << " decision of failed conn " << failed_connection_id << " is acked completely!";
+    }
+
+}
+
+bool ComputeHeartbeatManager::is_all_failure_decisions_acked(){
+    return decision_ack_log_.empty() ? true : false;
 }
 
 void ComputeHeartbeatManager::log_finalize_connection(uint32_t connection_id, bool ack_received){

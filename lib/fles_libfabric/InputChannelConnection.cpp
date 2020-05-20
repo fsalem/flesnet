@@ -352,6 +352,7 @@ void InputChannelConnection::on_complete_recv()
                     << recv_status_message_.ack.desc
 		    << " latest send status "
 		    << send_status_message_.wp.desc;
+    	assert(false);
     }
 
     if (recv_status_message_.ack.desc <= send_status_message_.wp.desc && cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {

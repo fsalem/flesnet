@@ -82,6 +82,9 @@ public:
     // Log the acknowledge of receiving a decision
     static void log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id);
 
+    // Check whether all decisions are acked
+    static bool is_all_failure_decisions_acked();
+
     // Log when the finalize message is sent
     static void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
 

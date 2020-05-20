@@ -51,6 +51,9 @@ public:
     // Log the acknowledge of receiving a decision
     void log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id);
 
+    // Check whether all decisions are acked
+    bool is_all_failure_decisions_acked();
+
     // Log when the finalize message is sent
     void log_finalize_connection(uint32_t connection_id, bool ack_received = false);
 
@@ -94,6 +97,9 @@ private:
 
     // Temporary acknowledgment of decisions
     SizedMap<uint32_t, std::set<uint32_t>*> decision_ack_log_;
+
+    // Completed acked decisions
+    std::set<uint32_t>  completed_decision_acked_log_;
 
     // Monitor the acknowledgment of the ACK messages when finalize message is sent
     // With RxM, sometimes the ack completion events are not received if the remote connection is already closed!

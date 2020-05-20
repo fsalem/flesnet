@@ -577,7 +577,7 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 }
 
 void TimesliceBuilder::process_completed_timeslices(){
-    if (connected_ != conn_.size()) return;
+    if (connected_ != conn_.size() || !DDSchedulerOrchestrator::is_all_failure_decisions_acked()) return;
 
     DDSchedulerOrchestrator::log_timeout_timeslice();
     uint64_t new_completely_written = DDSchedulerOrchestrator::get_last_ordered_completed_timeslice();

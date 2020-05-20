@@ -98,9 +98,12 @@ HeartbeatFailedNodeInfo* DDSchedulerOrchestrator::get_decision_of_failed_connect
     return heartbeat_manager_->get_decision_of_failed_connection(failed_connection_id);
 }
 
-// Log the acknowledge of receiving a decision
 void DDSchedulerOrchestrator::log_decision_ack(uint32_t connection_id, uint32_t failed_connection_id){
     heartbeat_manager_->log_decision_ack(connection_id, failed_connection_id);
+}
+
+bool DDSchedulerOrchestrator::is_all_failure_decisions_acked(){
+    return heartbeat_manager_->is_all_failure_decisions_acked();
 }
 
 void DDSchedulerOrchestrator::log_finalize_connection(uint32_t connection_id, bool ack_received){
