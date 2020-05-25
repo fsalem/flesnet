@@ -35,6 +35,9 @@ public:
     // Get one of the pending messages, if there
     static HeartbeatMessage* get_pending_heartbeat_message(uint32_t connection_id);
 
+    // Remove all pending messages of a connection when it times out
+    static void clear_pending_messages(uint32_t connection_id);
+
 //// Variables
 private:
     static HeartbeatManager* heartbeat_manager_;

@@ -34,6 +34,10 @@ HeartbeatMessage* SchedulerOrchestrator::get_pending_heartbeat_message(uint32_t 
     return heartbeat_manager_->get_pending_message(connection_id);
 }
 
+void SchedulerOrchestrator::clear_pending_messages(uint32_t connection_id){
+    heartbeat_manager_->clear_pending_messages(connection_id);
+}
+
 //// Variables
 
 HeartbeatManager* SchedulerOrchestrator::heartbeat_manager_ = nullptr;
