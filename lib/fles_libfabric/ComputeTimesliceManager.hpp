@@ -58,6 +58,7 @@ private:
     ComputeTimesliceManager(uint32_t compute_index, uint32_t input_connection_count,
 	    std::string log_directory, bool enable_logging);
 
+    // Complete a timeslice and log the completion duration
     void trigger_timeslice_completion (uint64_t timeslice);
 
     // The first arrival time of each timeslice

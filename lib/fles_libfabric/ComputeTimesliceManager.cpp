@@ -64,11 +64,30 @@ void ComputeTimesliceManager::log_contribution_arrival(uint32_t connection_id, u
 }
 
 bool ComputeTimesliceManager::undo_log_contribution_arrival(uint32_t connection_id, uint64_t timeslice){
-    if (!timeslice_arrived_count_.contains(timeslice))return false;
-    std::set<uint32_t>* arrived_count = timeslice_arrived_count_.get(timeslice);
-    assert(arrived_count->find(connection_id) != arrived_count->end());
-    arrived_count->erase(connection_id);
-    return true;
+
+    if (timeslice_completion_duration_.contains(timeslice)){
+	std::set<uint32_t>* arrived_count = new std::set<uint32_t>();
+	for (uint32_t conn = 0 ; conn < input_connection_count_ ; conn++)
+	    if (conn != connection_id)arrived_count->insert(conn);
+
+	timeslice_arrived_count_.add(timeslice, arrived_count);
+	uint64_t dur = timeslice_completion_duration_.get(timeslice);
+	timeslice_first_arrival_time_.add(timeslice, std::chrono::high_resolution_clock::now() - std::chrono::microseconds(dur));
+    	timeslice_completion_duration_.remove(timeslice);
+
+    	if (last_ordered_timeslice_ > timeslice-1) last_ordered_timeslice_ = timeslice-1;
+    	assert (timeslice_completion_duration_.contains(last_ordered_timeslice_));
+    	return true;
+    }
+
+    if (timeslice_arrived_count_.contains(timeslice)){
+	std::set<uint32_t>* arrived_count = timeslice_arrived_count_.get(timeslice);
+	if (arrived_count->find(connection_id) != arrived_count->end()){
+	    arrived_count->erase(connection_id);
+	    return true;
+	}
+    }
+    return false;
 }
 
 void ComputeTimesliceManager::log_timeout_timeslice(){
