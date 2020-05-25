@@ -340,7 +340,7 @@ void InputChannelConnection::on_complete_recv()
 		  << " finalize " << recv_status_message_.final;
     }
 
-    if (recv_status_message_.final) {
+    if (recv_status_message_.final || InputSchedulerOrchestrator::is_connection_timed_out(index_)) {
         done_ = true;
         return;
     }
@@ -646,6 +646,7 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     }
 
     InputSchedulerOrchestrator::log_heartbeat(index_);
+    if (InputSchedulerOrchestrator::is_connection_timed_out(index_))return;
 
     if (!recv_heartbeat_message_.ack){
 	// TODO TO BE REMOVED ---- this is special condition to prevent corrupted data

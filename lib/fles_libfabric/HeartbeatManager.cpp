@@ -63,4 +63,8 @@ HeartbeatMessage* HeartbeatManager::get_pending_message(uint32_t connection_id){
     pending_messages_[connection_id].erase(pending_messages_[connection_id].begin());
     return head_message;
 }
+
+void HeartbeatManager::clear_pending_messages(uint32_t connection_id){
+    pending_messages_[connection_id].clear();
+}
 }

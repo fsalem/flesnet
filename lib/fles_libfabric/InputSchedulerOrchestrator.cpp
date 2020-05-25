@@ -203,6 +203,7 @@ bool InputSchedulerOrchestrator::is_connection_timed_out(uint32_t connection_id)
 }
 
 HeartbeatFailedNodeInfo* InputSchedulerOrchestrator::mark_connection_timed_out(uint32_t connection_id, uint64_t last_desc, uint64_t timeslice_trigger){
+    clear_pending_messages(connection_id);
     return heartbeat_manager_->mark_connection_timed_out(connection_id, last_desc, timeslice_trigger);
 }
 
