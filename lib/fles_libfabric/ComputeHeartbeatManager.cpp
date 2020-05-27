@@ -117,7 +117,7 @@ void ComputeHeartbeatManager::log_decision_ack(uint32_t connection_id, uint32_t 
     std::set<uint32_t>* ack_list = decision_ack_log_.get(failed_connection_id);
     if (ack_list->find(connection_id) == ack_list->end()){
 	ack_list->insert(connection_id);
-	L_(info) << "[log_decision_ack]" << " failed conn " << failed_connection_id << ": conn " << connection_id << " acked the decision";
+	L_(info) << "[log_decision_ack]" << " failed conn " << failed_connection_id << ": conn " << connection_id << " acked the decision .. received count so far " << ack_list->size();
     }
 
     if (ack_list->size() == connection_count_){
