@@ -29,8 +29,6 @@ void ComputeHeartbeatManager::calculate_failure_decision(uint32_t failed_node){
     }
     L_(info) << "Decision of " << decision_info->index << " desc " << decision_info->last_completed_desc << " trigger " << decision_info->timeslice_trigger;
     completed_decisions_log_.add(decision_info->index ,decision_info);
-    if (!decision_ack_log_.contains(decision_info->index))
-	decision_ack_log_.add(decision_info->index, new std::set<uint32_t>());
 }
 
 ComputeHeartbeatManager* ComputeHeartbeatManager::get_instance(uint32_t index, uint32_t init_connection_count,
@@ -65,8 +63,9 @@ HeartbeatFailedNodeInfo* ComputeHeartbeatManager::log_heartbeat_failure(uint32_t
 		calculate_failure_decision(failure_info.index);
 		collected_failure_info_.remove(failure_info.index);
 		return completed_decisions_log_.get(failure_info.index);
+    } else{
+	collected_decisions_count_.update(failure_info.index, collected_so_far);
     }
-    collected_decisions_count_.update(failure_info.index, collected_so_far);
     return nullptr;
 }
 
