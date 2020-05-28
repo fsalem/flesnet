@@ -612,8 +612,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
         uint64_t ts = wr_id >> 24;
 
         int cn = (wr_id >> 8) & 0xFFFF;
-        if (InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(cn, ts))
-                conn_[cn]->on_complete_write();
+        InputSchedulerOrchestrator::mark_timeslice_rdma_write_acked(cn, ts);
+	conn_[cn]->on_complete_write();
 
         if (false) {
             L_(info) << "[i" << input_index_ << "] "
