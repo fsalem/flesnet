@@ -311,7 +311,8 @@ void ComputeNodeConnection::on_complete_recv()
     	cn_wp_ = recv_status_message_.wp;
     }
     if (recv_status_message_.sync_after_scheduling_decision){
-	for (uint64_t desc = recv_status_message_.wp.desc ; desc < cn_wp_.desc ; ++desc){
+	//for (uint64_t desc = recv_status_message_.wp.desc ; desc < cn_wp_.desc ; ++desc){
+	for (uint64_t desc = cn_wp_.desc-1; desc >= recv_status_message_.wp.desc  ; --desc){
 	    L_(info) << "[c" << remote_index_ << "] "
 		      << "[" << index_ << "] "
 		      << "COMPLETE RECEIVE status message"
