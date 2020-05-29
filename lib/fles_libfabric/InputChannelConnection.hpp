@@ -135,6 +135,12 @@ private:
     bool finalize_ = false;
     bool abort_ = false;
 
+    // ACK flag of the failure decision
+    bool sync_after_scheduling_decision_ = false;
+    //
+    uint32_t sync_failed_conn_;
+
+
     /// Access information for memory regions on remote end.
     ComputeNodeInfo remote_info_ = ComputeNodeInfo();
 

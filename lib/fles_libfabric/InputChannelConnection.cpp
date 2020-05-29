@@ -268,6 +268,11 @@ void InputChannelConnection::check_inc_write_pointers()
 bool InputChannelConnection::try_sync_buffer_positions()
 {
     if (!send_buffer_available_ || InputSchedulerOrchestrator::is_connection_timed_out(index())) return false;
+    if (sync_after_scheduling_decision_){
+	    send_status_message_.sync_after_scheduling_decision = true;
+	    send_status_message_.failed_index = sync_failed_conn_;
+	    sync_after_scheduling_decision_ = false;
+    }
     if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
 	if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
 		send_status_message_.final = true;
@@ -276,7 +281,7 @@ bool InputChannelConnection::try_sync_buffer_positions()
 	}
     }
     check_inc_write_pointers();
-    if ((data_changed_ || data_acked_) || send_status_message_.sync_after_scheduling_decision) { //
+    if (data_changed_ || data_acked_ || send_status_message_.sync_after_scheduling_decision) { //
 	send_status_message_.wp = cn_wp_;
 	send_status_message_.local_time = std::chrono::high_resolution_clock::now();
         post_send_status_message();
@@ -697,8 +702,8 @@ void InputChannelConnection::update_cn_wp_after_failure_action(uint32_t failed_c
 	pending_descriptors_.erase(--pending_descriptors_.end());
 	data_acked_ = true;
     }
-    send_status_message_.sync_after_scheduling_decision = true;
-    send_status_message_.failed_index = failed_connection_id;
+    sync_after_scheduling_decision_ = true;
+    sync_failed_conn_ = failed_connection_id;
     try_sync_buffer_positions();
 }
 
