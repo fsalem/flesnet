@@ -15,17 +15,17 @@ addons:
     - cmake
     - cmake-data
     - doxygen
-    - gcc-4.8
-    - g++-4.8
-    - libboost-filesystem1.55-dev
-    - libboost-log1.55-dev
-    - libboost-program-options1.55-dev
-    - libboost-regex1.55-dev
-    - libboost-serialization1.55-dev
-    - libboost-system1.55-dev
-    - libboost-test1.55-dev
-    - libboost-thread1.55-dev
-    - libboost1.55-dev
+    - gcc-8.3
+    - g++-8.3
+    - libboost-filesystem1.73-dev
+    - libboost-log1.73-dev
+    - libboost-program-options1.73-dev
+    - libboost-regex1.73-dev
+    - libboost-serialization1.73-dev
+    - libboost-system1.73-dev
+    - libboost-test1.73-dev
+    - libboost-thread1.73-dev
+    - libboost1.73-dev
     - libibverbs-dev
     - libnuma-dev
     - libpci-dev
@@ -37,14 +37,14 @@ env:
   global:
     - LLVM_VERSION=3.6.2
     - LLVM_ARCHIVE_PATH=$HOME/clang+llvm.tar.xz
-    - LIBFABRIC_ARCHIVE_PATH=$HOME/libfabric-1.4.0.tar.gz
+    - LIBFABRIC_ARCHIVE_PATH=$HOME/libfabric-1.10.1.tar.bz2
 
 before_install:
   - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
   - mkdir $HOME/clang+llvm
   - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang+llvm --strip-components 1
   - export PATH=$HOME/clang+llvm/bin:$PATH
-  - wget https://github.com/ofiwg/libfabric/releases/download/v1.4.0/libfabric-1.4.0.tar.gz -O $LIBFABRIC_ARCHIVE_PATH
+  - wget https://github.com/ofiwg/libfabric/releases/download/v1.10.1/libfabric-1.10.1.tar.bz2 -O $LIBFABRIC_ARCHIVE_PATH
   - mkdir $HOME/libfabric
   - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
   - PWD_ADDR=$(pwd) && cd $HOME/libfabric && ./configure  && make && cd $PWD_ADDR
@@ -52,7 +52,7 @@ before_install:
 
 before_script:
   - if [ "$CXX" = "clang++" ]; then export CXX="clang++" CC="clang"; fi
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8" GCOV="gcov-4.8"; fi
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-8.3" CC="gcc-8.3" GCOV="gcov-8.3"; fi
   - contrib/merge-dependencies
   - mkdir build && cd build
   
@@ -62,6 +62,6 @@ script:
   - make CTEST_OUTPUT_ON_FAILURE=1 test
 
 after_success:
-  - if [ "$CXX" = "g++-4.8" ]; then cmake -DCOVERALLS=ON -DCMAKE_BUILD_TYPE=Debug .. && make -j4 && make coveralls; fi
+  - if [ "$CXX" = "g++-8.3" ]; then cmake -DCOVERALLS=ON -DCMAKE_BUILD_TYPE=Debug .. && make -j4 && make coveralls; fi
 
 sudo: false
