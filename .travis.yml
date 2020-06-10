@@ -22,7 +22,10 @@ addons:
     - libtool-bin
     - libzmq3-dev
     - valgrind
-    - openmpi
+    - mpich
+    
+env: MPI=YES
+    
 
 before_script:
   - contrib/merge-dependencies
