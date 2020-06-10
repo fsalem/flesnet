@@ -17,15 +17,7 @@ addons:
     - doxygen
     - gcc-8.3
     - g++-8.3
-    - libboost-filesystem1.73-dev
-    - libboost-log1.73-dev
-    - libboost-program-options1.73-dev
-    - libboost-regex1.73-dev
-    - libboost-serialization1.73-dev
-    - libboost-system1.73-dev
-    - libboost-test1.73-dev
-    - libboost-thread1.73-dev
-    - libboost1.73-dev
+    - libboost-all-dev
     - libibverbs-dev
     - libnuma-dev
     - libpci-dev
@@ -40,15 +32,17 @@ env:
     - LIBFABRIC_ARCHIVE_PATH=$HOME/libfabric-1.10.1.tar.bz2
 
 before_install:
-  - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
-  - mkdir $HOME/clang+llvm
-  - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang+llvm --strip-components 1
-  - export PATH=$HOME/clang+llvm/bin:$PATH
-  - wget https://github.com/ofiwg/libfabric/releases/download/v1.10.1/libfabric-1.10.1.tar.bz2 -O $LIBFABRIC_ARCHIVE_PATH
-  - mkdir $HOME/libfabric
-  - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
-  - PWD_ADDR=$(pwd) && cd $HOME/libfabric && ./configure  && make && cd $PWD_ADDR
-  - export PATH=$PATH:$HOME/libfabric/include:$HOME/libfabric/src/.libs
+    - sudo apt-get -q update
+    - sudo apt-get -y install libboost-{filesystem,log,program_options,serialization,system,thread,unit_test_framework,regex}1.73{-dev,.0}
+    - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
+    - mkdir $HOME/clang+llvm
+    - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang+llvm --strip-components 1
+    - export PATH=$HOME/clang+llvm/bin:$PATH
+    - wget https://github.com/ofiwg/libfabric/releases/download/v1.10.1/libfabric-1.10.1.tar.bz2 -O $LIBFABRIC_ARCHIVE_PATH
+    - mkdir $HOME/libfabric
+    - tar xzf $LIBFABRIC_ARCHIVE_PATH -C $HOME/libfabric --strip-components 1
+    - PWD_ADDR=$(pwd) && cd $HOME/libfabric && ./configure  && make && cd $PWD_ADDR
+    - export PATH=$PATH:$HOME/libfabric/include:$HOME/libfabric/src/.libs
 
 before_script:
   - if [ "$CXX" = "clang++" ]; then export CXX="clang++" CC="clang"; fi
