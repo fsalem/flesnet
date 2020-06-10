@@ -1,6 +1,6 @@
 # Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
-find_path(MPI_INCLUDE_DIR mpi.h)
+find_path(MPI_INCLUDE_DIR NAMES mpi.h PATH_SUFFIXES mpi mpi/include)
 find_library(MPI_LIBRARY NAMES mpi)
 
 MESSAGE(STATUS "MPI           = ${MPI_LIBRARY}")
