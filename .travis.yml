@@ -33,7 +33,7 @@ before_script:
   
 script:
   - cmake ..
-  - make
+  - make -j
   - make CTEST_OUTPUT_ON_FAILURE=1 test
 
 after_success:
