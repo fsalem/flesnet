@@ -34,7 +34,7 @@ before_script:
 script:
   - cmake ..
   - make
-  - make CTEST_OUTPUT_ON_FAILURE=1 test
+#  - make CTEST_OUTPUT_ON_FAILURE=1 test
 
 after_success:
   - if [ "$CXX" = "g++-8.3" ]; then cmake -DCOVERALLS=ON -DCMAKE_BUILD_TYPE=Debug .. && make -j4 && make coveralls; fi
