@@ -26,6 +26,8 @@ addons:
     
 env: MPI=YES
     
+before_install:
+  - pip install --user cpp-coveralls
 
 before_script:
   - contrib/merge-dependencies
@@ -33,8 +35,11 @@ before_script:
   
 script:
   - cmake ..
+  - ./configure --enable-gcov
   - make
+  - make check
 #  - make CTEST_OUTPUT_ON_FAILURE=1 test
 
 after_success:
-  - if [ "$CXX" = "g++-8.3" ]; then cmake -DCOVERALLS=ON -DCMAKE_BUILD_TYPE=Debug .. && make -j4 && make coveralls; fi
+  - coveralls --exclude lib --exclude tests --gcov-options '\-lp'
+  #- cmake -DCOVERALLS=ON -DCMAKE_BUILD_TYPE=Debug .. && make -j4 && make coveralls;
