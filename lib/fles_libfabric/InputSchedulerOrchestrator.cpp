@@ -37,10 +37,7 @@ void InputSchedulerOrchestrator::generate_log_files(){
 
 //// InputIntervalScheduler Methods
 void InputSchedulerOrchestrator::add_proposed_meta_data(const IntervalMetaData meta_data){
-    if (interval_scheduler_->add_proposed_meta_data(meta_data)){
-	std::vector<uint32_t> dist (meta_data.compute_nodes_distribution, meta_data.compute_nodes_distribution + get_compute_connection_count());
-	//update_compute_distribution_frequency(meta_data.start_timeslice, meta_data.last_timeslice, dist);
-    }
+    interval_scheduler_->add_proposed_meta_data(meta_data);
 }
 
 const IntervalMetaData* InputSchedulerOrchestrator::get_actual_meta_data(uint64_t interval_index){
@@ -85,20 +82,6 @@ void InputSchedulerOrchestrator::mark_timeslices_acked(uint32_t compute_index, u
 	    continue;
 	}
 	interval_scheduler_->increament_acked_timeslices(timeslice);
-	// TODO to be removed or re-written
-	InputIntervalInfo* interval = interval_scheduler_->get_interval_of_timeslice(timeslice);
-	assert (interval != nullptr);
-	uint64_t next_compute_timeslice = get_timeslice_by_descriptor(compute_index, desc+1);
-	if (next_compute_timeslice == ConstVariables::MINUS_ONE)next_compute_timeslice = timeslice + get_compute_connection_count();
-	// TODO REMOVE
-	/*if (next_compute_timeslice > interval->end_ts){
-	    uint64_t count = timeslice_manager_->count_timeslices_of_interval(compute_index, interval->start_ts, interval->end_ts);
-	    double duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - interval->actual_start_time).count();
-	    L_(info) << "[I:" << interval->index << "] c_" << compute_index << " sent " << count
-		     << " in " << duration
-		     << "ms(" << (count/duration) << " #ts/ms)"
-		     << " ts " << timeslice << " next " << next_compute_timeslice;
-	}*/
     }
 
     uint64_t avg_latency = timeslice_manager_->acknowledge_timeslices_completion(compute_index, up_to_descriptor_id);
@@ -152,13 +135,6 @@ void InputSchedulerOrchestrator::consider_reschedule_decision(HeartbeatFailedNod
 
 bool InputSchedulerOrchestrator::is_decision_considered(uint32_t connection_id){
     return timeslice_manager_->is_decision_considered(connection_id);
-}
-
-void InputSchedulerOrchestrator::update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency){
-    assert (compute_frequency.size() == get_compute_connection_count());
-    std::vector<uint64_t> undo_timeslices = timeslice_manager_->update_compute_distribution_frequency(start_timeslice, last_timeslice, compute_frequency);
-    interval_scheduler_->undo_increament_sent_timeslices(undo_timeslices);
-    sent_timeslices -= undo_timeslices.size();
 }
 
 void InputSchedulerOrchestrator::log_timeslice_IB_blocked(uint32_t compute_index, uint64_t timeslice, bool sent_completed){
@@ -270,11 +246,5 @@ uint64_t InputSchedulerOrchestrator::get_up_to_timeslice_trigger(uint32_t failed
 	    + timeslice_manager_->count_future_timeslices_of_interval(failed_compute_index, current_interval.start_ts, current_interval.end_ts);
     if (failed_compute_timeslices == 0)return timeslice;
     return std::min(timeslice, current_interval.end_ts);
-    //uint64_t ack_sent_remaining_gap = interval_scheduler_->get_ack_sent_remaining_gap(current_interval.index);
-    //L_(debug) << "failed_compute_timeslices " << failed_compute_timeslices << " ack_sent_remaining_gap " << ack_sent_remaining_gap << " up to " << timeslice;
-    //if (failed_compute_timeslices >= ack_sent_remaining_gap){
-	//return std::min(timeslice, current_interval.end_ts);
-    //}
-    //return timeslice;
 }
 }

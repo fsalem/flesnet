@@ -196,7 +196,7 @@ private:
 
     uint32_t pending_send_requests_{0};
 
-    fi_addr_t partner_addr_;
+    fi_addr_t partner_addr_ = -1;
 
     bool registered_input_MPI_time = false;
 

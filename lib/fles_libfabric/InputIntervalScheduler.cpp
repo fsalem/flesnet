@@ -50,11 +50,6 @@ bool InputIntervalScheduler::add_proposed_meta_data(const IntervalMetaData meta_
 		  << std::chrono::duration_cast<std::chrono::microseconds>(meta_data.start_time - std::chrono::high_resolution_clock::now()).count()
 		  << " us & take " << meta_data.interval_duration
 		  << " us in " << meta_data.round_count << " rounds";
-	// TODO REMOVE
-	//L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, compute count " << meta_data.compute_node_count;
-	//for (int i=0 ; i<meta_data.compute_node_count ; i++){
-	//    L_(info) << "[" << meta_data.interval_index << "] add_proposed_meta_data, freq[" << i<< "] " << meta_data.compute_nodes_distribution[i];
-	//}
     }
     return true;
 }
@@ -230,22 +225,9 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
     interval_info->actual_duration = std::chrono::duration_cast<std::chrono::microseconds>(
 		std::chrono::high_resolution_clock::now() - interval_info->actual_start_time).count();
 
-    std::vector<uint64_t> normalized_blockage_durations(interval_info->sum_compute_blockage_durations_.size());
-    for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++)
-	normalized_blockage_durations[i] = interval_info->sum_compute_blockage_durations_[i]/
-		    (interval_info->sum_input_blockage_durations_[i] != 0 ? interval_info->sum_input_blockage_durations_[i] : 1);
-
     IntervalMetaData* actual_metadata = new IntervalMetaData(interval_info->index, interval_info->round_count, interval_info->start_ts, interval_info->end_ts,
-	    interval_info->actual_start_time, interval_info->actual_duration, interval_info->sum_compute_blockage_durations_);
+	    interval_info->actual_start_time, interval_info->actual_duration, get_compute_connection_count());
     if (true){
-	// TODO remove
-	std::string IB = "", CB = "", diff = "";
-	for (uint32_t i=0 ; i<interval_info->sum_compute_blockage_durations_.size() ; i++){
-	    if (i != 0){IB+=","; CB+=","; diff +=",";}
-	    IB += std::to_string(interval_info->sum_input_blockage_durations_[i]);
-	    CB += std::to_string(interval_info->sum_compute_blockage_durations_[i]);
-	    diff += std::to_string(normalized_blockage_durations[i]);
-	}
 	L_(info) << "[i " << scheduler_index_ << "] "
 		<< "interval"
                 << actual_metadata->interval_index
@@ -255,8 +237,8 @@ void InputIntervalScheduler::create_actual_interval_meta_data(InputIntervalInfo*
                 << actual_metadata->last_timeslice
                 << "] is finished and delayed for "
                 << std::chrono::duration_cast<std::chrono::microseconds>(actual_metadata->start_time - interval_info->proposed_start_time).count()
-                << " us & took " << actual_metadata->interval_duration << " us [proposed: " << interval_info->proposed_duration << "] in " << interval_info->rounds_counter << " rounds"
-		<< " IB [" << IB << "] CB [" << CB << "] ==> [" << diff << "]";
+                << " us & took " << actual_metadata->interval_duration << " us [proposed: "
+				<< interval_info->proposed_duration << "] in " << interval_info->rounds_counter << " rounds";
     }
     actual_interval_meta_data_.add(interval_info->index, actual_metadata);
 }

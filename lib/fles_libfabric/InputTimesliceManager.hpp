@@ -88,9 +88,6 @@ public:
     // Inform the TimesliceManager about the decision of the failed node and returns the rescheduled transmitted timeslices
     std::vector<uint64_t> consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info, const std::set<uint32_t> timeout_connections);
 
-    // Update the distribution rate on compute nodes and returns the rescheduled transmitted timeslices
-    std::vector<uint64_t> update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency);
-
     //Generate log files of the stored data
     void generate_log_files();
 
@@ -125,6 +122,16 @@ private:
 
     // Mark the transmitted timeslices after the trigger as unsent and returns these timeslices
     std::vector<uint64_t> undo_transmitted_timeslices_after_trigger(uint64_t timeslice_trigger);
+
+    // Refill the future timeslices or return back the sent ones to be for future
+    std::vector<uint64_t> manage_after_trigger_timeslices_on_failure(HeartbeatFailedNodeInfo failed_node_info);
+
+    // Retrieve the timeslices of the failed node
+    std::vector<uint64_t> retrieve_failed_timeslices_on_failure(HeartbeatFailedNodeInfo failed_node_info);
+
+    //distribute the failed timeslices on the active compute connections
+    void distribute_failed_timeslices_on_active_connections(HeartbeatFailedNodeInfo failed_node_info,
+		 const std::set<uint32_t> timeout_connections);
 
     // The singleton instance for this class
     static InputTimesliceManager* instance_;

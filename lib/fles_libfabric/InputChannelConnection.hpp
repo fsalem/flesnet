@@ -129,6 +129,12 @@ private:
     /// Get the median latency of the SYNC messages
     uint64_t get_msg_median_latency();
 
+    // Once a failed connection heartbeat message is received, this request is to be processed
+    HeartbeatFailedNodeInfo* process_failed_connection_request();
+
+    // Based on the heartbeat message type, a response is prepared
+    void prepare_heartbeat_response(HeartbeatFailedNodeInfo* failed_node);
+
     /// Flag, true if it is the input nodes's turn to send a pointer update.
     bool our_turn_ = true;
 

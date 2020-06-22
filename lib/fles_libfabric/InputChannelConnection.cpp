@@ -636,23 +636,32 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
     }
     if (done_) return;
     
-    HeartbeatFailedNodeInfo* failed_conn = nullptr;
-
     // heartbeat message request for info about failed connection
-    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
-	    recv_heartbeat_message_.failure_info.timeslice_trigger == ConstVariables::MINUS_ONE){
-	failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
-    }
-    // Info to start re-distribution
-    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
-	    recv_heartbeat_message_.failure_info.last_completed_desc != ConstVariables::MINUS_ONE &&
-	    recv_heartbeat_message_.failure_info.timeslice_trigger != ConstVariables::MINUS_ONE){
-	InputSchedulerOrchestrator::consider_reschedule_decision(recv_heartbeat_message_.failure_info);
-    }
+    HeartbeatFailedNodeInfo* failed_conn = process_failed_connection_request();
 
     InputSchedulerOrchestrator::log_heartbeat(index_);
     if (InputSchedulerOrchestrator::is_connection_timed_out(index_))return;
 
+    prepare_heartbeat_response(failed_conn);
+    post_recv_heartbeat_message();
+}
+
+HeartbeatFailedNodeInfo* InputChannelConnection::process_failed_connection_request(){
+    HeartbeatFailedNodeInfo* failed_conn = nullptr;
+    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
+	recv_heartbeat_message_.failure_info.timeslice_trigger == ConstVariables::MINUS_ONE){
+    failed_conn = InputSchedulerOrchestrator::get_timed_out_connection(recv_heartbeat_message_.failure_info.index);
+    }
+    // Info to start re-distribution
+    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
+	recv_heartbeat_message_.failure_info.last_completed_desc != ConstVariables::MINUS_ONE &&
+	recv_heartbeat_message_.failure_info.timeslice_trigger != ConstVariables::MINUS_ONE){
+    InputSchedulerOrchestrator::consider_reschedule_decision(recv_heartbeat_message_.failure_info);
+    }
+    return failed_conn;
+}
+
+void InputChannelConnection::prepare_heartbeat_response(HeartbeatFailedNodeInfo* failed_conn){
     if (!recv_heartbeat_message_.ack){
 	// TODO TO BE REMOVED ---- this is special condition to prevent corrupted data
 	if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE &&
@@ -665,11 +674,8 @@ void InputChannelConnection::on_complete_heartbeat_recv(){
 	}else{
 	    prepare_heartbeat(failed_conn, recv_heartbeat_message_.message_id, true);
 	}
-    }
-    else
+    }else
 	SchedulerOrchestrator::acknowledge_heartbeat_message(recv_heartbeat_message_.message_id);
-
-    post_recv_heartbeat_message();
 }
 
 void InputChannelConnection::update_cn_wp_after_failure_action(uint32_t failed_connection_id){

@@ -38,16 +38,6 @@ struct fi_info* RDMSocketsProvider::exists(std::string local_host_name)
     struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "sockets");//fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    /*hints->caps =
-        FI_MSG | FI_RMA | FI_WRITE | FI_SEND | FI_RECV | FI_REMOTE_WRITE;
-    hints->mode = FI_LOCAL_MR;
-    hints->ep_attr->type = FI_EP_RDM;
-    hints->rx_attr->mode = FI_LOCAL_MR;
-    hints->domain_attr->threading = FI_THREAD_SAFE;
-    hints->domain_attr->mr_mode = FI_MR_BASIC;
-    hints->addr_format = FI_SOCKADDR_IN;
-    hints->fabric_attr->prov_name = strdup("sockets");*/
-
     int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
                          hints, &info);
 

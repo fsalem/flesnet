@@ -346,11 +346,24 @@ std::pair<uint64_t, uint64_t> InputTimesliceManager::get_data_and_desc_of_last_t
     return get_data_and_desc_of_timeslice(compute_index, last_conn_timeslice_[compute_index]);
 }
 
-// TODO REWRITE THIS METHOD!!!
 std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(HeartbeatFailedNodeInfo failed_node_info,
 							 const std::set<uint32_t> timeout_connections){
-
     assert (compute_count_ > timeout_connections.size());
+    std::vector<uint64_t> undo_timeslices = manage_after_trigger_timeslices_on_failure(failed_node_info);
+    std::vector<uint64_t> failed_timeslices = retrieve_failed_timeslices_on_failure(failed_node_info);
+    undo_timeslices.insert(undo_timeslices.end(), failed_timeslices.begin(), failed_timeslices.end());
+
+    distribute_failed_timeslices_on_active_connections(failed_node_info, timeout_connections);
+
+    redistribution_decisions_log_.add(failed_node_info.index, failed_node_info.timeslice_trigger);
+    for (uint32_t i=0 ; i < compute_count_ ; ++i){
+	L_(debug) << "last transmitted ts of " << i << " is " << last_conn_timeslice_[i] << " and desc " << last_conn_desc_[i];
+	check_to_add_rescheduled_timeslices(i);
+    }
+    return undo_timeslices;
+}
+
+std::vector<uint64_t> InputTimesliceManager::manage_after_trigger_timeslices_on_failure(HeartbeatFailedNodeInfo failed_node_info){
     std::vector<uint64_t> undo_timeslices;
     if (next_start_future_timeslice_ <= (failed_node_info.timeslice_trigger+1)){
 	// Refill the future timeslices until the trigger to have all timeslices that should be distributed over other compute nodes
@@ -359,28 +372,32 @@ std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(Heartb
 	// Check if timeslice_trigger is already passed!! (return them back to the queue for the correct ordering)
 	std::vector<uint64_t> list = undo_transmitted_timeslices_after_trigger(failed_node_info.timeslice_trigger);
 	undo_timeslices.insert(undo_timeslices.end(), list.begin(), list.end());
-	L_(debug) << "[consider_reschedule_decision][" << failed_node_info.index << "] undo after trigger " << undo_timeslices.size();
+	L_(debug) << "[manage_future_timeslice_on_failure][" << failed_node_info.index << "] undo after trigger " << undo_timeslices.size();
 	// update the desc correspondingly
 	next_start_future_timeslice_ = failed_node_info.timeslice_trigger+1;
     }
-    //
-    std::set<uint64_t>* failed_timeslice = future_conn_timeslices_.get(failed_node_info.index);
+    return undo_timeslices;
+}
 
+std::vector<uint64_t> InputTimesliceManager::retrieve_failed_timeslices_on_failure(HeartbeatFailedNodeInfo failed_node_info){
+    std::vector<uint64_t> undo_timeslices;
+    std::set<uint64_t>* failed_timeslice = future_conn_timeslices_.get(failed_node_info.index);
     // clean the conn_desc_timeslice_info_ and move them back to future timeslices
     SizedMap<uint64_t, uint64_t>* failed_conn_desc_timeslice_info = conn_desc_timeslice_info_.get(failed_node_info.index);
     assert (failed_conn_desc_timeslice_info->empty() ||
-	    failed_conn_desc_timeslice_info->get_begin_iterator()->first == failed_node_info.last_completed_desc+1);
+	failed_conn_desc_timeslice_info->get_begin_iterator()->first == failed_node_info.last_completed_desc+1);
     while (!failed_conn_desc_timeslice_info->empty()){
 	failed_timeslice->insert(failed_conn_desc_timeslice_info->get_begin_iterator()->second);
 	undo_timeslices.push_back(failed_conn_desc_timeslice_info->get_begin_iterator()->second);
 	failed_conn_desc_timeslice_info->remove(failed_conn_desc_timeslice_info->get_begin_iterator()->first);
     }
+    return undo_timeslices;
+}
 
-	// TODO REMOVE
-    if (!failed_timeslice->empty())
-	L_(debug) << "Number of failed timeslices is " << failed_timeslice->size() << " trigger timeslice " << failed_node_info.timeslice_trigger << " ... [0] " << *failed_timeslice->begin()
-	     << " [n-1] " << *(--failed_timeslice->end());
+void InputTimesliceManager::distribute_failed_timeslices_on_active_connections(HeartbeatFailedNodeInfo failed_node_info,
+	 const std::set<uint32_t> timeout_connections){
 
+    std::set<uint64_t>* failed_timeslice = future_conn_timeslices_.get(failed_node_info.index);
     // Distribute failed_timeslices over other active connections in a temporary array
     if (!failed_timeslice->empty()){
 	std::vector<std::set<uint64_t>*> movable_ts(compute_count_, nullptr);
@@ -395,48 +412,8 @@ std::vector<uint64_t> InputTimesliceManager::consider_reschedule_decision(Heartb
 	}
 	to_be_moved_timeslices_.add(failed_node_info.timeslice_trigger, movable_ts);
     }
-
-    redistribution_decisions_log_.add(failed_node_info.index, failed_node_info.timeslice_trigger);
-    for (uint32_t i=0 ; i < compute_count_ ; ++i){
-	L_(debug) << "last transmitted ts of " << i << " is " << last_conn_timeslice_[i] << " and desc " << last_conn_desc_[i];
-	check_to_add_rescheduled_timeslices(i);
-    }
-    return undo_timeslices;
 }
 
-std::vector<uint64_t> InputTimesliceManager::update_compute_distribution_frequency(uint64_t start_timeslice, uint64_t last_timeslice, std::vector<uint32_t> compute_frequency){
-    // Check whether any timeslice before start_timeslice is sent out
-    std::vector<uint64_t> undo_timeslices;
-    if (next_start_future_timeslice_ <= start_timeslice){
-    	refill_future_timeslices(start_timeslice);
-    }else{
-	// Check if timeslices after the start_timeslice is already sent out!! (return them back to the queue for the correct ordering)
-	std::vector<uint64_t> list = undo_transmitted_timeslices_after_trigger(start_timeslice-1);
-	undo_timeslices.insert(undo_timeslices.end(), list.begin(), list.end());
-	L_(info) << "[update_compute_distribution_frequency][start_timeslice=" << start_timeslice << "] undo after trigger " << undo_timeslices.size();
-	// update the desc correspondingly
-	next_start_future_timeslice_ = start_timeslice;
-    }
-    // TODO Add logging
-    virtual_compute_count_ = 0;
-    virtual_physical_compute_mapping_.clear();
-    bool frequencies_updated = true;
-    // Distribute timeslice frequencies in a round-robin scheme
-    while(frequencies_updated){
-	frequencies_updated = false;
-	for (uint32_t i = 0 ; i < compute_frequency.size() ; i++)
-	    if (compute_frequency[i] > 0){
-		virtual_physical_compute_mapping_.push_back(i);
-		--compute_frequency[i];
-		++virtual_compute_count_;
-		frequencies_updated = true;
-	    }
-    }
-
-    refill_future_timeslices(last_timeslice+1);
-    return undo_timeslices;
-
-}
 
 void InputTimesliceManager::generate_log_files(){
     if (!enable_logging_) return;

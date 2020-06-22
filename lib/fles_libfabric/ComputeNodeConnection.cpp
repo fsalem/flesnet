@@ -330,7 +330,8 @@ void ComputeNodeConnection::on_complete_recv()
     }
 
     if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency, recv_status_message_.actual_interval_metadata.interval_index);
+	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency,
+				    recv_status_message_.actual_interval_metadata.interval_index);
 	DDSchedulerOrchestrator::add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
     }
     post_recv_status_message();

@@ -5,7 +5,6 @@
 
 #include "LibfabricException.hpp"
 #include "Provider.hpp"
-//#include "RequestIdentifier.hpp"
 
 #include <rdma/fi_cm.h>
 #include <rdma/fi_rma.h>
@@ -59,18 +58,8 @@ void Connection::connect(const std::string& hostname,
 
     L_(debug) << "connect: " << hostname << ":" << service;
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = fi_dupinfo(Provider::getInst()->get_info());//Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type, Provider::getInst()->get_info()->fabric_attr->prov_name);
-
-    // TODO make it generic in the hints to be the same at compute and input nodes
-    /*hints->rx_attr->size = max_recv_wr_;
-    hints->rx_attr->iov_limit = max_recv_sge_;
-    // TODO this attribute causes a problem while running flesnet
-    // hints->tx_attr->size = max_send_wr_;
-    hints->tx_attr->iov_limit = max_send_sge_;
-    hints->tx_attr->inject_size = max_inline_data_;*/
-
-    /*hints->src_addr = nullptr;
-    hints->src_addrlen = 0;*/
+    struct fi_info* hints = fi_dupinfo(Provider::getInst()->get_info());
+    //Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type, Provider::getInst()->get_info()->fabric_attr->prov_name);
 
     int err = fi_getinfo(
         FIVERSION, hostname == "" ? nullptr : hostname.c_str(),
@@ -166,7 +155,7 @@ void Connection::on_disconnected(struct fi_eq_cm_entry* /* event */)
     if (ep_ != nullptr){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    	// TODO fi_close((::fid_t)ep_);
+    	fi_close((::fid_t)ep_);
 #pragma GCC diagnostic pop
     }
     ep_ = nullptr;
@@ -453,7 +442,7 @@ void Connection::prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info, uint64
 	SchedulerOrchestrator::add_pending_heartbeat_message(index_, message);
     }
 
-    // TODO this should be moved to send_heartbeat but would cause no progress in case of failure because the completion will
+    // This should be moved to send_heartbeat but would cause no progress in case of failure because the completion will
     // be never received and therefore, no log_sent_heartbeat_message will be called, which is essential to mark connection timeout!
     if (!ack){
 	SchedulerOrchestrator::log_sent_heartbeat_message(index_, *message);

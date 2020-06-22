@@ -133,26 +133,6 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
     struct fi_info* info2 = nullptr;
     struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
 
-    /*hints->caps = info->caps;
-     hints->ep_attr = info->ep_attr;
-     hints->domain_attr->data_progress = info->domain_attr;
-     hints->domain_attr->threading = info->domain_attr->threading;
-     hints->domain_attr->mr_mode = info->domain_attr->mr_mode;
-     hints->fabric_attr = info->fabric_attr;*/
-    /* todo
-     hints->rx_attr->size = max_recv_wr_;
-     hints->rx_attr->iov_limit = max_recv_sge_;
-     hints->tx_attr->size = max_send_wr_;
-     hints->tx_attr->iov_limit = max_send_sge_;
-     hints->tx_attr->inject_size = max_inline_data_;
-
-
-    hints->src_addr = nullptr;
-    hints->src_addrlen = 0;
-    hints->dest_addr = nullptr;
-    hints->dest_addrlen = 0;
-    */
-
     int err = fi_getinfo(FIVERSION, hostname.c_str(), service.c_str(),
                          FI_SOURCE, hints, &info2);
     if (err) {
@@ -489,8 +469,6 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     case ID_HEARTBEAT_RECEIVE_STATUS: {
 	int cn = wr_id >> 8;
 
-// TODO TO be written in a better way
-	// Check whether a decision is ready after this message to broadcast
 	const HeartbeatMessage recv_heartbeat_message = conn_[cn]->recv_heartbeat_message();
 	bool before_failed_node_decision_taken = false, after_failed_node_decision_taken = false;
 	if (recv_heartbeat_message.failure_info.index != ConstVariables::MINUS_ONE)
@@ -559,20 +537,6 @@ bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 	    break;
 	}
     }
-    // TODO REMOVE
-    if (!all_received){
-	for (uint32_t indx = 0 ; indx < conn_.size() ; indx++){
-		const fles::TimesliceComponentDescriptor& acked_ts =
-			timeslice_buffer_.get_desc(indx, ts_pos);
-		L_(info) << "[process_pending_complete_timeslices] desc = " << ts_pos
-			    << ", acked_ts.size = " << acked_ts.size
-			    << ", acked_ts.offset = " << acked_ts.offset
-			    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
-			    << ", acked_ts.ts_num = " << acked_ts.ts_num
-			    << ", (acked_ts.offset + acked_ts.size) = " << (acked_ts.offset + acked_ts.size)
-			    << ", conn_[indx]->cn_ack().data = " << conn_[indx]->cn_ack().data;
-	    }
-    }
     return all_received;
 }
 
@@ -620,7 +584,6 @@ void TimesliceBuilder::sync_heartbeat(){
 	}
     }
 
-    // TODO write it in a better way
     // Check finalize long waiting connections
     std::vector<uint32_t> long_waiting_finalize_conns = DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections();
     for (uint32_t i=0 ; i < long_waiting_finalize_conns.size() ; i++){
@@ -637,10 +600,7 @@ void TimesliceBuilder::mark_connection_completed(uint32_t conn_id){
     if (!connection_oriented_) {
 	on_disconnected(nullptr, conn_id);
     }else{
-	// TODO gni check should be removed
-	if (all_done_ && strcmp(Provider::getInst()->get_info()->fabric_attr->prov_name, "gni") == 0){
-	    disconnect();
-	}
+	conn_[conn_id]->disconnect();
     }
 }
 

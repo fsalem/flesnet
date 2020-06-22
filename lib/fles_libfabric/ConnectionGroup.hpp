@@ -8,16 +8,9 @@
 #include "Provider.hpp"
 #include "LibfabricContextPool.hpp"
 #include "RequestIdentifier.hpp"
-//#include <chrono>
-//#include <cstring>
-//#include <fcntl.h>
-//#include <rdma/rdma_cma.h>
 #include <rdma/fabric.h>
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_errno.h>
-//#include <sstream>
-//#include <valgrind/memcheck.h>
-//#include <vector>
 #include <rdma/fi_domain.h>
 #include <set>
 
