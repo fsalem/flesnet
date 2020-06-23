@@ -12,21 +12,20 @@
 
 #pragma pack(1)
 
-namespace tl_libfabric
-{
+namespace tl_libfabric {
 /// Structure representing a status update message sent from compute buffer to
 /// input channel.
 struct ComputeNodeStatusMessage {
-    ComputeNodeBufferPosition ack;
-    bool request_abort;
-    bool final;
-    //
-    bool connect;
-    ComputeNodeInfo info;
-    // address must be not null if connect = true
-    unsigned char my_address[64];
+  ComputeNodeBufferPosition ack;
+  bool request_abort;
+  bool final;
+  //
+  bool connect;
+  ComputeNodeInfo info;
+  // address must be not null if connect = true
+  unsigned char my_address[64];
 
-    IntervalMetaData proposed_interval_metadata;
+  IntervalMetaData proposed_interval_metadata;
 };
 } // namespace tl_libfabric
 

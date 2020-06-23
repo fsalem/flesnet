@@ -21,45 +21,41 @@
 #include <netinet/ip.h>
 #include <sys/socket.h>
 
-namespace tl_libfabric
-{
+namespace tl_libfabric {
 
-RDMSocketsProvider::~RDMSocketsProvider()
-{
+RDMSocketsProvider::~RDMSocketsProvider() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    fi_freeinfo(info_);
-    fi_close((::fid_t)fabric_);
+  fi_freeinfo(info_);
+  fi_close((::fid_t)fabric_);
 #pragma GCC diagnostic pop
 }
 
-struct fi_info* RDMSocketsProvider::exists(std::string local_host_name)
-{
-    struct fi_info* hints =
-        Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
-    struct fi_info* info = nullptr;
+struct fi_info* RDMSocketsProvider::exists(std::string local_host_name) {
+  struct fi_info* hints =
+      Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
+  struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0, hints,
-                         &info);
+  int res =
+      fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0, hints, &info);
 
-    if (!res) {
-        // fi_freeinfo(hints);
-        return info;
-    }
-
-    fi_freeinfo(info);
+  if (!res) {
     // fi_freeinfo(hints);
+    return info;
+  }
 
-    return nullptr;
+  fi_freeinfo(info);
+  // fi_freeinfo(hints);
+
+  return nullptr;
 }
 
-RDMSocketsProvider::RDMSocketsProvider(struct fi_info* info) : info_(info)
-{
-    int res = fi_fabric(info_->fabric_attr, &fabric_, nullptr);
-    if (res) {
-        L_(fatal) << "fi_fabric failed: " << res << "=" << fi_strerror(-res);
-        throw LibfabricException("fi_fabric failed");
-    }
+RDMSocketsProvider::RDMSocketsProvider(struct fi_info* info) : info_(info) {
+  int res = fi_fabric(info_->fabric_attr, &fabric_, nullptr);
+  if (res) {
+    L_(fatal) << "fi_fabric failed: " << res << "=" << fi_strerror(-res);
+    throw LibfabricException("fi_fabric failed");
+  }
 }
 
 void RDMSocketsProvider::accept(struct fid_pep* pep __attribute__((unused)),
@@ -67,9 +63,8 @@ void RDMSocketsProvider::accept(struct fid_pep* pep __attribute__((unused)),
                                 __attribute__((unused)),
                                 unsigned short port __attribute__((unused)),
                                 unsigned int count __attribute__((unused)),
-                                fid_eq* eq __attribute__((unused)))
-{
-    // there is no accept for RDM
+                                fid_eq* eq __attribute__((unused))) {
+  // there is no accept for RDM
 }
 
 void RDMSocketsProvider::connect(::fid_ep* ep __attribute__((unused)),
@@ -81,33 +76,32 @@ void RDMSocketsProvider::connect(::fid_ep* ep __attribute__((unused)),
                                  __attribute__((unused)),
                                  const void* param __attribute__((unused)),
                                  size_t param_len __attribute__((unused)),
-                                 void* addr __attribute__((unused)))
-{
-    // @todo send mr message?
+                                 void* addr __attribute__((unused))) {
+  // @todo send mr message?
 }
 
 void RDMSocketsProvider::set_hostnames_and_services(
-    struct fid_av* av, const std::vector<std::string>& compute_hostnames,
+    struct fid_av* av,
+    const std::vector<std::string>& compute_hostnames,
     const std::vector<std::string>& compute_services,
-    std::vector<::fi_addr_t>& fi_addrs)
-{
-    struct fi_info *info, *hints;
+    std::vector<::fi_addr_t>& fi_addrs) {
+  struct fi_info *info, *hints;
 
-    for (size_t i = 0; i < compute_hostnames.size(); i++) {
-        fi_addr_t fi_addr;
+  for (size_t i = 0; i < compute_hostnames.size(); i++) {
+    fi_addr_t fi_addr;
 
-        info = nullptr;
-        hints = Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
+    info = nullptr;
+    hints = Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
 
-        int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
-                             compute_services[i].c_str(), 0, hints, &info);
-        assert(res == 0);
-        assert(info != NULL);
-        assert(info->dest_addr != NULL);
-        res = fi_av_insert(av, info->dest_addr, 1, &fi_addr, 0, NULL);
-        assert(res == 1);
-        fi_addrs.push_back(fi_addr);
-        fi_freeinfo(info);
-    }
+    int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
+                         compute_services[i].c_str(), 0, hints, &info);
+    assert(res == 0);
+    assert(info != NULL);
+    assert(info->dest_addr != NULL);
+    res = fi_av_insert(av, info->dest_addr, 1, &fi_addr, 0, NULL);
+    assert(res == 1);
+    fi_addrs.push_back(fi_addr);
+    fi_freeinfo(info);
+  }
 }
 } // namespace tl_libfabric

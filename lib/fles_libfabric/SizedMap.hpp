@@ -5,149 +5,134 @@
 #include <assert.h>
 #include <map>
 
-namespace tl_libfabric
-{
-template <typename KEY, typename VALUE> class SizedMap
-{
+namespace tl_libfabric {
+template <typename KEY, typename VALUE> class SizedMap {
 public:
-    SizedMap(uint32_t max_map_size);
-    SizedMap();
-    // SizedMap(const SizedMap&) = delete;
-    // SizedMap& operator=(const SizedMap&) = delete;
+  SizedMap(uint32_t max_map_size);
+  SizedMap();
+  // SizedMap(const SizedMap&) = delete;
+  // SizedMap& operator=(const SizedMap&) = delete;
 
-    bool add(const KEY key, const VALUE val);
+  bool add(const KEY key, const VALUE val);
 
-    bool update(const KEY key, const VALUE val);
+  bool update(const KEY key, const VALUE val);
 
-    bool remove(const KEY key);
+  bool remove(const KEY key);
 
-    bool contains(const KEY key) const;
+  bool contains(const KEY key) const;
 
-    bool empty() const;
+  bool empty() const;
 
-    uint32_t size() const;
+  uint32_t size() const;
 
-    VALUE get(const KEY key) const;
+  VALUE get(const KEY key) const;
 
-    KEY get_last_key() const;
+  KEY get_last_key() const;
 
-    typename std::map<KEY, VALUE>::iterator get_begin_iterator();
+  typename std::map<KEY, VALUE>::iterator get_begin_iterator();
 
-    typename std::map<KEY, VALUE>::iterator get_iterator(const KEY key);
+  typename std::map<KEY, VALUE>::iterator get_iterator(const KEY key);
 
-    typename std::map<KEY, VALUE>::iterator get_end_iterator();
+  typename std::map<KEY, VALUE>::iterator get_end_iterator();
 
-    typedef typename std::map<KEY, VALUE>::iterator iterator;
+  typedef typename std::map<KEY, VALUE>::iterator iterator;
 
 private:
-    typename std::map<KEY, VALUE> map_;
-    const uint32_t MAX_MAP_SIZE_;
+  typename std::map<KEY, VALUE> map_;
+  const uint32_t MAX_MAP_SIZE_;
 };
 
 template <typename KEY, typename VALUE>
 SizedMap<KEY, VALUE>::SizedMap(uint32_t max_map_size)
-    : MAX_MAP_SIZE_(max_map_size)
-{
-}
+    : MAX_MAP_SIZE_(max_map_size) {}
 
 template <typename KEY, typename VALUE>
 SizedMap<KEY, VALUE>::SizedMap()
-    : MAX_MAP_SIZE_(ConstVariables::MAX_HISTORY_SIZE)
-{
+    : MAX_MAP_SIZE_(ConstVariables::MAX_HISTORY_SIZE) {}
+
+template <typename KEY, typename VALUE>
+bool SizedMap<KEY, VALUE>::add(const KEY key, const VALUE val) {
+  if (map_.find(key) != map_.end()) {
+    return false;
+  }
+
+  if (map_.size() == MAX_MAP_SIZE_) {
+    map_.erase(map_.begin());
+    assert(map_.size() == MAX_MAP_SIZE_ - 1);
+  }
+
+  map_.insert(std::pair<KEY, VALUE>(key, val));
+
+  return true;
 }
 
 template <typename KEY, typename VALUE>
-bool SizedMap<KEY, VALUE>::add(const KEY key, const VALUE val)
-{
-    if (map_.find(key) != map_.end()) {
-        return false;
-    }
+bool SizedMap<KEY, VALUE>::update(const KEY key, const VALUE val) {
+  typename std::map<KEY, VALUE>::iterator it = map_.find(key);
+  if (it == map_.end()) {
+    return false;
+  }
 
-    if (map_.size() == MAX_MAP_SIZE_) {
-        map_.erase(map_.begin());
-        assert(map_.size() == MAX_MAP_SIZE_ - 1);
-    }
+  it->second = val;
 
-    map_.insert(std::pair<KEY, VALUE>(key, val));
-
-    return true;
+  return true;
 }
 
 template <typename KEY, typename VALUE>
-bool SizedMap<KEY, VALUE>::update(const KEY key, const VALUE val)
-{
-    typename std::map<KEY, VALUE>::iterator it = map_.find(key);
-    if (it == map_.end()) {
-        return false;
-    }
+bool SizedMap<KEY, VALUE>::remove(const KEY key) {
+  typename std::map<KEY, VALUE>::iterator it = map_.find(key);
+  if (it == map_.end()) {
+    return false;
+  }
 
-    it->second = val;
+  map_.erase(it);
 
-    return true;
+  return true;
 }
 
 template <typename KEY, typename VALUE>
-bool SizedMap<KEY, VALUE>::remove(const KEY key)
-{
-    typename std::map<KEY, VALUE>::iterator it = map_.find(key);
-    if (it == map_.end()) {
-        return false;
-    }
-
-    map_.erase(it);
-
-    return true;
+bool SizedMap<KEY, VALUE>::contains(const KEY key) const {
+  return !empty() && map_.find(key) != map_.end() ? true : false;
 }
 
 template <typename KEY, typename VALUE>
-bool SizedMap<KEY, VALUE>::contains(const KEY key) const
-{
-    return !empty() && map_.find(key) != map_.end() ? true : false;
-}
-
-template <typename KEY, typename VALUE> bool SizedMap<KEY, VALUE>::empty() const
-{
-    return size() == 0 ? true : false;
+bool SizedMap<KEY, VALUE>::empty() const {
+  return size() == 0 ? true : false;
 }
 
 template <typename KEY, typename VALUE>
-uint32_t SizedMap<KEY, VALUE>::size() const
-{
+uint32_t SizedMap<KEY, VALUE>::size() const {
 
-    return map_.size();
+  return map_.size();
 }
 
 template <typename KEY, typename VALUE>
-VALUE SizedMap<KEY, VALUE>::get(const KEY key) const
-{
+VALUE SizedMap<KEY, VALUE>::get(const KEY key) const {
 
-    return map_.find(key)->second;
+  return map_.find(key)->second;
 }
 
 template <typename KEY, typename VALUE>
-KEY SizedMap<KEY, VALUE>::get_last_key() const
-{
+KEY SizedMap<KEY, VALUE>::get_last_key() const {
 
-    return (--map_.end())->first;
+  return (--map_.end())->first;
 }
 
 template <typename KEY, typename VALUE>
 typename std::map<KEY, VALUE>::iterator
-SizedMap<KEY, VALUE>::get_begin_iterator()
-{
-    return map_.begin();
+SizedMap<KEY, VALUE>::get_begin_iterator() {
+  return map_.begin();
 }
 
 template <typename KEY, typename VALUE>
 typename std::map<KEY, VALUE>::iterator
-SizedMap<KEY, VALUE>::get_iterator(const KEY key)
-{
-    return map_.find(key);
+SizedMap<KEY, VALUE>::get_iterator(const KEY key) {
+  return map_.find(key);
 }
 
 template <typename KEY, typename VALUE>
-typename std::map<KEY, VALUE>::iterator SizedMap<KEY, VALUE>::get_end_iterator()
-{
-    return map_.end();
+typename std::map<KEY, VALUE>::iterator
+SizedMap<KEY, VALUE>::get_end_iterator() {
+  return map_.end();
 }
 } // namespace tl_libfabric

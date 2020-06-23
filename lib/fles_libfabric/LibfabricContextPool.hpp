@@ -13,39 +13,37 @@
 #include <rdma/fabric.h>
 #include <string.h>
 
-namespace tl_libfabric
-{
+namespace tl_libfabric {
 struct fi_custom_context {
-    struct fi_context context;
-    uint64_t id;
-    uint64_t op_context;
+  struct fi_context context;
+  uint64_t id;
+  uint64_t op_context;
 };
 
-class LibfabricContextPool
-{
+class LibfabricContextPool {
 public:
-    ~LibfabricContextPool();
+  ~LibfabricContextPool();
 
-    LibfabricContextPool(const LibfabricContextPool&) = delete;
-    LibfabricContextPool& operator=(const LibfabricContextPool&) = delete;
+  LibfabricContextPool(const LibfabricContextPool&) = delete;
+  LibfabricContextPool& operator=(const LibfabricContextPool&) = delete;
 
-    struct fi_custom_context* getContext();
+  struct fi_custom_context* getContext();
 
-    void releaseContext(struct fi_custom_context* context);
+  void releaseContext(struct fi_custom_context* context);
 
-    static std::unique_ptr<LibfabricContextPool>& getInst();
+  static std::unique_ptr<LibfabricContextPool>& getInst();
 
 private:
-    static std::unique_ptr<LibfabricContextPool> context_pool_;
-    std::list<struct fi_custom_context> available_;
-    std::list<struct fi_custom_context> in_use_;
+  static std::unique_ptr<LibfabricContextPool> context_pool_;
+  std::list<struct fi_custom_context> available_;
+  std::list<struct fi_custom_context> in_use_;
 
-    uint64_t context_counter_ = 0;
+  uint64_t context_counter_ = 0;
 
-    std::mutex pool_mutex_;
+  std::mutex pool_mutex_;
 
-    LibfabricContextPool();
+  LibfabricContextPool();
 
-    void log();
+  void log();
 };
 } // namespace tl_libfabric
