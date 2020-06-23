@@ -53,4 +53,4 @@ public:
                  uint32_t max_inline_data, const void* param, size_t paramlen,
                  void* addr) override;
 };
-}
+} // namespace tl_libfabric

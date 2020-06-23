@@ -1,23 +1,24 @@
 // Copyright 2019 Farouk Salem <salem@zib.de>
 
 /**
- * An implementation of fi_context object pool based on the Object Pool Design Pattern
+ * An implementation of fi_context object pool based on the Object Pool Design
+ * Pattern
  */
 #pragma once
 
+#include <list>
 #include <log.hpp>
 #include <memory>
-#include <rdma/fabric.h>
-#include <list>
-#include <string.h>
 #include <mutex>
+#include <rdma/fabric.h>
+#include <string.h>
 
 namespace tl_libfabric
 {
-struct fi_custom_context{
-	struct fi_context context;
-	uint64_t id;
-	uint64_t op_context;
+struct fi_custom_context {
+    struct fi_context context;
+    uint64_t id;
+    uint64_t op_context;
 };
 
 class LibfabricContextPool
@@ -47,4 +48,4 @@ private:
 
     void log();
 };
-}
+} // namespace tl_libfabric

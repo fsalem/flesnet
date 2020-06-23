@@ -10,29 +10,20 @@
 
 #include <boost/algorithm/string.hpp>
 #include <iomanip>
-//#include <boost/lexical_cast.hpp>
-//#include <log.hpp>
-//#include <random>
-
-
-//#include <valgrind/memcheck.h>
 
 namespace tl_libfabric
 {
 
-TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
-                                   TimesliceBuffer& timeslice_buffer,
-                                   unsigned short service,
-                                   uint32_t num_input_nodes,
-                                   uint32_t timeslice_size,
-                                   volatile sig_atomic_t* signal_status,
-                                   bool drop, std::string local_node_name,
-				   uint32_t scheduler_history_size,
-				   uint32_t scheduler_interval_length,
-				   uint32_t scheduler_speedup_difference_percentage,
-				   uint32_t scheduler_speedup_percentage,
-				   uint32_t scheduler_speedup_interval_count,
-				   std::string log_directory, bool enable_logging)
+TimesliceBuilder::TimesliceBuilder(
+    uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
+    unsigned short service, uint32_t num_input_nodes, uint32_t timeslice_size,
+    volatile sig_atomic_t* signal_status, bool drop,
+    std::string local_node_name, uint32_t scheduler_history_size,
+    uint32_t scheduler_interval_length,
+    uint32_t scheduler_speedup_difference_percentage,
+    uint32_t scheduler_speedup_percentage,
+    uint32_t scheduler_speedup_interval_count, std::string log_directory,
+    bool enable_logging)
     : ConnectionGroup(local_node_name), compute_index_(compute_index),
       timeslice_buffer_(timeslice_buffer), service_(service),
       num_input_nodes_(num_input_nodes), timeslice_size_(timeslice_size),
@@ -48,11 +39,11 @@ TimesliceBuilder::TimesliceBuilder(uint64_t compute_index,
     } else {
         connection_oriented_ = false;
     }
-    DDSchedulerOrchestrator::initialize(compute_index, num_input_nodes,
-	    scheduler_history_size, scheduler_interval_length,
-	    scheduler_speedup_difference_percentage,
-	    scheduler_speedup_percentage, scheduler_speedup_interval_count,
-	    log_directory, enable_logging);
+    DDSchedulerOrchestrator::initialize(
+        compute_index, num_input_nodes, scheduler_history_size,
+        scheduler_interval_length, scheduler_speedup_difference_percentage,
+        scheduler_speedup_percentage, scheduler_speedup_interval_count,
+        log_directory, enable_logging);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -85,15 +76,17 @@ void TimesliceBuilder::report_status()
                  << bar_graph(status_desc.vector(), "#._", 10) << "| ";
 
         // LOGGING
-        buffer_percentage[c->index()] = std::stod(status_data.percentage_str(status_data.used()));
+        buffer_percentage[c->index()] =
+            std::stod(status_data.percentage_str(status_data.used()));
         //
     }
     // LOGGING
     int last_second = -1;
-    if (!buffer_status_.empty())last_second=(--buffer_status_.end())->first;
-    buffer_status_.insert(std::pair<uint64_t, std::vector<double>>((last_second+1), buffer_percentage));
+    if (!buffer_status_.empty())
+        last_second = (--buffer_status_.end())->first;
+    buffer_status_.insert(std::pair<uint64_t, std::vector<double>>(
+        (last_second + 1), buffer_percentage));
     //
-
 
     scheduler_.add(std::bind(&TimesliceBuilder::report_status, this),
                    now + interval);
@@ -131,7 +124,8 @@ void TimesliceBuilder::make_endpoint_named(struct fi_info* info,
     int res;
 
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
+    struct fi_info* hints = Provider::get_hints(
+        info->ep_attr->type, info->fabric_attr->prov_name); // fi_dupinfo(info);
 
     int err = fi_getinfo(FIVERSION, hostname.c_str(), service.c_str(),
                          FI_SOURCE, hints, &info2);
@@ -233,8 +227,8 @@ void TimesliceBuilder::bootstrap_wo_connections()
             timeslice_buffer_.get_desc_ptr(index);
 
         std::unique_ptr<ComputeNodeConnection> conn(new ComputeNodeConnection(
-            eq_, pd_, completion_queue(index), av_, index, compute_index_, data_ptr,
-            timeslice_buffer_.get_data_size_exp(), desc_ptr,
+            eq_, pd_, completion_queue(index), av_, index, compute_index_,
+            data_ptr, timeslice_buffer_.get_data_size_exp(), desc_ptr,
             timeslice_buffer_.get_desc_size_exp()));
         conn->setup_mr(pd_);
         conn->setup();
@@ -242,9 +236,10 @@ void TimesliceBuilder::bootstrap_wo_connections()
     }
 
     // register memory regions
-    int err = fi_mr_reg(
-        pd_, &recv_connect_message, sizeof(recv_connect_message), FI_RECV | FI_TAGGED, 0,
-        Provider::requested_key++, 0, &mr_recv_connect, nullptr);
+    int err =
+        fi_mr_reg(pd_, &recv_connect_message, sizeof(recv_connect_message),
+                  FI_RECV | FI_TAGGED, 0, Provider::requested_key++, 0,
+                  &mr_recv_connect, nullptr);
     if (err) {
         L_(fatal) << "fi_mr_reg failed for recv msg in compute-buffer: " << err
                   << "=" << fi_strerror(-err);
@@ -327,7 +322,8 @@ void TimesliceBuilder::bootstrap_wo_connections()
             throw LibfabricException("fi_recvmsg failed");
         }
     }
-    LibfabricContextPool::getInst()->releaseContext(static_cast<struct fi_custom_context*>(recv_msg_wr.context));
+    LibfabricContextPool::getInst()->releaseContext(
+        static_cast<struct fi_custom_context*>(recv_msg_wr.context));
 }
 
 /// The thread main function.
@@ -344,7 +340,7 @@ void TimesliceBuilder::operator()()
         }
 
         int rc = MPI_Barrier(MPI_COMM_WORLD);
-	assert(rc == MPI_SUCCESS);
+        assert(rc == MPI_SUCCESS);
         time_begin_ = std::chrono::high_resolution_clock::now();
         DDSchedulerOrchestrator::set_begin_time(time_begin_);
 
@@ -381,28 +377,31 @@ void TimesliceBuilder::operator()()
     }
 }
 
-void TimesliceBuilder::build_time_file(){
+void TimesliceBuilder::build_time_file()
+{
 
-    if (true){
-    	std::ofstream log_file;
-    	log_file.open(log_directory_+"/"+std::to_string(compute_index_)+".compute.buffer_status.out");
+    if (true) {
+        std::ofstream log_file;
+        log_file.open(log_directory_ + "/" + std::to_string(compute_index_) +
+                      ".compute.buffer_status.out");
 
-    	log_file << std::setw(25) << "Second" << std::setw(25);
-    	for (uint32_t i=0 ; i<conn_.size() ; i++)
-    	    log_file << "Conn_" << i << std::setw(25);
-    	log_file << "\n";
+        log_file << std::setw(25) << "Second" << std::setw(25);
+        for (uint32_t i = 0; i < conn_.size(); i++)
+            log_file << "Conn_" << i << std::setw(25);
+        log_file << "\n";
 
-    	std::map<uint64_t, std::vector<double>>::iterator it = buffer_status_.begin();
-    	while(it != buffer_status_.end()){
-    	    log_file << std::setw(25) << it->first << std::setw(25);
-	    for (uint32_t i=0 ; i<it->second.size() ; i++)
-		log_file << it->second[i] << std::setw(25);
-    	    log_file << "\n";
-    	    ++it;
-    	}
+        std::map<uint64_t, std::vector<double>>::iterator it =
+            buffer_status_.begin();
+        while (it != buffer_status_.end()) {
+            log_file << std::setw(25) << it->first << std::setw(25);
+            for (uint32_t i = 0; i < it->second.size(); i++)
+                log_file << it->second[i] << std::setw(25);
+            log_file << "\n";
+            ++it;
+        }
 
-    	log_file.flush();
-    	log_file.close();
+        log_file.flush();
+        log_file.close();
     }
 }
 
@@ -441,8 +440,8 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
     case ID_SEND_STATUS:
         if (false) {
             L_(info) << "[c" << compute_index_ << "] "
-                      << "[" << in << "] "
-                      << "COMPLETE SEND status message";
+                     << "[" << in << "] "
+                     << "COMPLETE SEND status message";
         }
         conn_[in]->on_complete_send();
         break;
@@ -453,44 +452,54 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
             assert(timeslice_buffer_.get_num_completions() == 0);
         }
         conn_[in]->on_complete_send();
-        if (!conn_[in]->done()){
+        if (!conn_[in]->done()) {
             mark_connection_completed(in);
         }
-	L_(debug) << "[c" << compute_index_ << "] "
-		  << "SEND FINALIZE complete for id " << in
-		  << " all_done=" << all_done_;
+        L_(debug) << "[c" << compute_index_ << "] "
+                  << "SEND FINALIZE complete for id " << in
+                  << " all_done=" << all_done_;
         break;
 
     case ID_RECEIVE_STATUS: {
         conn_[in]->on_complete_recv();
-    }
-        break;
+    } break;
 
     case ID_HEARTBEAT_RECEIVE_STATUS: {
-	int cn = wr_id >> 8;
+        int cn = wr_id >> 8;
 
-	const HeartbeatMessage recv_heartbeat_message = conn_[cn]->recv_heartbeat_message();
-	bool before_failed_node_decision_taken = false, after_failed_node_decision_taken = false;
-	if (recv_heartbeat_message.failure_info.index != ConstVariables::MINUS_ONE)
-	    before_failed_node_decision_taken = DDSchedulerOrchestrator::is_failed_node_decision_ready(recv_heartbeat_message.failure_info.index);
+        const HeartbeatMessage recv_heartbeat_message =
+            conn_[cn]->recv_heartbeat_message();
+        bool before_failed_node_decision_taken = false,
+             after_failed_node_decision_taken = false;
+        if (recv_heartbeat_message.failure_info.index !=
+            ConstVariables::MINUS_ONE)
+            before_failed_node_decision_taken =
+                DDSchedulerOrchestrator::is_failed_node_decision_ready(
+                    recv_heartbeat_message.failure_info.index);
 
-	conn_[cn]->on_complete_heartbeat_recv();
+        conn_[cn]->on_complete_heartbeat_recv();
 
-	if (recv_heartbeat_message.failure_info.index != ConstVariables::MINUS_ONE)
-	    after_failed_node_decision_taken = DDSchedulerOrchestrator::is_failed_node_decision_ready(recv_heartbeat_message.failure_info.index);
+        if (recv_heartbeat_message.failure_info.index !=
+            ConstVariables::MINUS_ONE)
+            after_failed_node_decision_taken =
+                DDSchedulerOrchestrator::is_failed_node_decision_ready(
+                    recv_heartbeat_message.failure_info.index);
 
-	if (!before_failed_node_decision_taken && after_failed_node_decision_taken){
-	    HeartbeatFailedNodeInfo* failednode_info = DDSchedulerOrchestrator::get_decision_of_failed_connection(recv_heartbeat_message.failure_info.index);
-	    assert(failednode_info != nullptr);
-	    for (auto& connection : conn_){
-		connection->prepare_heartbeat(failednode_info);
-	    }
-	}
+        if (!before_failed_node_decision_taken &&
+            after_failed_node_decision_taken) {
+            HeartbeatFailedNodeInfo* failednode_info =
+                DDSchedulerOrchestrator::get_decision_of_failed_connection(
+                    recv_heartbeat_message.failure_info.index);
+            assert(failednode_info != nullptr);
+            for (auto& connection : conn_) {
+                connection->prepare_heartbeat(failednode_info);
+            }
+        }
     } break;
 
     case ID_HEARTBEAT_SEND_STATUS: {
-	int cn = wr_id >> 8;
-	conn_[cn]->on_complete_heartbeat_send();
+        int cn = wr_id >> 8;
+        conn_[cn]->on_complete_heartbeat_send();
     } break;
 
     default:
@@ -500,108 +509,126 @@ void TimesliceBuilder::on_completion(uint64_t wr_id)
 
 void TimesliceBuilder::poll_ts_completion()
 {
-    while (1){
-	fles::TimesliceCompletion c;
-	if (!timeslice_buffer_.try_receive_completion(c))
-	    return;
-	if (c.ts_pos == acked_) {
-	    do
-		++acked_;
-	    while (ack_.at(acked_) > c.ts_pos);
-	    for (auto& connection : conn_){
-		// check timed out timeslice
-		if (acked_ > connection->cn_wp().desc)continue;
-		connection->inc_ack_pointers(acked_);
-	    }
-	} else
-	    ack_.at(c.ts_pos) = c.ts_pos;
+    while (1) {
+        fles::TimesliceCompletion c;
+        if (!timeslice_buffer_.try_receive_completion(c))
+            return;
+        if (c.ts_pos == acked_) {
+            do
+                ++acked_;
+            while (ack_.at(acked_) > c.ts_pos);
+            for (auto& connection : conn_) {
+                // check timed out timeslice
+                if (acked_ > connection->cn_wp().desc)
+                    continue;
+                connection->inc_ack_pointers(acked_);
+            }
+        } else
+            ack_.at(c.ts_pos) = c.ts_pos;
     }
 }
 
 bool TimesliceBuilder::check_complete_timeslices(uint64_t ts_pos)
 {
     bool all_received = true;
-    for (uint32_t indx = 0 ; indx < conn_.size() ; indx++){
-	const fles::TimesliceComponentDescriptor& acked_ts =
-		timeslice_buffer_.get_desc(indx, ts_pos);
-	L_(debug) << "[process_pending_complete_timeslices] desc = " << ts_pos
-		    << ", acked_ts.size = " << acked_ts.size
-		    << ", acked_ts.offset = " << acked_ts.offset
-		    << ", acked_ts.num_microslices = " << acked_ts.num_microslices
-		    << ", acked_ts.ts_num = " << acked_ts.ts_num
-		    << ", (acked_ts.offset + acked_ts.size) = " << (acked_ts.offset + acked_ts.size)
-		    << ", conn_[indx]->cn_ack().data = " << conn_[indx]->cn_ack().data;
-	if (acked_ts.num_microslices == ConstVariables::ZERO || acked_ts.size == ConstVariables::ZERO
-		|| (acked_ts.offset + acked_ts.size) < conn_[indx]->cn_ack().data){
-	    all_received = false;
-	    break;
-	}
+    for (uint32_t indx = 0; indx < conn_.size(); indx++) {
+        const fles::TimesliceComponentDescriptor& acked_ts =
+            timeslice_buffer_.get_desc(indx, ts_pos);
+        L_(debug) << "[process_pending_complete_timeslices] desc = " << ts_pos
+                  << ", acked_ts.size = " << acked_ts.size
+                  << ", acked_ts.offset = " << acked_ts.offset
+                  << ", acked_ts.num_microslices = " << acked_ts.num_microslices
+                  << ", acked_ts.ts_num = " << acked_ts.ts_num
+                  << ", (acked_ts.offset + acked_ts.size) = "
+                  << (acked_ts.offset + acked_ts.size)
+                  << ", conn_[indx]->cn_ack().data = "
+                  << conn_[indx]->cn_ack().data;
+        if (acked_ts.num_microslices == ConstVariables::ZERO ||
+            acked_ts.size == ConstVariables::ZERO ||
+            (acked_ts.offset + acked_ts.size) < conn_[indx]->cn_ack().data) {
+            all_received = false;
+            break;
+        }
     }
     return all_received;
 }
 
-void TimesliceBuilder::process_completed_timeslices(){
-    if (connected_ != conn_.size() || !DDSchedulerOrchestrator::is_all_failure_decisions_acked()) return;
+void TimesliceBuilder::process_completed_timeslices()
+{
+    if (connected_ != conn_.size() ||
+        !DDSchedulerOrchestrator::is_all_failure_decisions_acked())
+        return;
 
     DDSchedulerOrchestrator::log_timeout_timeslice();
-    uint64_t new_completely_written = DDSchedulerOrchestrator::get_last_ordered_completed_timeslice();
-    if (new_completely_written == ConstVariables::MINUS_ONE || new_completely_written < completely_written_)return;
-    for (uint64_t ts_pos = completely_written_; ts_pos <= new_completely_written; ++ts_pos) {
+    uint64_t new_completely_written =
+        DDSchedulerOrchestrator::get_last_ordered_completed_timeslice();
+    if (new_completely_written == ConstVariables::MINUS_ONE ||
+        new_completely_written < completely_written_)
+        return;
+    for (uint64_t ts_pos = completely_written_;
+         ts_pos <= new_completely_written; ++ts_pos) {
 
-	bool timed_out = DDSchedulerOrchestrator::is_timeslice_timed_out(ts_pos);
-	// check whether all contributions are received if it is not timed out!
-	if (!timed_out && !check_complete_timeslices(ts_pos)){
-	    timed_out = true;
-	    L_(fatal) << "ts: " << ts_pos << " is not completely received yet ...";
-	}
-	if (!drop_ && !timed_out) {
-	    const fles::TimesliceComponentDescriptor& acked_ts = timeslice_buffer_.get_desc(0, ts_pos);
-	    uint64_t ts_index = acked_ts.ts_num;
-	    timeslice_buffer_.send_work_item(
-		{{ts_index, ts_pos, timeslice_size_,
-		  static_cast<uint32_t>(conn_.size())},
-		 timeslice_buffer_.get_data_size_exp(),
-		 timeslice_buffer_.get_desc_size_exp()});
-	} else {
-	    timeslice_buffer_.send_completion({ts_pos});
-	}
+        bool timed_out =
+            DDSchedulerOrchestrator::is_timeslice_timed_out(ts_pos);
+        // check whether all contributions are received if it is not timed out!
+        if (!timed_out && !check_complete_timeslices(ts_pos)) {
+            timed_out = true;
+            L_(fatal) << "ts: " << ts_pos
+                      << " is not completely received yet ...";
+        }
+        if (!drop_ && !timed_out) {
+            const fles::TimesliceComponentDescriptor& acked_ts =
+                timeslice_buffer_.get_desc(0, ts_pos);
+            uint64_t ts_index = acked_ts.ts_num;
+            timeslice_buffer_.send_work_item(
+                {{ts_index, ts_pos, timeslice_size_,
+                  static_cast<uint32_t>(conn_.size())},
+                 timeslice_buffer_.get_data_size_exp(),
+                 timeslice_buffer_.get_desc_size_exp()});
+        } else {
+            timeslice_buffer_.send_completion({ts_pos});
+        }
     }
-    completely_written_ = new_completely_written+1;
-
+    completely_written_ = new_completely_written + 1;
 }
 
-void TimesliceBuilder::sync_heartbeat(){
-    std::pair<uint32_t, std::set<uint32_t>> missing_info = DDSchedulerOrchestrator::retrieve_missing_info_from_connections();
-    if (missing_info.first != ConstVariables::MINUS_ONE){
-	HeartbeatFailedNodeInfo* decision = new HeartbeatFailedNodeInfo();
-	decision->index = missing_info.first;
-	decision->last_completed_desc = ConstVariables::MINUS_ONE;
-	decision->timeslice_trigger = ConstVariables::MINUS_ONE;
-	std::set<uint32_t>::iterator it = missing_info.second.begin();
-	while (it != missing_info.second.end()){
-	    conn_[*it]->prepare_heartbeat(decision);
-	    ++it;
-	}
+void TimesliceBuilder::sync_heartbeat()
+{
+    std::pair<uint32_t, std::set<uint32_t>> missing_info =
+        DDSchedulerOrchestrator::retrieve_missing_info_from_connections();
+    if (missing_info.first != ConstVariables::MINUS_ONE) {
+        HeartbeatFailedNodeInfo* decision = new HeartbeatFailedNodeInfo();
+        decision->index = missing_info.first;
+        decision->last_completed_desc = ConstVariables::MINUS_ONE;
+        decision->timeslice_trigger = ConstVariables::MINUS_ONE;
+        std::set<uint32_t>::iterator it = missing_info.second.begin();
+        while (it != missing_info.second.end()) {
+            conn_[*it]->prepare_heartbeat(decision);
+            ++it;
+        }
     }
 
     // Check finalize long waiting connections
-    std::vector<uint32_t> long_waiting_finalize_conns = DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections();
-    for (uint32_t i=0 ; i < long_waiting_finalize_conns.size() ; i++){
-	mark_connection_completed(long_waiting_finalize_conns[i]);
+    std::vector<uint32_t> long_waiting_finalize_conns =
+        DDSchedulerOrchestrator::retrieve_long_waiting_finalized_connections();
+    for (uint32_t i = 0; i < long_waiting_finalize_conns.size(); i++) {
+        mark_connection_completed(long_waiting_finalize_conns[i]);
     }
-    scheduler_.add(std::bind(&TimesliceBuilder::sync_heartbeat, this), std::chrono::system_clock::now() + std::chrono::seconds(1));
+    scheduler_.add(std::bind(&TimesliceBuilder::sync_heartbeat, this),
+                   std::chrono::system_clock::now() + std::chrono::seconds(1));
 }
 
-void TimesliceBuilder::mark_connection_completed(uint32_t conn_id){
+void TimesliceBuilder::mark_connection_completed(uint32_t conn_id)
+{
     DDSchedulerOrchestrator::log_finalize_connection(conn_id, true);
     conn_[conn_id]->on_complete_send_finalize();
     ++connections_done_;
     all_done_ = (connections_done_ == conn_.size());
     if (!connection_oriented_) {
-	on_disconnected(nullptr, conn_id);
-    }else{
-	conn_[conn_id]->disconnect();
+        on_disconnected(nullptr, conn_id);
+    } else {
+        conn_[conn_id]->disconnect();
     }
 }
 
-}
+} // namespace tl_libfabric

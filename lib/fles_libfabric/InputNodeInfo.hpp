@@ -10,5 +10,5 @@ namespace tl_libfabric
 struct InputNodeInfo {
     uint32_t index;
 };
-}
+} // namespace tl_libfabric
 #pragma pack()

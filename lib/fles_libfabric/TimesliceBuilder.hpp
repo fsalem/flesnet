@@ -4,18 +4,18 @@
 
 #include "ComputeNodeConnection.hpp"
 #include "ConnectionGroup.hpp"
+#include "DDSchedulerOrchestrator.hpp"
 #include "RingBuffer.hpp"
 #include "TimesliceBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "DDSchedulerOrchestrator.hpp"
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
 
 #include <csignal>
 #include <cstdint>
-#include <set>
 #include <map>
+#include <set>
 #include <string>
 
 namespace tl_libfabric
@@ -33,14 +33,14 @@ public:
     TimesliceBuilder(uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
                      unsigned short service, uint32_t num_input_nodes,
                      uint32_t timeslice_size,
-                     volatile sig_atomic_t* signal_status,
-		     bool drop, std::string local_node_name,
-		     uint32_t scheduler_history_size,
-		     uint32_t scheduler_interval_length,
-		     uint32_t scheduler_speedup_difference_percentage,
-		     uint32_t scheduler_speedup_percentage,
-		     uint32_t scheduler_speedup_interval_count,
-		     std::string log_directory, bool enable_logging);
+                     volatile sig_atomic_t* signal_status, bool drop,
+                     std::string local_node_name,
+                     uint32_t scheduler_history_size,
+                     uint32_t scheduler_interval_length,
+                     uint32_t scheduler_speedup_difference_percentage,
+                     uint32_t scheduler_speedup_percentage,
+                     uint32_t scheduler_speedup_interval_count,
+                     std::string log_directory, bool enable_logging);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;
@@ -119,10 +119,11 @@ private:
 
     // LOGGING
     std::map<uint64_t, double> first_last_arrival_diff_;
-    std::map<uint64_t, std::chrono::high_resolution_clock::time_point> first_arrival_time_;
+    std::map<uint64_t, std::chrono::high_resolution_clock::time_point>
+        first_arrival_time_;
     std::map<uint64_t, uint32_t> arrival_count_;
     std::map<uint64_t, std::vector<double>> buffer_status_;
     std::string log_directory_;
     // END OF LOGGING
 };
-}
+} // namespace tl_libfabric

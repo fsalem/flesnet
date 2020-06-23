@@ -31,11 +31,12 @@ MsgVerbsProvider::~MsgVerbsProvider()
 
 struct fi_info* MsgVerbsProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "verbs");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_MSG, "verbs"); // fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
-                         FI_SOURCE, hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, FI_SOURCE,
+                         hints, &info);
 
     if (!res) {
         // fi_freeinfo(hints);
@@ -58,7 +59,8 @@ MsgVerbsProvider::MsgVerbsProvider(struct fi_info* info) : info_(info)
 }
 
 void MsgVerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
-                           unsigned short port, unsigned int count, fid_eq* eq)
+                              unsigned short port, unsigned int count,
+                              fid_eq* eq)
 {
     unsigned int count_ = count;
     std::string port_s = std::to_string(port);
@@ -66,8 +68,8 @@ void MsgVerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
     // @todo find local ib device
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
-                         FI_SOURCE, info_, &accept_info);
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(), FI_SOURCE,
+                         info_, &accept_info);
     if (res) {
         L_(fatal) << "lookup " << hostname << " in accept failed: " << res
                   << "=" << fi_strerror(-res);
@@ -105,10 +107,11 @@ void MsgVerbsProvider::accept(struct fid_pep* pep, const std::string& hostname,
 }
 
 void MsgVerbsProvider::connect(::fid_ep* ep, uint32_t /*max_send_wr*/,
-                            uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
-                            uint32_t /*max_recv_sge*/,
-                            uint32_t /*max_inline_data*/, const void* param,
-                            size_t param_len, void* /*addr*/)
+                               uint32_t /*max_send_sge*/,
+                               uint32_t /*max_recv_wr*/,
+                               uint32_t /*max_recv_sge*/,
+                               uint32_t /*max_inline_data*/, const void* param,
+                               size_t param_len, void* /*addr*/)
 {
     int res = fi_connect(ep, nullptr, param, param_len);
     if (res) {
@@ -116,4 +119,4 @@ void MsgVerbsProvider::connect(::fid_ep* ep, uint32_t /*max_send_wr*/,
         throw LibfabricException("fi_connect failed");
     }
 }
-}
+} // namespace tl_libfabric

@@ -22,5 +22,5 @@ struct ComputeNodeInfo {
     uint32_t data_buffer_size_exp;
     uint32_t desc_buffer_size_exp;
 };
-}
+} // namespace tl_libfabric
 #pragma pack()

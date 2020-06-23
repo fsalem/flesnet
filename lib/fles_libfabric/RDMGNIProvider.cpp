@@ -31,11 +31,12 @@ RDMGNIProvider::~RDMGNIProvider()
 
 struct fi_info* RDMGNIProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_RDM, "gni"); // fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
-                         hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0, hints,
+                         &info);
 
     if (!res) {
         // std::cout << info->src_addrlen << std::endl;
@@ -59,18 +60,20 @@ RDMGNIProvider::RDMGNIProvider(struct fi_info* info) : info_(info)
 }
 
 void RDMGNIProvider::accept(struct fid_pep* /*pep*/,
-                         const std::string& /*hostname*/,
-                         unsigned short /*port*/, unsigned int /*count*/,
-                         fid_eq* /*eq*/)
+                            const std::string& /*hostname*/,
+                            unsigned short /*port*/, unsigned int /*count*/,
+                            fid_eq* /*eq*/)
 {
     // there is no accept for GNI
 }
 
 void RDMGNIProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
-                          uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
-                          uint32_t /*max_recv_sge*/,
-                          uint32_t /*max_inline_data*/, const void* /*param*/,
-                          size_t /*param_len*/, void* /*addr*/)
+                             uint32_t /*max_send_sge*/,
+                             uint32_t /*max_recv_wr*/,
+                             uint32_t /*max_recv_sge*/,
+                             uint32_t /*max_inline_data*/,
+                             const void* /*param*/, size_t /*param_len*/,
+                             void* /*addr*/)
 {
 }
 
@@ -82,15 +85,17 @@ void RDMGNIProvider::set_hostnames_and_services(
     for (size_t i = 0; i < compute_hostnames.size(); i++) {
         fi_addr_t fi_addr;
         struct fi_info* info = nullptr;
-        struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "gni");//fi_allocinfo();
+        struct fi_info* hints =
+            Provider::get_hints(FI_EP_RDM, "gni"); // fi_allocinfo();
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
         assert(res == 0);
-	while(info != nullptr) {
-	    if(strcmp("gni",info->fabric_attr->prov_name) == 0) break;
-	    info = info->next;
-	}
+        while (info != nullptr) {
+            if (strcmp("gni", info->fabric_attr->prov_name) == 0)
+                break;
+            info = info->next;
+        }
         assert(info != NULL);
         assert(info->dest_addr != NULL);
         res = fi_av_insert(av, info->dest_addr, 1, &fi_addr, 0, NULL);
@@ -99,4 +104,4 @@ void RDMGNIProvider::set_hostnames_and_services(
         // fi_freeinfo(hints);
     }
 }
-}
+} // namespace tl_libfabric

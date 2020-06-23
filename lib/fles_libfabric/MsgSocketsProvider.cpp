@@ -35,11 +35,12 @@ MsgSocketsProvider::~MsgSocketsProvider()
 
 struct fi_info* MsgSocketsProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_MSG, "sockets");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_MSG, "sockets"); // fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
-                         FI_SOURCE, hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, FI_SOURCE,
+                         hints, &info);
 
     if (!res) {
         // TODO this freeinfo method throws invalid pointer exception!!!
@@ -70,8 +71,8 @@ void MsgSocketsProvider::accept(struct fid_pep* pep,
     std::string port_s = std::to_string(port);
 
     struct fi_info* accept_info = nullptr;
-    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(),
-                         FI_SOURCE, info_, &accept_info);
+    int res = fi_getinfo(FIVERSION, hostname.c_str(), port_s.c_str(), FI_SOURCE,
+                         info_, &accept_info);
 
     if (res) {
         L_(fatal) << "lookup " << hostname << " in accept failed: " << res
@@ -126,4 +127,4 @@ void MsgSocketsProvider::connect(fid_ep* ep, uint32_t /*max_send_wr*/,
         throw LibfabricException("fi_connect failed");
     }
 }
-}
+} // namespace tl_libfabric

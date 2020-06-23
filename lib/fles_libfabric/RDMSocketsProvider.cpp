@@ -35,11 +35,12 @@ RDMSocketsProvider::~RDMSocketsProvider()
 
 struct fi_info* RDMSocketsProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "sockets");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0,
-                         hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, 0, hints,
+                         &info);
 
     if (!res) {
         // fi_freeinfo(hints);
@@ -96,7 +97,7 @@ void RDMSocketsProvider::set_hostnames_and_services(
         fi_addr_t fi_addr;
 
         info = nullptr;
-        hints = Provider::get_hints(FI_EP_RDM, "sockets");//fi_allocinfo();
+        hints = Provider::get_hints(FI_EP_RDM, "sockets"); // fi_allocinfo();
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
@@ -109,4 +110,4 @@ void RDMSocketsProvider::set_hostnames_and_services(
         fi_freeinfo(info);
     }
 }
-}
+} // namespace tl_libfabric

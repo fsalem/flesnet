@@ -4,11 +4,11 @@
 #pragma once
 
 #include "ConstVariables.hpp"
-#include "SizedMap.hpp"
-#include "RequestIdentifier.hpp"
-#include "LibfabricContextPool.hpp"
 #include "HeartbeatMessage.hpp"
+#include "LibfabricContextPool.hpp"
+#include "RequestIdentifier.hpp"
 #include "SchedulerOrchestrator.hpp"
+#include "SizedMap.hpp"
 #include <memory>
 #include <vector>
 
@@ -18,9 +18,9 @@
 #include <rdma/fi_rma.h>
 #include <rdma/fi_tagged.h>
 
+#include <chrono>
 #include <cstdint>
 #include <string>
-#include <chrono>
 
 #include <sys/uio.h>
 
@@ -104,7 +104,7 @@ public:
 
     bool done() const { return done_; }
 
-    void mark_done() {done_ = true;}
+    void mark_done() { done_ = true; }
 
     /// Retrieve the total number of bytes transmitted.
     uint64_t total_bytes_sent() const { return total_bytes_sent_; }
@@ -120,16 +120,22 @@ public:
 
     /// Prepare heartbeat message
     void prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr,
-			   uint64_t message_id = ConstVariables::MINUS_ONE,
-			   bool ack = false);
+                           uint64_t message_id = ConstVariables::MINUS_ONE,
+                           bool ack = false);
 
     void send_heartbeat(HeartbeatMessage* message);
 
     /// Get the last state of the send_heartbeat_message
-    const HeartbeatMessage get_send_heartbeat_message(){ return send_heartbeat_message_;}
+    const HeartbeatMessage get_send_heartbeat_message()
+    {
+        return send_heartbeat_message_;
+    }
 
     /// Get the last state of the send_heartbeat_message
-    const HeartbeatMessage get_recv_heartbeat_message(){ return recv_heartbeat_message_;}
+    const HeartbeatMessage get_recv_heartbeat_message()
+    {
+        return recv_heartbeat_message_;
+    }
 
     std::chrono::high_resolution_clock::time_point time_begin_;
 
@@ -174,10 +180,10 @@ protected:
     bool connection_oriented_ = false;
 
     /// check if new data should be sent
-    bool data_changed_= false;
+    bool data_changed_ = false;
 
     /// check if new data is acked and should be sent
-    bool data_acked_= false;
+    bool data_acked_ = false;
 
     /// To prevent reusing the buffer while injecting sync messages
     bool send_buffer_available_ = true;
@@ -202,9 +208,8 @@ protected:
     struct iovec heartbeat_send_wr_iovec = iovec();
     void* heartbeat_send_descs[1] = {nullptr};
     fid_mr* mr_heartbeat_send_ = nullptr;
-    
-private:
 
+private:
     /// event queue
     struct fid_eq* eq_ = nullptr;
 
@@ -222,4 +227,4 @@ private:
 
     const uint32_t num_cqe_ = 1000000;
 };
-}
+} // namespace tl_libfabric

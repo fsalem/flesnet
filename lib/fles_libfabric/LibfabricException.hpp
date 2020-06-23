@@ -20,4 +20,4 @@ public:
     {
     }
 };
-}
+} // namespace tl_libfabric

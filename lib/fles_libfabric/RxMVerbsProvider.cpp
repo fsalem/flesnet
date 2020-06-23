@@ -31,11 +31,12 @@ RxMVerbsProvider::~RxMVerbsProvider()
 
 struct fi_info* RxMVerbsProvider::exists(std::string local_host_name)
 {
-    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_RDM, "verbs"); // fi_allocinfo();
     struct fi_info* info = nullptr;
 
-    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr,
-                         FI_SOURCE, hints, &info);
+    int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, FI_SOURCE,
+                         hints, &info);
 
     if (!res) {
         // fi_freeinfo(hints);
@@ -58,18 +59,20 @@ RxMVerbsProvider::RxMVerbsProvider(struct fi_info* info) : info_(info)
 }
 
 void RxMVerbsProvider::accept(struct fid_pep* /*pep*/,
-        const std::string& /*hostname*/,
-        unsigned short /*port*/, unsigned int /*count*/,
-        fid_eq* /*eq*/)
+                              const std::string& /*hostname*/,
+                              unsigned short /*port*/, unsigned int /*count*/,
+                              fid_eq* /*eq*/)
 {
-// there is no accept for RxM verbs
+    // there is no accept for RxM verbs
 }
 
 void RxMVerbsProvider::connect(fid_ep* /*ep*/, uint32_t /*max_send_wr*/,
-        uint32_t /*max_send_sge*/, uint32_t /*max_recv_wr*/,
-        uint32_t /*max_recv_sge*/,
-        uint32_t /*max_inline_data*/, const void* /*param*/,
-        size_t /*param_len*/, void* /*addr*/)
+                               uint32_t /*max_send_sge*/,
+                               uint32_t /*max_recv_wr*/,
+                               uint32_t /*max_recv_sge*/,
+                               uint32_t /*max_inline_data*/,
+                               const void* /*param*/, size_t /*param_len*/,
+                               void* /*addr*/)
 {
 }
 
@@ -81,7 +84,8 @@ void RxMVerbsProvider::set_hostnames_and_services(
     for (size_t i = 0; i < compute_hostnames.size(); i++) {
         fi_addr_t fi_addr;
         struct fi_info* info = nullptr;
-        struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "verbs");//fi_allocinfo();
+        struct fi_info* hints =
+            Provider::get_hints(FI_EP_RDM, "verbs"); // fi_allocinfo();
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
                              compute_services[i].c_str(), 0, hints, &info);
@@ -94,4 +98,4 @@ void RxMVerbsProvider::set_hostnames_and_services(
         // fi_freeinfo(hints);
     }
 }
-}
+} // namespace tl_libfabric

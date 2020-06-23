@@ -5,10 +5,10 @@
 
 #include "ComputeNodeStatusMessage.hpp"
 #include "Connection.hpp"
+#include "DDSchedulerOrchestrator.hpp"
 #include "InputChannelStatusMessage.hpp"
 #include "InputNodeInfo.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "DDSchedulerOrchestrator.hpp"
 #include <boost/format.hpp>
 ///-----
 #include <map>
@@ -85,9 +85,15 @@ public:
 
     const ComputeNodeBufferPosition& cn_ack() const { return cn_ack_; }
 
-    const InputChannelStatusMessage& recv_status_message() const { return recv_status_message_; }
+    const InputChannelStatusMessage& recv_status_message() const
+    {
+        return recv_status_message_;
+    }
 
-    const HeartbeatMessage& recv_heartbeat_message() const {return recv_heartbeat_message_;}
+    const HeartbeatMessage& recv_heartbeat_message() const
+    {
+        return recv_heartbeat_message_;
+    }
 
     virtual std::unique_ptr<std::vector<uint8_t>> get_private_data() override;
 
@@ -156,7 +162,8 @@ public:
     bool is_connection_finalized();
 
 private:
-    /// Write the received timeslice descriptors from the sync messages in the memory (to minimize RDMA Writes)
+    /// Write the received timeslice descriptors from the sync messages in the
+    /// memory (to minimize RDMA Writes)
     void write_received_descriptors();
 
     ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
@@ -200,8 +207,8 @@ private:
 
     bool registered_input_MPI_time = false;
 
-    /// To prevent sending more messages (late messages) once the final message is sent out
+    /// To prevent sending more messages (late messages) once the final message
+    /// is sent out
     bool final_msg_sent_ = false;
-
 };
-}
+} // namespace tl_libfabric

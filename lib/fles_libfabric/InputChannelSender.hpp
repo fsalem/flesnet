@@ -5,19 +5,19 @@
 
 #include "ConnectionGroup.hpp"
 #include "DualRingBuffer.hpp"
-#include "RingBuffer.hpp"
 #include "InputChannelConnection.hpp"
 #include "InputIntervalInfo.hpp"
 #include "InputSchedulerOrchestrator.hpp"
+#include "RingBuffer.hpp"
 
 #include <boost/format.hpp>
 #include <cassert>
+#include <mutex>
 #include <rdma/fi_domain.h>
 #include <set>
 #include <string>
-#include <vector>
-#include <mutex>
 #include <thread>
+#include <vector>
 
 namespace tl_libfabric
 {
@@ -37,8 +37,8 @@ public:
                        uint32_t timeslice_size, uint32_t overlap_size,
                        uint32_t max_timeslice_number,
                        std::string input_node_name,
-		       uint32_t scheduler_interval_length,
-		       std::string log_directory, bool enable_logging);
+                       uint32_t scheduler_interval_length,
+                       std::string log_directory, bool enable_logging);
 
     InputChannelSender(const InputChannelSender&) = delete;
     void operator=(const InputChannelSender&) = delete;
@@ -96,7 +96,8 @@ private:
     void update_compute_schedulers();
 
     /// Update the data source after receiving the acknowledgement
-    void update_data_source(uint32_t compute_index, uint64_t old_desc, uint64_t new_desc);
+    void update_data_source(uint32_t compute_index, uint64_t old_desc,
+                            uint64_t new_desc);
 
     /// Mark connection as completed in case of normal termination or failure
     void mark_connection_completed(uint32_t conn_id);
@@ -214,4 +215,4 @@ private:
     SendBufferStatus previous_send_buffer_status_desc_ = SendBufferStatus();
     SendBufferStatus previous_send_buffer_status_data_ = SendBufferStatus();
 };
-}
+} // namespace tl_libfabric

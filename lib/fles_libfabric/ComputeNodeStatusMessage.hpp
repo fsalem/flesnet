@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "ConstVariables.hpp"
 #include "ComputeNodeBufferPosition.hpp"
 #include "ComputeNodeInfo.hpp"
+#include "ConstVariables.hpp"
 #include <chrono>
 
 #include "IntervalMetaData.hpp"
@@ -28,6 +28,6 @@ struct ComputeNodeStatusMessage {
 
     IntervalMetaData proposed_interval_metadata;
 };
-}
+} // namespace tl_libfabric
 
 #pragma pack()

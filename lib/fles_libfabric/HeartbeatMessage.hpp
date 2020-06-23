@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "InputNodeInfo.hpp"
-#include "HeartbeatFailedNodeInfo.hpp"
 #include "ConstVariables.hpp"
+#include "HeartbeatFailedNodeInfo.hpp"
+#include "InputNodeInfo.hpp"
 
 #include <chrono>
 
@@ -12,7 +12,8 @@
 
 namespace tl_libfabric
 {
-/// Structure representing a heartbeat update message sent between input and compute channels
+/// Structure representing a heartbeat update message sent between input and
+/// compute channels
 struct HeartbeatMessage {
     InputNodeInfo info;
     // Heart beat index
@@ -22,21 +23,21 @@ struct HeartbeatMessage {
     // The info of a failed node
     HeartbeatFailedNodeInfo failure_info;
 
-    bool operator< (const HeartbeatMessage &right) const
+    bool operator<(const HeartbeatMessage& right) const
     {
         return message_id < right.message_id;
     }
 
-    bool operator> (const HeartbeatMessage &right) const
+    bool operator>(const HeartbeatMessage& right) const
     {
-	return message_id > right.message_id;
+        return message_id > right.message_id;
     }
 
-    bool operator== (const HeartbeatMessage &right) const
+    bool operator==(const HeartbeatMessage& right) const
     {
-	return message_id == right.message_id;
+        return message_id == right.message_id;
     }
 };
-}
+} // namespace tl_libfabric
 
 #pragma pack()

@@ -2,33 +2,33 @@
 
 #pragma once
 
-#include "SizedMap.hpp"
-#include "HeartbeatMessage.hpp"
 #include "ConstVariables.hpp"
+#include "HeartbeatMessage.hpp"
+#include "SizedMap.hpp"
 
-#include <set>
-#include <math.h>
-#include <string>
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <log.hpp>
+#include <math.h>
+#include <set>
+#include <string>
 
 #include <fstream>
 #include <iomanip>
 #include <vector>
 
-
 namespace tl_libfabric
 {
 /**
- * Singleton Heartbeat manager that DFS uses to detect the failure of a connection
+ * Singleton Heartbeat manager that DFS uses to detect the failure of a
+ * connection
  */
 class HeartbeatManager
 {
 public:
-
     // Log sent heartbeat message
-    void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
+    void log_sent_heartbeat_message(uint32_t connection_id,
+                                    HeartbeatMessage message);
 
     // get next message id sequence
     uint64_t get_next_heartbeat_message_id();
@@ -49,17 +49,16 @@ public:
     void clear_pending_messages(uint32_t connection_id);
 
 protected:
-
-    struct HeartbeatMessageInfo{
-	HeartbeatMessage message;
-	std::chrono::high_resolution_clock::time_point transmit_time;
-	std::chrono::high_resolution_clock::time_point completion_time;
-	bool acked = false;
-	uint32_t dest_connection;
+    struct HeartbeatMessageInfo {
+        HeartbeatMessage message;
+        std::chrono::high_resolution_clock::time_point transmit_time;
+        std::chrono::high_resolution_clock::time_point completion_time;
+        bool acked = false;
+        uint32_t dest_connection;
     };
 
-   HeartbeatManager(uint32_t index, uint32_t init_connection_count,
-	    std::string log_directory, bool enable_logging);
+    HeartbeatManager(uint32_t index, uint32_t init_connection_count,
+                     std::string log_directory, bool enable_logging);
 
     // Compute process index
     uint32_t index_;
@@ -73,13 +72,12 @@ protected:
     // Not acked messages log
     SizedMap<uint32_t, std::set<uint64_t>*> unacked_sent_messages_;
 
-    //Pending messages to be sent
+    // Pending messages to be sent
     std::vector<std::vector<HeartbeatMessage*>> pending_messages_;
-
 
     // The log directory
     std::string log_directory_;
 
     bool enable_logging_;
 };
-}
+} // namespace tl_libfabric

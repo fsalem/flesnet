@@ -88,7 +88,11 @@ public:
                  struct fid_domain* domain, struct fid_cq* cq,
                  struct fid_av* av, fi_addr_t fi_addr);
 
-    void set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) { send_status_message_.local_time = time_MPI; }
+    void
+    set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI)
+    {
+        send_status_message_.local_time = time_MPI;
+    }
 
     void reconnect();
 
@@ -99,7 +103,10 @@ public:
     void set_remote_info();
 
     /// Get the last sent timeslice
-    const uint64_t& get_last_sent_timeslice() const { return last_sent_timeslice_; }
+    const uint64_t& get_last_sent_timeslice() const
+    {
+        return last_sent_timeslice_;
+    }
 
     /// Set the last sent timeslice
     void set_last_sent_timeslice(uint64_t sent_ts);
@@ -112,9 +119,9 @@ public:
 
     void add_timeslice_data_address(uint64_t data_size, uint64_t desc_size);
 
-    const uint64_t cn_ack_desc() {return cn_ack_.desc;}
+    const uint64_t cn_ack_desc() { return cn_ack_.desc; }
 
-    const uint64_t cn_wp_desc() {return cn_wp_.desc;}
+    const uint64_t cn_wp_desc() { return cn_wp_.desc; }
 
 private:
     /// Post a receive work request (WR) to the receive queue
@@ -129,7 +136,8 @@ private:
     /// Get the median latency of the SYNC messages
     uint64_t get_msg_median_latency();
 
-    // Once a failed connection heartbeat message is received, this request is to be processed
+    // Once a failed connection heartbeat message is received, this request is
+    // to be processed
     HeartbeatFailedNodeInfo* process_failed_connection_request();
 
     // Based on the heartbeat message type, a response is prepared
@@ -145,7 +153,6 @@ private:
     bool sync_after_scheduling_decision_ = false;
     //
     uint32_t sync_failed_conn_;
-
 
     /// Access information for memory regions on remote end.
     ComputeNodeInfo remote_info_ = ComputeNodeInfo();
@@ -211,7 +218,5 @@ private:
 
     /// current index to write in the latency ring buffer
     uint16_t msg_latency_index_ = 0;
-
-
 };
-}
+} // namespace tl_libfabric

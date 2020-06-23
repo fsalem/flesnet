@@ -36,18 +36,20 @@ RDMOmniPathProvider::~RDMOmniPathProvider()
 struct fi_info* RDMOmniPathProvider::exists(std::string local_host_name)
 {
     struct fi_info* info = nullptr;
-    struct fi_info* hints = Provider::get_hints(FI_EP_RDM, "psm2");//fi_allocinfo();
+    struct fi_info* hints =
+        Provider::get_hints(FI_EP_RDM, "psm2"); // fi_allocinfo();
 
     int res = fi_getinfo(FIVERSION, local_host_name.c_str(), nullptr, FI_SOURCE,
                          hints, &info);
 
     if (!res) {
         // fi_freeinfo(hints);
-	assert(info != nullptr);
-	while(info != nullptr) {
-	    if(strcmp("psm2",info->fabric_attr->prov_name) == 0) return info;
-	    info = info->next;
-	}
+        assert(info != nullptr);
+        while (info != nullptr) {
+            if (strcmp("psm2", info->fabric_attr->prov_name) == 0)
+                return info;
+            info = info->next;
+        }
     }
 
     fi_freeinfo(info);
@@ -66,25 +68,25 @@ RDMOmniPathProvider::RDMOmniPathProvider(struct fi_info* info) : info_(info)
 }
 
 void RDMOmniPathProvider::accept(struct fid_pep* pep __attribute__((unused)),
-                                const std::string& hostname
-                                __attribute__((unused)),
-                                unsigned short port __attribute__((unused)),
-                                unsigned int count __attribute__((unused)),
-                                fid_eq* eq __attribute__((unused)))
+                                 const std::string& hostname
+                                 __attribute__((unused)),
+                                 unsigned short port __attribute__((unused)),
+                                 unsigned int count __attribute__((unused)),
+                                 fid_eq* eq __attribute__((unused)))
 {
     // there is no accept for RDM
 }
 
 void RDMOmniPathProvider::connect(::fid_ep* ep __attribute__((unused)),
-                                 uint32_t max_send_wr __attribute__((unused)),
-                                 uint32_t max_send_sge __attribute__((unused)),
-                                 uint32_t max_recv_wr __attribute__((unused)),
-                                 uint32_t max_recv_sge __attribute__((unused)),
-                                 uint32_t max_inline_data
-                                 __attribute__((unused)),
-                                 const void* param __attribute__((unused)),
-                                 size_t param_len __attribute__((unused)),
-                                 void* addr __attribute__((unused)))
+                                  uint32_t max_send_wr __attribute__((unused)),
+                                  uint32_t max_send_sge __attribute__((unused)),
+                                  uint32_t max_recv_wr __attribute__((unused)),
+                                  uint32_t max_recv_sge __attribute__((unused)),
+                                  uint32_t max_inline_data
+                                  __attribute__((unused)),
+                                  const void* param __attribute__((unused)),
+                                  size_t param_len __attribute__((unused)),
+                                  void* addr __attribute__((unused)))
 {
     // @todo send mr message?
 }
@@ -100,18 +102,22 @@ void RDMOmniPathProvider::set_hostnames_and_services(
         fi_addr_t fi_addr;
 
         info = nullptr;
-        hints = Provider::get_hints(FI_EP_RDM, "psm2");//fi_allocinfo();
+        hints = Provider::get_hints(FI_EP_RDM, "psm2"); // fi_allocinfo();
 
         int res = fi_getinfo(FIVERSION, compute_hostnames[i].c_str(),
-                             compute_services[i].c_str(), FI_NUMERICHOST, hints, &info);
+                             compute_services[i].c_str(), FI_NUMERICHOST, hints,
+                             &info);
         if (res)
-            L_(fatal) << "fi_getinfo failed in set_hostnames_and_services[" << compute_hostnames[i] << "," << compute_services[i] << "]: " << res << "=" << fi_strerror(-res);
+            L_(fatal) << "fi_getinfo failed in set_hostnames_and_services["
+                      << compute_hostnames[i] << "," << compute_services[i]
+                      << "]: " << res << "=" << fi_strerror(-res);
         assert(res == 0);
         assert(info != nullptr);
-	while(info != nullptr) {
-	    if(strcmp("psm2",info->fabric_attr->prov_name) == 0) break;
-	    info = info->next;
-	}
+        while (info != nullptr) {
+            if (strcmp("psm2", info->fabric_attr->prov_name) == 0)
+                break;
+            info = info->next;
+        }
 
         assert(info != NULL);
         assert(info->dest_addr != NULL);
@@ -121,4 +127,4 @@ void RDMOmniPathProvider::set_hostnames_and_services(
         fi_freeinfo(info);
     }
 }
-}
+} // namespace tl_libfabric

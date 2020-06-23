@@ -5,11 +5,11 @@
 #include <log.hpp>
 #include <memory>
 #include <rdma/fabric.h>
-#include <vector>
 #include <string.h>
+#include <vector>
 
 #ifndef FIVERSION
-#define FIVERSION FI_VERSION(1,5)
+#define FIVERSION FI_VERSION(1, 5)
 #endif
 
 namespace tl_libfabric
@@ -54,7 +54,7 @@ public:
 
     static struct fi_info* get_hints(enum fi_ep_type ep_type, std::string prov);
 
-    static void dump_fi_info(const struct fi_info *info);
+    static void dump_fi_info(const struct fi_info* info);
 
     static uint64_t requested_key;
 
@@ -64,4 +64,4 @@ private:
     static std::unique_ptr<Provider> get_provider(std::string local_host_name);
     static std::unique_ptr<Provider> prov;
 };
-}
+} // namespace tl_libfabric

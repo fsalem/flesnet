@@ -7,17 +7,17 @@
 #include "Provider.hpp"
 #include "RequestIdentifier.hpp"
 #include <cassert>
+#include <cmath>
 #include <log.hpp>
 #include <rdma/fi_cm.h>
-#include <cmath>
 
 namespace tl_libfabric
 {
 
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index,
-    InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
+    uint_fast16_t remote_connection_index, InputNodeInfo remote_info,
+    uint8_t* data_ptr, uint32_t data_buffer_size_exp,
     fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp)
     : Connection(eq, connection_index, remote_connection_index),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
@@ -80,24 +80,25 @@ void ComputeNodeConnection::post_recv_status_message()
 void ComputeNodeConnection::post_send_status_message()
 {
     // stop sending more message after sending the final one
-    if (final_msg_sent_) return;
+    if (final_msg_sent_)
+        return;
     if (false) {
         L_(trace) << "[c" << remote_index_ << "] "
                   << "[" << index_ << "] "
                   << "POST SEND status_message"
                   << " (ack.desc=" << send_status_message_.ack.desc << ")"
                   << ", (addr=" << send_wr.addr << ")"
-		  << " finalize " << send_status_message_.final;
+                  << " finalize " << send_status_message_.final;
     }
     while (pending_send_requests_ >= 2000 /*qp_cap_.max_send_wr*/) {
         throw LibfabricException(
             "Max number of pending send requests exceeded");
     }
-    if (post_send_msg(&send_wr)){
-	data_acked_ = false;
-	data_changed_ = false;
-	send_buffer_available_ = false;
-	++pending_send_requests_;
+    if (post_send_msg(&send_wr)) {
+        data_acked_ = false;
+        data_changed_ = false;
+        send_buffer_available_ = false;
+        ++pending_send_requests_;
     }
 }
 
@@ -105,7 +106,8 @@ void ComputeNodeConnection::post_send_final_status_message()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    struct fi_custom_context* context = static_cast<struct fi_custom_context*>(send_wr.context);
+    struct fi_custom_context* context =
+        static_cast<struct fi_custom_context*>(send_wr.context);
     context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
     send_wr.context = context;
 #pragma GCC diagnostic pop
@@ -137,17 +139,17 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd)
                   << fi_strerror(-res);
         throw LibfabricException("fi_mr_reg failed for desc_ptr");
     }
-    res =
-        fi_mr_reg(pd, &send_status_message_, sizeof(ComputeNodeStatusMessage),
-        	  FI_SEND | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_send_, nullptr);
+    res = fi_mr_reg(pd, &send_status_message_, sizeof(ComputeNodeStatusMessage),
+                    FI_SEND | FI_TAGGED, 0, Provider::requested_key++, 0,
+                    &mr_send_, nullptr);
     if (res) {
         L_(fatal) << "fi_mr_reg failed for send: " << res << "="
                   << fi_strerror(-res);
         throw LibfabricException("fi_mr_reg failed for send");
     }
-    res =
-        fi_mr_reg(pd, &recv_status_message_, sizeof(InputChannelStatusMessage),
-        	  FI_RECV | FI_TAGGED, 0, Provider::requested_key++, 0, &mr_recv_, nullptr);
+    res = fi_mr_reg(pd, &recv_status_message_,
+                    sizeof(InputChannelStatusMessage), FI_RECV | FI_TAGGED, 0,
+                    Provider::requested_key++, 0, &mr_recv_, nullptr);
     if (res) {
         L_(fatal) << "fi_mr_reg failed for recv: " << res << "="
                   << fi_strerror(-res);
@@ -185,7 +187,8 @@ void ComputeNodeConnection::setup()
     recv_wr.tag = ConstVariables::STATUS_MESSAGE_TAG;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    struct fi_custom_context* context = LibfabricContextPool::getInst()->getContext();
+    struct fi_custom_context* context =
+        LibfabricContextPool::getInst()->getContext();
     context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
     recv_wr.context = context;
 #pragma GCC diagnostic pop
@@ -264,26 +267,36 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
-    if (!send_buffer_available_)return false;
-    if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
-	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    DDSchedulerOrchestrator::get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    DDSchedulerOrchestrator::get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+    if (!send_buffer_available_)
+        return false;
+    if (recv_status_message_.required_interval_index !=
+            ConstVariables::MINUS_ONE &&
+        send_status_message_.proposed_interval_metadata.interval_index !=
+            recv_status_message_.required_interval_index &&
+        DDSchedulerOrchestrator::get_last_completed_interval() !=
+            ConstVariables::MINUS_ONE &&
+        DDSchedulerOrchestrator::get_last_completed_interval() + 2 >=
+            recv_status_message_
+                .required_interval_index) // 2 is the gap between the current
+                                          // interval and the last competed
+                                          // interbal and the required interval
     {
-	const IntervalMetaData* meta_data = DDSchedulerOrchestrator::get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
-	if (meta_data != nullptr){
-	    send_status_message_.proposed_interval_metadata = *meta_data;
-	    data_acked_ = true;
-	}
+        const IntervalMetaData* meta_data =
+            DDSchedulerOrchestrator::get_proposed_meta_data(
+                index_, recv_status_message_.required_interval_index);
+        if (meta_data != nullptr) {
+            send_status_message_.proposed_interval_metadata = *meta_data;
+            data_acked_ = true;
+        }
     }
 
     if (data_changed_ && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
     }
 
-    if (data_acked_ || data_changed_){
-	post_send_status_message();
-	return true;
+    if (data_acked_ || data_changed_) {
+        post_send_status_message();
+        return true;
     }
     return false;
 }
@@ -292,12 +305,13 @@ void ComputeNodeConnection::on_complete_recv()
 {
     if (false) {
         L_(info) << "[c" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "COMPLETE RECEIVE status message"
-                  << " (wp.desc=" << recv_status_message_.wp.desc
-		  << " ts count=" << ((uint32_t)recv_status_message_.descriptor_count)
-		  << " decision ACK=" << recv_status_message_.sync_after_scheduling_decision << ")"
-		  << " finalize " << recv_status_message_.final;
+                 << "[" << index_ << "] "
+                 << "COMPLETE RECEIVE status message"
+                 << " (wp.desc=" << recv_status_message_.wp.desc << " ts count="
+                 << ((uint32_t)recv_status_message_.descriptor_count)
+                 << " decision ACK="
+                 << recv_status_message_.sync_after_scheduling_decision << ")"
+                 << " finalize " << recv_status_message_.final;
     }
     if (recv_status_message_.final) {
         // send FINAL status message
@@ -307,32 +321,42 @@ void ComputeNodeConnection::on_complete_recv()
         return;
     }
     // to handle receiving sync messages out of sent order!
-    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){
-    	cn_wp_ = recv_status_message_.wp;
+    if (cn_wp_.data < recv_status_message_.wp.data &&
+        cn_wp_.desc < recv_status_message_.wp.desc) {
+        cn_wp_ = recv_status_message_.wp;
     }
-    if (recv_status_message_.sync_after_scheduling_decision){
-	//for (uint64_t desc = recv_status_message_.wp.desc ; desc < cn_wp_.desc ; ++desc){
-	for (uint64_t desc = cn_wp_.desc-1; desc >= recv_status_message_.wp.desc  ; --desc){
-	    L_(info) << "[c" << remote_index_ << "] "
-		      << "[" << index_ << "] "
-		      << "COMPLETE RECEIVE status message"
-		      << " undo " << desc;
-	    DDSchedulerOrchestrator::undo_log_contribution_arrival(index_, desc);
-	}
-	DDSchedulerOrchestrator::log_decision_ack(index_, recv_status_message_.failed_index);
-	cn_wp_ = recv_status_message_.wp;
+    if (recv_status_message_.sync_after_scheduling_decision) {
+        // for (uint64_t desc = recv_status_message_.wp.desc ; desc <
+        // cn_wp_.desc ; ++desc){
+        for (uint64_t desc = cn_wp_.desc - 1;
+             desc >= recv_status_message_.wp.desc; --desc) {
+            L_(info) << "[c" << remote_index_ << "] "
+                     << "[" << index_ << "] "
+                     << "COMPLETE RECEIVE status message"
+                     << " undo " << desc;
+            DDSchedulerOrchestrator::undo_log_contribution_arrival(index_,
+                                                                   desc);
+        }
+        DDSchedulerOrchestrator::log_decision_ack(
+            index_, recv_status_message_.failed_index);
+        cn_wp_ = recv_status_message_.wp;
     }
     write_received_descriptors();
 
     if (!registered_input_MPI_time) {
-    	registered_input_MPI_time = true;
-    	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time);
+        registered_input_MPI_time = true;
+        DDSchedulerOrchestrator::update_clock_offset(
+            index_, recv_status_message_.local_time);
     }
 
-    if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-	DDSchedulerOrchestrator::update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency,
-				    recv_status_message_.actual_interval_metadata.interval_index);
-	DDSchedulerOrchestrator::add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
+    if (recv_status_message_.actual_interval_metadata.interval_index !=
+        ConstVariables::MINUS_ONE) {
+        DDSchedulerOrchestrator::update_clock_offset(
+            index_, recv_status_message_.local_time,
+            recv_status_message_.median_latency,
+            recv_status_message_.actual_interval_metadata.interval_index);
+        DDSchedulerOrchestrator::add_actual_meta_data(
+            index_, recv_status_message_.actual_interval_metadata);
     }
     post_recv_status_message();
 }
@@ -340,14 +364,14 @@ void ComputeNodeConnection::on_complete_recv()
 void ComputeNodeConnection::on_complete_send()
 {
     if (false) {
-	L_(info) << "[c" << remote_index_ << "] "
-		  << "[" << index_ << "] "
-		  << "COMPLETE SEND status message"
-		  << " (ack.desc=" << send_status_message_.ack.desc
-	          << " finalize " << send_status_message_.final;
+        L_(info) << "[c" << remote_index_ << "] "
+                 << "[" << index_ << "] "
+                 << "COMPLETE SEND status message"
+                 << " (ack.desc=" << send_status_message_.ack.desc
+                 << " finalize " << send_status_message_.final;
     }
     pending_send_requests_--;
-    send_buffer_available_  = true;
+    send_buffer_available_ = true;
 }
 
 void ComputeNodeConnection::on_complete_send_finalize() { done_ = true; }
@@ -403,47 +427,58 @@ bool ComputeNodeConnection::is_connection_finalized()
 
 void ComputeNodeConnection::write_received_descriptors()
 {
-    for (int i=0 ; i < recv_status_message_.descriptor_count ; i++) {
-        fles::TimesliceComponentDescriptor descriptor = recv_status_message_.tscdesc_msg[i];
-	uint64_t offset = (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
-	fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
-	L_(debug) << "[c" << remote_index_ << "] "
-		  << "[" << index_ << "] "
-		  << "TS descriptor of ts#" << descriptor.ts_num
-		  << " offset " << descriptor.offset
-		  << " local offset " << offset
-		  << " size " << descriptor.size
-		  << " num mts " << descriptor.num_microslices
-		  << " local address " << (acked_ts)
-		  << " tscdesc_ts " << descriptor.ts_desc
-		  << " cur desc " << cn_wp_.desc;
-	std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
-	DDSchedulerOrchestrator::log_contribution_arrival(index_, descriptor.ts_desc);
+    for (int i = 0; i < recv_status_message_.descriptor_count; i++) {
+        fles::TimesliceComponentDescriptor descriptor =
+            recv_status_message_.tscdesc_msg[i];
+        uint64_t offset =
+            (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
+        fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
+        L_(debug) << "[c" << remote_index_ << "] "
+                  << "[" << index_ << "] "
+                  << "TS descriptor of ts#" << descriptor.ts_num << " offset "
+                  << descriptor.offset << " local offset " << offset << " size "
+                  << descriptor.size << " num mts "
+                  << descriptor.num_microslices << " local address "
+                  << (acked_ts) << " tscdesc_ts " << descriptor.ts_desc
+                  << " cur desc " << cn_wp_.desc;
+        std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
+        DDSchedulerOrchestrator::log_contribution_arrival(index_,
+                                                          descriptor.ts_desc);
     }
 }
-void ComputeNodeConnection::on_complete_heartbeat_recv(){
-    if (final_msg_sent_) return;
+void ComputeNodeConnection::on_complete_heartbeat_recv()
+{
+    if (final_msg_sent_)
+        return;
     if (true) {
-	L_(info) << "[c" << remote_index_ << "] "
-		  << "[" << index_ << "] "
-		  << "COMPLETE RECEIVE heartbeat message"
-		  << " (id=" << recv_heartbeat_message_.message_id
-		  << ", ACK=" << recv_heartbeat_message_.ack
-		  << ", FAILED=" << recv_heartbeat_message_.failure_info.index
-		  << ", DESC=" << recv_heartbeat_message_.failure_info.last_completed_desc
-		  << ", TS=" << recv_heartbeat_message_.failure_info.timeslice_trigger << ")";
+        L_(info) << "[c" << remote_index_ << "] "
+                 << "[" << index_ << "] "
+                 << "COMPLETE RECEIVE heartbeat message"
+                 << " (id=" << recv_heartbeat_message_.message_id
+                 << ", ACK=" << recv_heartbeat_message_.ack
+                 << ", FAILED=" << recv_heartbeat_message_.failure_info.index
+                 << ", DESC="
+                 << recv_heartbeat_message_.failure_info.last_completed_desc
+                 << ", TS="
+                 << recv_heartbeat_message_.failure_info.timeslice_trigger
+                 << ")";
     }
 
     HeartbeatFailedNodeInfo* failednode_info = nullptr;
-    // either initial message of Node failure(ACK=false) or response of requested info (ACK=true)
-    if (recv_heartbeat_message_.failure_info.index != ConstVariables::MINUS_ONE){
-	failednode_info = DDSchedulerOrchestrator::log_heartbeat_failure(index_, recv_heartbeat_message_.failure_info);
+    // either initial message of Node failure(ACK=false) or response of
+    // requested info (ACK=true)
+    if (recv_heartbeat_message_.failure_info.index !=
+        ConstVariables::MINUS_ONE) {
+        failednode_info = DDSchedulerOrchestrator::log_heartbeat_failure(
+            index_, recv_heartbeat_message_.failure_info);
     }
 
     if (!recv_heartbeat_message_.ack)
-	prepare_heartbeat(failednode_info, recv_heartbeat_message_.message_id, true);
+        prepare_heartbeat(failednode_info, recv_heartbeat_message_.message_id,
+                          true);
     else
-    	SchedulerOrchestrator::acknowledge_heartbeat_message(recv_heartbeat_message_.message_id);
+        SchedulerOrchestrator::acknowledge_heartbeat_message(
+            recv_heartbeat_message_.message_id);
     post_recv_heartbeat_message();
 }
-}
+} // namespace tl_libfabric

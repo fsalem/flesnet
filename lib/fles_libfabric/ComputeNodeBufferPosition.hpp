@@ -30,5 +30,5 @@ struct ComputeNodeBufferPosition {
         return desc != rhs.desc || data != rhs.data;
     }
 };
-}
+} // namespace tl_libfabric
 #pragma pack()

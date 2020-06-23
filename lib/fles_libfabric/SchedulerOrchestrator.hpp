@@ -5,7 +5,6 @@
 #include "HeartbeatManager.hpp"
 #include "HeartbeatMessage.hpp"
 
-
 namespace tl_libfabric
 {
 /**
@@ -14,14 +13,15 @@ namespace tl_libfabric
 class SchedulerOrchestrator
 {
 public:
-//// Common Methods
+    //// Common Methods
     // Initialize
     static void initialize(HeartbeatManager* heartbeat_manager);
 
-//// ComputeHeartbeatManager Methods
+    //// ComputeHeartbeatManager Methods
 
     // Log sent heartbeat message
-    static void log_sent_heartbeat_message(uint32_t connection_id, HeartbeatMessage message);
+    static void log_sent_heartbeat_message(uint32_t connection_id,
+                                           HeartbeatMessage message);
 
     // get next message id sequence
     static uint64_t get_next_heartbeat_message_id();
@@ -30,16 +30,18 @@ public:
     static void acknowledge_heartbeat_message(uint64_t message_id);
 
     // Add new pending heartbeat message
-    static void add_pending_heartbeat_message(uint32_t connection_id, HeartbeatMessage* message);
+    static void add_pending_heartbeat_message(uint32_t connection_id,
+                                              HeartbeatMessage* message);
 
     // Get one of the pending messages, if there
-    static HeartbeatMessage* get_pending_heartbeat_message(uint32_t connection_id);
+    static HeartbeatMessage*
+    get_pending_heartbeat_message(uint32_t connection_id);
 
     // Remove all pending messages of a connection when it times out
     static void clear_pending_messages(uint32_t connection_id);
 
-//// Variables
+    //// Variables
 private:
     static HeartbeatManager* heartbeat_manager_;
 };
-}
+} // namespace tl_libfabric
