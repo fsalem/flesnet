@@ -2,14 +2,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
 #include "TimesliceBuilder.hpp"
-#include "ChildProcessManager.hpp"
-//#include "InputNodeInfo.hpp"
-#include "RequestIdentifier.hpp"
-#include "TimesliceCompletion.hpp"
-#include "TimesliceWorkItem.hpp"
-
-#include <boost/algorithm/string.hpp>
-#include <iomanip>
 
 namespace tl_libfabric {
 
@@ -112,8 +104,8 @@ void TimesliceBuilder::bootstrap_with_connections() {
   accept(local_node_name_, service_, num_input_nodes_);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-  int rc = MPI_Barrier(MPI_COMM_WORLD);
-  assert(rc == MPI_SUCCESS);
+  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+  // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
   while (connected_ != num_input_nodes_) {
     poll_cm_events();
@@ -271,8 +263,8 @@ void TimesliceBuilder::bootstrap_wo_connections() {
   }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-  int rc = MPI_Barrier(MPI_COMM_WORLD);
-  assert(rc == MPI_SUCCESS);
+  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+  // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
 
   // wait for messages from InputChannelSenders
@@ -346,8 +338,8 @@ void TimesliceBuilder::operator()() {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
+    // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+    // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
     time_begin_ = std::chrono::high_resolution_clock::now();
     DDSchedulerOrchestrator::set_begin_time(time_begin_);

@@ -2,13 +2,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
 #include "InputChannelSender.hpp"
-#include "MicrosliceDescriptor.hpp"
-#include "Utility.hpp"
-#include <cassert>
-#include <chrono>
-#include <iomanip>
-#include <log.hpp>
-#include <rdma/fi_domain.h>
 
 namespace tl_libfabric {
 InputChannelSender::InputChannelSender(
@@ -213,8 +206,8 @@ void InputChannelSender::bootstrap_with_connections() {
 void InputChannelSender::bootstrap_wo_connections() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-  int rc = MPI_Barrier(MPI_COMM_WORLD);
-  assert(rc == MPI_SUCCESS);
+  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+  // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
   // domain, cq, av
   init_context(Provider::getInst()->get_info(), compute_hostnames_,
@@ -261,8 +254,8 @@ void InputChannelSender::operator()() {
     data_source_.proceed();
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
-    assert(rc == MPI_SUCCESS);
+    // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+    // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
     time_begin_ = std::chrono::high_resolution_clock::now();
     InputSchedulerOrchestrator::update_input_begin_time(time_begin_);
@@ -415,8 +408,8 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index) {
 void InputChannelSender::connect() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-  int rc = MPI_Barrier(MPI_COMM_WORLD);
-  assert(rc == MPI_SUCCESS);
+  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
+  // assert(rc == MPI_SUCCESS);
 #pragma GCC diagnostic pop
 
   if (pd_ == nullptr) // pd, cq2, av

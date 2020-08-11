@@ -2,14 +2,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
 #include "ComputeNodeConnection.hpp"
-#include "ComputeNodeInfo.hpp"
-#include "LibfabricException.hpp"
-#include "Provider.hpp"
-#include "RequestIdentifier.hpp"
-#include "log.hpp"
-#include <cassert>
-#include <cmath>
-#include <rdma/fi_cm.h>
 
 namespace tl_libfabric {
 

@@ -2,17 +2,6 @@
 // Copyright 2016 Thorsten Schuett <schuett@zib.de>, Farouk Salem <salem@zib.de>
 
 #include "InputChannelConnection.hpp"
-#include "InputNodeInfo.hpp"
-#include "LibfabricException.hpp"
-#include "MicrosliceDescriptor.hpp"
-#include "Provider.hpp"
-#include "RequestIdentifier.hpp"
-#include "TimesliceComponentDescriptor.hpp"
-#include <cassert>
-#include <cstring>
-#include <log.hpp>
-#include <rdma/fi_cm.h>
-#include <rdma/fi_rma.h>
 
 namespace tl_libfabric {
 
