@@ -541,6 +541,10 @@ void InputChannelConnection::connect(const std::string& hostname,
     heartbeat_send_wr.addr = fi_addr;
     post_send_status_message();
   }
+  L_(debug) << "Calling add_endpoint in setup";
+  assert(LibfabricBarrier::get_instance() != nullptr);
+  LibfabricBarrier::get_instance()->add_endpoint(
+      index_, Provider::getInst()->get_info(), hostname, true);
 }
 
 void InputChannelConnection::reconnect() {

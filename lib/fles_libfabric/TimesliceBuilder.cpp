@@ -102,11 +102,6 @@ void TimesliceBuilder::request_abort() {
 
 void TimesliceBuilder::bootstrap_with_connections() {
   accept(local_node_name_, service_, num_input_nodes_);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-  // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
   while (connected_ != num_input_nodes_) {
     poll_cm_events();
   }
@@ -212,6 +207,7 @@ void TimesliceBuilder::bootstrap_wo_connections() {
 
   // domain, cq, av
   init_context(Provider::getInst()->get_info(), {}, {});
+  LibfabricBarrier::create_barrier_instance(compute_index_, pd_, true);
 
   // listening endpoint with private cq
   make_endpoint_named(Provider::getInst()->get_info(), local_node_name_,
@@ -261,11 +257,6 @@ void TimesliceBuilder::bootstrap_wo_connections() {
     L_(fatal) << "fi_recvmsg failed: " << strerror(err);
     throw LibfabricException("fi_recvmsg failed");
   }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-  // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
 
   // wait for messages from InputChannelSenders
   const int ne_max = 1; // the ne_max must be always 1 because there is ONLY
@@ -336,11 +327,8 @@ void TimesliceBuilder::operator()() {
       bootstrap_wo_connections();
     }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-    // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
+    LibfabricBarrier::get_instance()->call_barrier();
+    
     time_begin_ = std::chrono::high_resolution_clock::now();
     DDSchedulerOrchestrator::set_begin_time(time_begin_);
 
@@ -409,6 +397,7 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
 
   if (pd_ == nullptr) {
     init_context(event->info, {}, {});
+    LibfabricBarrier::create_barrier_instance(compute_index_, pd_, true);
   }
 
   assert(private_data_len >= sizeof(InputNodeInfo));

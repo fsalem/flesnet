@@ -165,7 +165,12 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd) {
 }
 
 void ComputeNodeConnection::setup() {
+  L_(info) << "Calling add_endpoint in setup";
+  LibfabricBarrier::get_instance()->add_endpoint(
+      index_, Provider::getInst()->get_info(), "", false);
+  L_(info) << "END OF Calling add_endpoint in setup";
   setup_heartbeat();
+
   // setup send and receive buffers
   recv_sge.iov_base = &recv_status_message_;
   recv_sge.iov_len = sizeof(InputChannelStatusMessage);

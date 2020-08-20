@@ -8,6 +8,7 @@
 #include "SizedMap.hpp"
 #include "dfs/HeartbeatMessage.hpp"
 #include "dfs/SchedulerOrchestrator.hpp"
+#include "providers/LibfabricBarrier.hpp"
 #include "providers/LibfabricContextPool.hpp"
 #include "providers/LibfabricException.hpp"
 #include "providers/Provider.hpp"

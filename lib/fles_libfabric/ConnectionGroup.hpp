@@ -7,6 +7,7 @@
 #include "RequestIdentifier.hpp"
 #include "dfs/SchedulerOrchestrator.hpp"
 #include "log.hpp"
+#include "providers/LibfabricBarrier.hpp"
 #include "providers/LibfabricContextPool.hpp"
 #include "providers/LibfabricException.hpp"
 #include "providers/Provider.hpp"

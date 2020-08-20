@@ -204,14 +204,10 @@ void InputChannelSender::bootstrap_with_connections() {
 }
 
 void InputChannelSender::bootstrap_wo_connections() {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-  // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
   // domain, cq, av
   init_context(Provider::getInst()->get_info(), compute_hostnames_,
                compute_services_);
+  LibfabricBarrier::create_barrier_instance(input_index_, pd_, false);
 
   conn_.resize(compute_hostnames_.size());
   // setup connections objects
@@ -252,11 +248,9 @@ void InputChannelSender::operator()() {
     }
 
     data_source_.proceed();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-    // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-    // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
+
+    LibfabricBarrier::get_instance()->call_barrier();
+
     time_begin_ = std::chrono::high_resolution_clock::now();
     InputSchedulerOrchestrator::update_input_begin_time(time_begin_);
 
@@ -406,15 +400,11 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index) {
 }
 
 void InputChannelSender::connect() {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-  // TODO int rc = MPI_Barrier(MPI_COMM_WORLD);
-  // assert(rc == MPI_SUCCESS);
-#pragma GCC diagnostic pop
-
-  if (pd_ == nullptr) // pd, cq2, av
+  if (pd_ == nullptr) { // pd, cq2, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
+    LibfabricBarrier::create_barrier_instance(input_index_, pd_, false);
+  }
 
   conn_.resize(compute_hostnames_.size());
   uint32_t count = 0;
@@ -646,6 +636,8 @@ void InputChannelSender::on_completion(uint64_t wr_id) {
             ConstVariables::MINUS_ONE &&
         !was_decision_considered && is_decision_considered) {
 
+      LibfabricBarrier::get_instance()->deactive_endpoint(
+          conn_[cn]->get_recv_heartbeat_message().failure_info.index);
       uint64_t last_desc =
           conn_[conn_[cn]->get_recv_heartbeat_message().failure_info.index]
               ->cn_ack_desc();
