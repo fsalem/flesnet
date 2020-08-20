@@ -24,46 +24,46 @@ namespace tl_libfabric {
 
 std::unique_ptr<Provider> Provider::get_provider(std::string local_host_name) {
   // std::cout << "Provider::get_provider()" << std::endl;
-  struct fi_info* info = RDMOmniPathProvider::exists(local_host_name);
-  if (info != nullptr) {
+  struct fi_info* fiinfo = RDMOmniPathProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found OmniPath";
-    return std::unique_ptr<Provider>(new RDMOmniPathProvider(info));
+    return std::unique_ptr<Provider>(new RDMOmniPathProvider(fiinfo));
   }
 
-  info = MsgVerbsProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = MsgVerbsProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found Verbs";
-    return std::unique_ptr<Provider>(new MsgVerbsProvider(info));
+    return std::unique_ptr<Provider>(new MsgVerbsProvider(fiinfo));
   }
 
-  info = RxMVerbsProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = RxMVerbsProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found RxM Verbs";
-    return std::unique_ptr<Provider>(new RxMVerbsProvider(info));
+    return std::unique_ptr<Provider>(new RxMVerbsProvider(fiinfo));
   }
 
-  info = MsgGNIProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = MsgGNIProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found MSG GNI";
-    return std::unique_ptr<Provider>(new MsgGNIProvider(info));
+    return std::unique_ptr<Provider>(new MsgGNIProvider(fiinfo));
   }
 
-  info = RDMGNIProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = RDMGNIProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found RDM GNI";
-    return std::unique_ptr<Provider>(new RDMGNIProvider(info));
+    return std::unique_ptr<Provider>(new RDMGNIProvider(fiinfo));
   }
 
-  info = MsgSocketsProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = MsgSocketsProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found Sockets";
-    return std::unique_ptr<Provider>(new MsgSocketsProvider(info));
+    return std::unique_ptr<Provider>(new MsgSocketsProvider(fiinfo));
   }
 
-  info = RDMSocketsProvider::exists(local_host_name);
-  if (info != nullptr) {
+  fiinfo = RDMSocketsProvider::exists(local_host_name);
+  if (fiinfo != nullptr) {
     L_(info) << "found rdm";
-    return std::unique_ptr<Provider>(new RDMSocketsProvider(info));
+    return std::unique_ptr<Provider>(new RDMSocketsProvider(fiinfo));
   }
 
   throw LibfabricException("no known Libfabric provider found");
