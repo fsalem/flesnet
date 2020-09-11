@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "HeartbeatManager.hpp"
-#include "HeartbeatMessage.hpp"
+#include "ft/HeartbeatFailedNodeInfo.hpp"
+#include "ft/HeartbeatManager.hpp"
+#include "ft/HeartbeatMessage.hpp"
 #include <cstdint>
 
 namespace tl_libfabric {

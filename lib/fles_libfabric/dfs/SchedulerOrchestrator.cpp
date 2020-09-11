@@ -1,7 +1,6 @@
 // Copyright 2020 Farouk Salem <salem@zib.de>
 
 #include "SchedulerOrchestrator.hpp"
-#include "HeartbeatFailedNodeInfo.hpp"
 
 namespace tl_libfabric {
 //// Common Methods

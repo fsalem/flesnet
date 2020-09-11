@@ -3,7 +3,8 @@
 #pragma once
 
 #include "ConstVariables.hpp"
-#include "HeartbeatFailedNodeInfo.hpp"
+// TODO remove this and re-organize the code
+#include "../ft/HeartbeatFailedNodeInfo.hpp"
 #include "SizedMap.hpp"
 
 #include <cassert>

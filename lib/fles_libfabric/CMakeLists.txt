@@ -1,11 +1,11 @@
 # Copyright 2016 Thorsten Schuett <schuett@zib.de> Updated by Farouk Salem <salem@zib.de>
 
-file(GLOB LIB_SOURCES *.cpp providers/*.cpp dfs/*.cpp)
-file(GLOB LIB_HEADERS *.hpp providers/*.hpp dfs/*.hpp)
+file(GLOB LIB_SOURCES *.cpp providers/*.cpp dfs/*.cpp dfs/ft/*.cpp dfs/lb/*.cpp dfs/scheduler/*.cpp)
+file(GLOB LIB_HEADERS *.hpp providers/*.hpp dfs/*.hpp dfs/ft/*.hpp dfs/lb/*.hpp dfs/scheduler/*.hpp)
 
 add_library(fles_libfabric ${LIB_SOURCES} ${LIB_HEADERS})
 
-target_include_directories(fles_libfabric PUBLIC .)
+target_include_directories(fles_libfabric PUBLIC . dfs/)
 
 target_include_directories(fles_libfabric SYSTEM
   PUBLIC ${LIBFABRIC_INCLUDE_DIR}

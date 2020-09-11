@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "HeartbeatFailedNodeInfo.hpp"
-#include "InputHeartbeatManager.hpp"
-#include "InputIntervalScheduler.hpp"
-#include "InputTimesliceManager.hpp"
 #include "IntervalMetaData.hpp"
 #include "SchedulerOrchestrator.hpp"
+#include "ft/HeartbeatFailedNodeInfo.hpp"
+#include "ft/InputHeartbeatManager.hpp"
+#include "scheduler/InputIntervalScheduler.hpp"
+#include "scheduler/InputTimesliceManager.hpp"
 
 // TODO remove
 #include "DualRingBuffer.hpp"

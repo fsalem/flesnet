@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "ComputeHeartbeatManager.hpp"
-#include "ComputeTimesliceManager.hpp"
-#include "DDScheduler.hpp"
 #include "IntervalMetaData.hpp"
 #include "SchedulerOrchestrator.hpp"
+#include "ft/ComputeHeartbeatManager.hpp"
+#include "scheduler/ComputeTimesliceManager.hpp"
+#include "scheduler/DDScheduler.hpp"
 
 namespace tl_libfabric {
 /**
