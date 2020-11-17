@@ -12,19 +12,19 @@
 namespace tl_libfabric
 {
 
-class VerbsProvider : public Provider
+class MsgVerbsProvider : public Provider
 {
     struct fi_info* info_ = nullptr;
     struct fid_fabric* fabric_ = nullptr;
 
 public:
-    VerbsProvider(struct fi_info* info);
+    MsgVerbsProvider(struct fi_info* info);
 
-    VerbsProvider(const VerbsProvider&) = delete;
-    void operator=(const VerbsProvider&) = delete;
+    MsgVerbsProvider(const MsgVerbsProvider&) = delete;
+    void operator=(const MsgVerbsProvider&) = delete;
 
-    /// The VerbsProvider default destructor.
-    ~VerbsProvider();
+    /// The MsgVerbsProvider default destructor.
+    ~MsgVerbsProvider();
 
     virtual bool has_av() const { return false; };
     virtual bool has_eq_at_eps() const { return true; };

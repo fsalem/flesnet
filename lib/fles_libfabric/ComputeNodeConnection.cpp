@@ -7,26 +7,27 @@
 #include "Provider.hpp"
 #include "RequestIdentifier.hpp"
 #include <cassert>
+#include <cmath>
 #include <log.hpp>
 #include <rdma/fi_cm.h>
-#include <cmath>
 
 namespace tl_libfabric
 {
 
 ComputeNodeConnection::ComputeNodeConnection(
     struct fid_eq* eq, uint_fast16_t connection_index,
-    uint_fast16_t remote_connection_index,
-    InputNodeInfo remote_info, uint8_t* data_ptr, uint32_t data_buffer_size_exp,
-    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp
-    ,TimesliceScheduler* timeslice_scheduler)
+    uint_fast16_t remote_connection_index, InputNodeInfo remote_info,
+    uint8_t* data_ptr, uint32_t data_buffer_size_exp,
+    fles::TimesliceComponentDescriptor* desc_ptr, uint32_t desc_buffer_size_exp,
+    TimesliceScheduler* timeslice_scheduler)
     : Connection(eq, connection_index, remote_connection_index),
       remote_info_(std::move(remote_info)), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
       desc_buffer_size_exp_(desc_buffer_size_exp)
       ///-----
-      ,timeslice_scheduler_(timeslice_scheduler)
-      ///-----/
+      ,
+      timeslice_scheduler_(timeslice_scheduler)
+///-----/
 {
     // send and receive only single StatusMessage struct
     max_send_wr_ = 2; // one additional wr to avoid race (recv before
@@ -55,8 +56,9 @@ ComputeNodeConnection::ComputeNodeConnection(
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
       desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp)
       ///-----
-      ,timeslice_scheduler_(timeslice_scheduler)
-      ///-----/
+      ,
+      timeslice_scheduler_(timeslice_scheduler)
+///-----/
 {
 
     // send and receive only single StatusMessage struct
@@ -91,7 +93,8 @@ void ComputeNodeConnection::post_recv_status_message()
 void ComputeNodeConnection::post_send_status_message()
 {
     // stop sending more message after sending the final one
-    if (final_msg_sent_) return;
+    if (final_msg_sent_)
+        return;
     if (false) {
         L_(trace) << "[c" << remote_index_ << "] "
                   << "[" << index_ << "] "
@@ -114,8 +117,12 @@ void ComputeNodeConnection::post_send_final_status_message()
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_FINALIZE | (index_ << 8));
+    struct fi_custom_context* context =
+        static_cast<struct fi_custom_context*>(send_wr.context);
+    context->op_context = (ID_SEND_FINALIZE | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
+
     post_send_status_message();
     final_msg_sent_ = true;
 }
@@ -189,7 +196,10 @@ void ComputeNodeConnection::setup()
     recv_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    recv_wr.context = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    struct fi_custom_context* context =
+        LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    recv_wr.context = context;
 #pragma GCC diagnostic pop
 
     send_sge.iov_base = &send_status_message_;
@@ -202,7 +212,9 @@ void ComputeNodeConnection::setup()
     send_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
 
     // post initial receive request
@@ -263,54 +275,78 @@ void ComputeNodeConnection::inc_ack_pointers(uint64_t ack_pos)
 
 bool ComputeNodeConnection::try_sync_buffer_positions()
 {
-    if (!send_buffer_available_)return false;
-    if (recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
-	    send_status_message_.proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    timeslice_DD_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    timeslice_DD_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+    if (!send_buffer_available_)
+        return false;
+    if (recv_status_message_.required_interval_index !=
+            ConstVariables::MINUS_ONE &&
+        send_status_message_.proposed_interval_metadata.interval_index !=
+            recv_status_message_.required_interval_index &&
+        timeslice_DD_scheduler_->get_last_completed_interval() !=
+            ConstVariables::MINUS_ONE &&
+        timeslice_DD_scheduler_->get_last_completed_interval() + 2 >=
+            recv_status_message_
+                .required_interval_index) // 2 is the gap between the current
+                                          // interval and the last competed
+                                          // interbal and the required interval
     {
-	const IntervalMetaData* meta_data = timeslice_DD_scheduler_->get_proposed_meta_data(index_, recv_status_message_.required_interval_index);
-	if (meta_data != nullptr){
-	    send_status_message_.proposed_interval_metadata = *meta_data;
-	    data_acked_ = true;
-	}
+        const IntervalMetaData* meta_data =
+            timeslice_DD_scheduler_->get_proposed_meta_data(
+                index_, recv_status_message_.required_interval_index);
+        if (meta_data != nullptr) {
+            send_status_message_.proposed_interval_metadata = *meta_data;
+            data_acked_ = true;
+        }
     }
     ///-----
     /*
-    if (send_status_message_ .proposed_interval_metadata.interval_index != recv_status_message_.required_interval_index &&
-	    recv_status_message_.required_interval_index  != ConstVariables::MINUS_ONE &&
-	    timeslice_scheduler_->get_last_completed_interval() != ConstVariables::MINUS_ONE &&
-	    timeslice_scheduler_->get_last_completed_interval() + 2 >= recv_status_message_.required_interval_index) // 2 is the gap between the current interval and the last competed interbal and the required interval
+    if (send_status_message_ .proposed_interval_metadata.interval_index !=
+    recv_status_message_.required_interval_index &&
+            recv_status_message_.required_interval_index  !=
+    ConstVariables::MINUS_ONE &&
+            timeslice_scheduler_->get_last_completed_interval() !=
+    ConstVariables::MINUS_ONE &&
+            timeslice_scheduler_->get_last_completed_interval() + 2 >=
+    recv_status_message_.required_interval_index) // 2 is the gap between the
+    current interval and the last competed interbal and the required interval
     {
-	std::pair<std::chrono::high_resolution_clock::time_point, uint64_t> interval_info = timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index, index_);
-	send_status_message_.proposed_interval_metadata.interval_index = recv_status_message_.required_interval_index;
-	send_status_message_.proposed_interval_metadata.start_time = interval_info.first;
-	send_status_message_.proposed_interval_metadata.interval_duration = interval_info.second;
-	send_status_message_.proposed_interval_metadata.start_timeslice = ConstVariables::MAX_TIMESLICE_PER_INTERVAL*send_status_message_.proposed_interval_metadata.interval_index;
-	send_status_message_.proposed_interval_metadata.last_timeslice = (ConstVariables::MAX_TIMESLICE_PER_INTERVAL*(send_status_message_.proposed_interval_metadata.interval_index+1)) - 1;
-	send_status_message_.proposed_interval_metadata.round_count = ConstVariables::MAX_TIMESLICE_PER_INTERVAL/20;
+        std::pair<std::chrono::high_resolution_clock::time_point, uint64_t>
+    interval_info =
+    timeslice_scheduler_->get_interval_info(recv_status_message_.required_interval_index,
+    index_); send_status_message_.proposed_interval_metadata.interval_index =
+    recv_status_message_.required_interval_index;
+        send_status_message_.proposed_interval_metadata.start_time =
+    interval_info.first;
+        send_status_message_.proposed_interval_metadata.interval_duration =
+    interval_info.second;
+        send_status_message_.proposed_interval_metadata.start_timeslice =
+    ConstVariables::MAX_TIMESLICE_PER_INTERVAL*send_status_message_.proposed_interval_metadata.interval_index;
+        send_status_message_.proposed_interval_metadata.last_timeslice =
+    (ConstVariables::MAX_TIMESLICE_PER_INTERVAL*(send_status_message_.proposed_interval_metadata.interval_index+1))
+    - 1; send_status_message_.proposed_interval_metadata.round_count =
+    ConstVariables::MAX_TIMESLICE_PER_INTERVAL/20;
 
-	data_acked_ = true;
+        data_acked_ = true;
     */
-/*
- 	/// LOGGING
-        if (data_acked_){
-            send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::high_resolution_clock::time_point>(send_status_message_.timeslice_to_send, std::chrono::high_resolution_clock::now()));
+    /*
+            /// LOGGING
+            if (data_acked_){
+                send_interval_times_log_.insert(std::pair<uint64_t,std::chrono::high_resolution_clock::time_point>(send_status_message_.timeslice_to_send,
+       std::chrono::high_resolution_clock::now()));
+            }
+            /// END LOGGING
+    */
+    /*
         }
-        /// END LOGGING
-*/
-/*
-    }
-    */
+        */
     ///-----/
 
     if (data_changed_ && !send_status_message_.final) {
         send_status_message_.ack = cn_ack_;
     }
 
-    if (data_acked_ || data_changed_){
-	post_send_status_message();
-	return true;
+    if (data_acked_ || data_changed_) {
+        post_send_status_message();
+        return true;
     }
     return false;
 }
@@ -330,28 +366,41 @@ void ComputeNodeConnection::on_complete_recv()
                   << " (wp.desc=" << recv_status_message_.wp.desc << ")";
     }
     // to handle receiving sync messages out of sent order!
-    if (cn_wp_.data < recv_status_message_.wp.data && cn_wp_.desc < recv_status_message_.wp.desc){
-    	cn_wp_ = recv_status_message_.wp;
-    	/// LOGGING
-    	last_recv_ts_= cn_wp_.desc;
-    	/// END LOGGING
+    if (cn_wp_.data < recv_status_message_.wp.data &&
+        cn_wp_.desc < recv_status_message_.wp.desc) {
+        cn_wp_ = recv_status_message_.wp;
+        /// LOGGING
+        last_recv_ts_ = cn_wp_.desc;
+        /// END LOGGING
     }
     write_received_descriptors();
 
     if (!registered_input_MPI_time) {
-    	registered_input_MPI_time = true;
-    	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time);
-    	///-----
-    	timeslice_scheduler_->init_input_index_info(index_, recv_status_message_.local_time);
-    	///-----/
+        registered_input_MPI_time = true;
+        timeslice_DD_scheduler_->update_clock_offset(
+            index_, recv_status_message_.local_time);
+        ///-----
+        timeslice_scheduler_->init_input_index_info(
+            index_, recv_status_message_.local_time);
+        ///-----/
     }
 
-    if (recv_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-    	timeslice_DD_scheduler_->update_clock_offset(index_, recv_status_message_.local_time, recv_status_message_.median_latency, recv_status_message_.actual_interval_metadata.interval_index);
-    	timeslice_DD_scheduler_->add_actual_meta_data(index_, recv_status_message_.actual_interval_metadata);
-    	///-----
-    	timeslice_scheduler_->add_input_interval_info(index_, recv_status_message_.actual_interval_metadata.interval_index, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.start_time, recv_status_message_.actual_interval_metadata.interval_duration);
-    	///-----/
+    if (recv_status_message_.actual_interval_metadata.interval_index !=
+        ConstVariables::MINUS_ONE) {
+        timeslice_DD_scheduler_->update_clock_offset(
+            index_, recv_status_message_.local_time,
+            recv_status_message_.median_latency,
+            recv_status_message_.actual_interval_metadata.interval_index);
+        timeslice_DD_scheduler_->add_actual_meta_data(
+            index_, recv_status_message_.actual_interval_metadata);
+        ///-----
+        timeslice_scheduler_->add_input_interval_info(
+            index_,
+            recv_status_message_.actual_interval_metadata.interval_index,
+            recv_status_message_.actual_interval_metadata.start_time,
+            recv_status_message_.actual_interval_metadata.start_time,
+            recv_status_message_.actual_interval_metadata.interval_duration);
+        ///-----/
     }
     post_recv_status_message();
 }
@@ -359,7 +408,7 @@ void ComputeNodeConnection::on_complete_recv()
 void ComputeNodeConnection::on_complete_send()
 {
     pending_send_requests_--;
-    send_buffer_available_  = true;
+    send_buffer_available_ = true;
 }
 
 void ComputeNodeConnection::on_complete_send_finalize() { done_ = true; }
@@ -414,24 +463,25 @@ bool ComputeNodeConnection::is_connection_finalized()
 
 void ComputeNodeConnection::write_received_descriptors()
 {
-    for (int i=0 ; i < recv_status_message_.descriptor_count ; i++) {
-        fles::TimesliceComponentDescriptor descriptor = recv_status_message_.tscdesc_msg[i];
-        if (sync_received_ts_.find(descriptor.ts_num) == sync_received_ts_.end()) {
-                uint64_t offset = (descriptor.ts_desc) & ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
-                fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
-                L_(debug) << "[c" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "TS descriptor of ts#" << descriptor.ts_num
-                  << " offset " << descriptor.offset
-                  << " local offset " << offset
-                  << " size " << descriptor.size
-                  << " num mts " << descriptor.num_microslices
-                  << " local address " << (acked_ts)
-                  << " tscdesc_ts " << descriptor.ts_desc;
-                // TODO empty this list regularly
-                sync_received_ts_.insert(descriptor.ts_num);
-                std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
-         }
+    for (int i = 0; i < recv_status_message_.descriptor_count; i++) {
+        fles::TimesliceComponentDescriptor descriptor =
+            recv_status_message_.tscdesc_msg[i];
+        if (sync_received_ts_.find(descriptor.ts_num) ==
+            sync_received_ts_.end()) {
+            uint64_t offset = (descriptor.ts_desc) &
+                              ((UINT64_C(1) << desc_buffer_size_exp_) - 1);
+            fles::TimesliceComponentDescriptor* acked_ts = &desc_ptr_[offset];
+            L_(debug) << "[c" << remote_index_ << "] "
+                      << "[" << index_ << "] "
+                      << "TS descriptor of ts#" << descriptor.ts_num
+                      << " offset " << descriptor.offset << " local offset "
+                      << offset << " size " << descriptor.size << " num mts "
+                      << descriptor.num_microslices << " local address "
+                      << (acked_ts) << " tscdesc_ts " << descriptor.ts_desc;
+            // TODO empty this list regularly
+            sync_received_ts_.insert(descriptor.ts_num);
+            std::memcpy(acked_ts, &descriptor, sizeof(descriptor));
+        }
     }
 }
-}
+} // namespace tl_libfabric

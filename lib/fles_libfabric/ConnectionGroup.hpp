@@ -4,8 +4,11 @@
 #pragma once
 
 #include "ConnectionGroupWorker.hpp"
+#include "LibfabricContextPool.hpp"
 #include "LibfabricException.hpp"
 #include "Provider.hpp"
+#include "RequestIdentifier.hpp"
+
 //#include <chrono>
 //#include <cstring>
 //#include <fcntl.h>
@@ -138,64 +141,87 @@ public:
     /// The Libfabric completion notification handler.
     int poll_completion()
     {
-	// TODO detect the number of messages that we are waiting for
-        const int ne_max = conn_.size()*conn_.size();
+        // TODO detect the number of messages that we are waiting for
+        const int ne_max = conn_.size() * conn_.size();
 
         struct fi_cq_entry wc[ne_max];
         int ne;
         int ne_total = 0;
 
         agg_CQ_count_++;
-	std::chrono::high_resolution_clock::time_point start, end;
+        std::chrono::high_resolution_clock::time_point start, end;
 
-	for (uint16_t i=0 ; i<MAX_CQ_INSTANCE ; i++){
-	    start = std::chrono::high_resolution_clock::now();
-	    if (ne = fi_cq_read(cqs_[i], &wc, ne_max)) {
-		/// LOGGING
-		end = std::chrono::high_resolution_clock::now();
-		assert (end >= start);
-		uint64_t diff = std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
-		agg_CQ_time_ += diff;
-		/// END OF LOGGING
-		if (ne == -FI_EAVAIL) { // error available
-		    struct fi_cq_err_entry err;
-		    char buffer[256];
-		    ne = fi_cq_readerr(cqs_[i], &err, 0);
-		    L_(fatal) << fi_strerror(err.err);
-		    L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno, err.err_data,
-						buffer, 256);
-		    throw LibfabricException("fi_cq_read["+std::to_string(i)+"] failed (fi_cq_readerr)");
-		}
-		if ((ne < 0) && (ne != -FI_EAGAIN)) {
-		    L_(fatal) << "fi_cq_read[" << i << "] failed: "
-			      << ne << "=" << fi_strerror(-ne);
-		    throw LibfabricException("fi_cq_read failed");
-		}
+        for (uint16_t i = 0; i < MAX_CQ_INSTANCE; i++) {
+            start = std::chrono::high_resolution_clock::now();
+            if (ne = fi_cq_read(cqs_[i], &wc, ne_max)) {
+                /// LOGGING
+                end = std::chrono::high_resolution_clock::now();
+                assert(end >= start);
+                uint64_t diff =
+                    std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                          start)
+                        .count();
+                agg_CQ_time_ += diff;
+                /// END OF LOGGING
+                if (ne == -FI_EAVAIL) { // error available
+                    struct fi_cq_err_entry err;
+                    char buffer[256];
+                    ne = fi_cq_readerr(cqs_[i], &err, 0);
+                    L_(fatal) << fi_strerror(err.err);
+                    L_(fatal) << fi_cq_strerror(cqs_[i], err.prov_errno,
+                                                err.err_data, buffer, 256);
+                    throw LibfabricException("fi_cq_read[" + std::to_string(i) +
+                                             "] failed (fi_cq_readerr)");
+                }
+                if ((ne < 0) && (ne != -FI_EAGAIN)) {
+                    L_(fatal) << "fi_cq_read[" << i << "] failed: " << ne << "="
+                              << fi_strerror(-ne);
+                    throw LibfabricException("fi_cq_read failed");
+                }
 
-		if (ne != -FI_EAGAIN){
+                if (ne != -FI_EAGAIN) {
 
-		    ne_total += ne;
-		    if (ne > 0)start = std::chrono::high_resolution_clock::now();
-		    for (int i = 0; i < ne; ++i) {
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wold-style-cast"
-			on_completion((uintptr_t)wc[i].op_context);
-    #pragma GCC diagnostic pop
-		    }
-		    if (ne > 0) {
-			end = std::chrono::high_resolution_clock::now();
-			assert (end >= start);
-			agg_CQ_COMP_time_ += std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
-		    }
-		}
-	    }
-	}
+                    ne_total += ne;
+                    if (ne > 0)
+                        start = std::chrono::high_resolution_clock::now();
+                    for (int i = 0; i < ne; ++i) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+                        struct fi_custom_context* context =
+                            static_cast<struct fi_custom_context*>(
+                                wc[i].op_context);
+                        on_completion((uintptr_t)context->op_context);
+                        if (((uintptr_t)context->op_context & 0xFF) ==
+                                ID_WRITE_DESC ||
+                            ((uintptr_t)context->op_context & 0xFF) ==
+                                ID_WRITE_DATA ||
+                            ((uintptr_t)context->op_context & 0xFF) ==
+                                ID_WRITE_DATA_WRAP)
+                            LibfabricContextPool::getInst()->releaseContext(
+                                context);
+
+#pragma GCC diagnostic pop
+                    }
+                    if (ne > 0) {
+                        end = std::chrono::high_resolution_clock::now();
+                        assert(end >= start);
+                        agg_CQ_COMP_time_ +=
+                            std::chrono::duration_cast<
+                                std::chrono::microseconds>(end - start)
+                                .count();
+                    }
+                }
+            }
+        }
 
         return ne_total;
     }
 
     /// Retrieve the InfiniBand completion queue.
-    struct fid_cq* completion_queue(uint32_t conn_index) const { return cqs_[conn_index % MAX_CQ_INSTANCE]; }
+    struct fid_cq* completion_queue(uint32_t conn_index) const
+    {
+        return cqs_[conn_index % MAX_CQ_INSTANCE];
+    }
 
     size_t size() const { return conn_.size(); }
 
@@ -225,8 +251,12 @@ public:
         L_(info) << "summary: " << human_readable_count(aggregate_bytes_sent_)
                  << " sent in " << runtime / 1000000. << " s (" << rate
                  << " MB/s)";
-        L_(info) << "summary: Agg. bytes of sync messages " << human_readable_count(aggregate_sync_bytes_sent_);
-        L_(info) << "summary: Agg. CQ retrieving time " << agg_CQ_time_ / 1000000. << " s and processing time " << agg_CQ_COMP_time_ / 1000000. << " s in " << agg_CQ_count_ << " calls";
+        L_(info) << "summary: Agg. bytes of sync messages "
+                 << human_readable_count(aggregate_sync_bytes_sent_);
+        L_(info) << "summary: Agg. CQ retrieving time "
+                 << agg_CQ_time_ / 1000000. << " s and processing time "
+                 << agg_CQ_COMP_time_ / 1000000. << " s in " << agg_CQ_count_
+                 << " calls";
     }
 
     /// The "main" function of an ConnectionGroup decendant.
@@ -265,7 +295,8 @@ protected:
             conn->on_disconnected(event);
         } else {
             aggregate_bytes_sent_ += conn_[conn_indx]->total_bytes_sent();
-            aggregate_sync_bytes_sent_ += conn_[conn_indx]->total_sync_bytes_sent();
+            aggregate_sync_bytes_sent_ +=
+                conn_[conn_indx]->total_sync_bytes_sent();
             aggregate_send_requests_ += conn_[conn_indx]->total_send_requests();
             aggregate_recv_requests_ += conn_[conn_indx]->total_recv_requests();
             conn_[conn_indx]->on_disconnected(event);
@@ -288,22 +319,22 @@ protected:
             throw LibfabricException("fi_domain failed");
         }
 
-        for (uint16_t i = 0 ; i< MAX_CQ_INSTANCE ; i++){
-	    struct fi_cq_attr cq_attr;
-	    memset(&cq_attr, 0, sizeof(cq_attr));
-	    cq_attr.size = num_cqe_;
-	    cq_attr.flags = 0;
-	    cq_attr.format = FI_CQ_FORMAT_CONTEXT;
-	    cq_attr.wait_obj = FI_WAIT_NONE;
-	    cq_attr.signaling_vector = Provider::vector++; // ??
-	    cq_attr.wait_cond = FI_CQ_COND_NONE;
-	    cq_attr.wait_set = nullptr;
-	    res = fi_cq_open(pd_, &cq_attr, &cqs_[i], nullptr);
-	    if (!cqs_[i]) {
-		L_(fatal) << "fi_cq_open[" << i <<"] failed: "
-			  << -res << "=" << fi_strerror(-res);
-		throw LibfabricException("fi_cq_open failed");
-	    }
+        for (uint16_t i = 0; i < MAX_CQ_INSTANCE; i++) {
+            struct fi_cq_attr cq_attr;
+            memset(&cq_attr, 0, sizeof(cq_attr));
+            cq_attr.size = num_cqe_;
+            cq_attr.flags = 0;
+            cq_attr.format = FI_CQ_FORMAT_CONTEXT;
+            cq_attr.wait_obj = FI_WAIT_NONE;
+            cq_attr.signaling_vector = Provider::vector++; // ??
+            cq_attr.wait_cond = FI_CQ_COND_NONE;
+            cq_attr.wait_set = nullptr;
+            res = fi_cq_open(pd_, &cq_attr, &cqs_[i], nullptr);
+            if (!cqs_[i]) {
+                L_(fatal) << "fi_cq_open[" << i << "] failed: " << -res << "="
+                          << fi_strerror(-res);
+                throw LibfabricException("fi_cq_open failed");
+            }
         }
         if (Provider::getInst()->has_av()) {
             struct fi_av_attr av_attr;
@@ -341,7 +372,8 @@ protected:
     /// Libfabric protection domain.
     struct fid_domain* pd_ = nullptr;
 
-    /// Max number of completion queues (distributing diff. connections on multiple completion queues minimize the time to retrieve events)
+    /// Max number of completion queues (distributing diff. connections on
+    /// multiple completion queues minimize the time to retrieve events)
     // TODO make it configurable
     uint16_t MAX_CQ_INSTANCE = 10;
 
@@ -423,9 +455,8 @@ private:
     /// LOGGING completion queues statistics
     uint64_t agg_CQ_time_ = 0;
 
-    uint64_t agg_CQ_count_=0;
+    uint64_t agg_CQ_count_ = 0;
 
     uint64_t agg_CQ_COMP_time_ = 0;
-
 };
-}
+} // namespace tl_libfabric

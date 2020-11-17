@@ -43,7 +43,7 @@ InputChannelConnection::InputChannelConnection(
     }
 
     data_changed_ = true; // to send empty message at the beginning
-    data_acked_ = false; // to send empty message at the beginning
+    data_acked_ = false;  // to send empty message at the beginning
     input_scheduler_ = InputScheduler::get_instance();
     msg_latency_.resize(ConstVariables::MAX_MEDIAN_VALUES);
 }
@@ -130,6 +130,7 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     struct fi_msg_rma send_wr_tswrap;
     struct fi_msg_rma send_wr_tscdesc;
     struct fi_rma_iov rma_iov[1];
+    struct fi_custom_context* context;
 
     uint64_t remote_addr =
         remote_info_.data.addr + (cn_wp_data & cn_data_buffer_mask);
@@ -152,9 +153,14 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
         send_wr_ts.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-        send_wr_ts.context = (void*)(ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
+        context = LibfabricContextPool::getInst()->getContext();
+        context->op_context =
+            (ID_WRITE_DATA | (timeslice << 24) | (index_ << 8));
+        send_wr_ts.context = context;
 #pragma GCC diagnostic pop
-        post_send_rdma(&send_wr_ts, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
+        post_send_rdma(
+            &send_wr_ts,
+            FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
         ++put_count;
         ++pending_write_requests_;
     }
@@ -179,11 +185,17 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
             send_wr_tswrap.addr = partner_addr_;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-            send_wr_tswrap.context = (void*)(ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
+            context = LibfabricContextPool::getInst()->getContext();
+            context->op_context =
+                (ID_WRITE_DATA_WRAP | (timeslice << 24) | (index_ << 8));
+            send_wr_tswrap.context = context;
 #pragma GCC diagnostic pop
-            post_send_rdma(&send_wr_tswrap, FI_COMPLETION); // TODO FI_MORE to be added for optimizing the code
+
+            post_send_rdma(&send_wr_tswrap,
+                           FI_COMPLETION); // TODO FI_MORE to be added for
+                                           // optimizing the code
             ++put_count;
-	    ++pending_write_requests_;
+            ++pending_write_requests_;
         }
     }
 
@@ -191,22 +203,22 @@ void InputChannelConnection::send_data(struct iovec* sge, void** desc,
     // timeslice component descriptor
     fles::TimesliceComponentDescriptor tscdesc;
     tscdesc.ts_num = timeslice;
-    tscdesc.ts_desc = timeslice / input_scheduler_->get_compute_connection_count();
+    tscdesc.ts_desc =
+        timeslice / input_scheduler_->get_compute_connection_count();
     tscdesc.offset = cn_wp_data;
     tscdesc.size =
         data_length + desc_length * sizeof(fles::MicrosliceDescriptor);
     tscdesc.num_microslices = desc_length;
 
     if (false) {
-	L_(info) << "[i" << remote_index_ << "] "
-		 << "[" << index_ << "] "
-		 << "POST SEND data (timeslice " << timeslice << ")"
-		 << " tscdesc.ts_num " << tscdesc.ts_num
-		 << " tscdesc.ts_desc " << tscdesc.ts_desc
-		 << " tscdesc.offset " << tscdesc.offset;
+        L_(info) << "[i" << remote_index_ << "] "
+                 << "[" << index_ << "] "
+                 << "POST SEND data (timeslice " << timeslice << ")"
+                 << " tscdesc.ts_num " << tscdesc.ts_num << " tscdesc.ts_desc "
+                 << tscdesc.ts_desc << " tscdesc.offset " << tscdesc.offset;
     }
     pending_descriptors_.push_back(tscdesc);
-    //assert(pending_write_requests_ < max_pending_write_requests_);
+    // assert(pending_write_requests_ < max_pending_write_requests_);
 }
 
 bool InputChannelConnection::write_request_available()
@@ -224,13 +236,17 @@ void InputChannelConnection::inc_write_pointers(uint64_t data_size,
 
 void InputChannelConnection::check_inc_write_pointers()
 {
-    while (!timeslice_data_address_.empty() && added_sent_descriptors_ < ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE)
-    {
-        if (!input_scheduler_->is_timeslice_acked(pending_descriptors_[0].ts_num))break;
-        send_status_message_.tscdesc_msg[added_sent_descriptors_++]=pending_descriptors_[0];
-        inc_write_pointers(timeslice_data_address_[0],1);
+    while (!timeslice_data_address_.empty() &&
+           added_sent_descriptors_ <
+               ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE) {
+        if (!input_scheduler_->is_timeslice_acked(
+                pending_descriptors_[0].ts_num))
+            break;
+        send_status_message_.tscdesc_msg[added_sent_descriptors_++] =
+            pending_descriptors_[0];
+        inc_write_pointers(timeslice_data_address_[0], 1);
         cn_wp_pending_.data -= timeslice_data_address_[0];
-	cn_wp_pending_.desc -= 1;
+        cn_wp_pending_.desc -= 1;
         timeslice_data_address_.erase(timeslice_data_address_.begin());
         pending_descriptors_.erase(pending_descriptors_.begin());
         data_acked_ = true;
@@ -239,18 +255,22 @@ void InputChannelConnection::check_inc_write_pointers()
 
 bool InputChannelConnection::try_sync_buffer_positions()
 {
-    if (!send_buffer_available_) return false;
-    if ((get_partner_addr() || connection_oriented_) && finalize_ && (!send_status_message_.final || send_status_message_.abort != abort_)) {
-	if ((cn_wp_ == send_status_message_.wp) && (cn_wp_ == cn_ack_ || abort_)) {
-		send_status_message_.final = true;
-		send_status_message_.abort = abort_;
-		data_changed_ = true;
-	}
+    if (!send_buffer_available_)
+        return false;
+    if ((get_partner_addr() || connection_oriented_) && finalize_ &&
+        (!send_status_message_.final || send_status_message_.abort != abort_)) {
+        if ((cn_wp_ == send_status_message_.wp) &&
+            (cn_wp_ == cn_ack_ || abort_)) {
+            send_status_message_.final = true;
+            send_status_message_.abort = abort_;
+            data_changed_ = true;
+        }
     }
     check_inc_write_pointers();
     if ((data_changed_ || data_acked_)) { //
-	send_status_message_.wp = cn_wp_;
-	send_status_message_.local_time = std::chrono::high_resolution_clock::now();
+        send_status_message_.wp = cn_wp_;
+        send_status_message_.local_time =
+            std::chrono::high_resolution_clock::now();
         post_send_status_message();
         return true;
     } else {
@@ -280,8 +300,11 @@ void InputChannelConnection::on_complete_write() { pending_write_requests_--; }
 void InputChannelConnection::on_complete_send()
 {
     send_buffer_available_ = true;
-    msg_latency_[msg_latency_index_] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - msg_send_time_).count();
-    msg_latency_index_ = (msg_latency_index_+1) % msg_latency_.size();
+    msg_latency_[msg_latency_index_] =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - msg_send_time_)
+            .count();
+    msg_latency_index_ = (msg_latency_index_ + 1) % msg_latency_.size();
 }
 
 void InputChannelConnection::on_complete_recv()
@@ -292,19 +315,24 @@ void InputChannelConnection::on_complete_recv()
     }
 
     if (false) {
-        L_(info) << "[i" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "receive completion, new cn_ack_.desc="
-                  << recv_status_message_.ack.desc
-                  <<"(interval index = "
-		  << recv_status_message_.proposed_interval_metadata.interval_index
-		  << " for " << recv_status_message_.proposed_interval_metadata.interval_duration;
+        L_(info)
+            << "[i" << remote_index_ << "] "
+            << "[" << index_ << "] "
+            << "receive completion, new cn_ack_.desc="
+            << recv_status_message_.ack.desc << "(interval index = "
+            << recv_status_message_.proposed_interval_metadata.interval_index
+            << " for "
+            << recv_status_message_.proposed_interval_metadata
+                   .interval_duration;
     }
-    if (cn_ack_.data < recv_status_message_.ack.data && cn_ack_.desc < recv_status_message_.ack.desc) {
-    	cn_ack_ = recv_status_message_.ack;
+    if (cn_ack_.data < recv_status_message_.ack.data &&
+        cn_ack_.desc < recv_status_message_.ack.desc) {
+        cn_ack_ = recv_status_message_.ack;
     }
-    if (recv_status_message_.proposed_interval_metadata.interval_index != ConstVariables::MINUS_ONE) {
-	input_scheduler_->add_proposed_meta_data(recv_status_message_.proposed_interval_metadata);
+    if (recv_status_message_.proposed_interval_metadata.interval_index !=
+        ConstVariables::MINUS_ONE) {
+        input_scheduler_->add_proposed_meta_data(
+            recv_status_message_.proposed_interval_metadata);
     }
     post_recv_status_message();
 }
@@ -342,6 +370,7 @@ void InputChannelConnection::setup_mr(struct fid_domain* pd)
 
 void InputChannelConnection::setup()
 {
+    struct fi_custom_context* context;
 
     recv_descs[0] = fi_mr_desc(mr_recv_);
     send_descs[0] = fi_mr_desc(mr_send_);
@@ -357,7 +386,9 @@ void InputChannelConnection::setup()
     recv_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    recv_wr.context = (void*)(ID_RECEIVE_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_RECEIVE_STATUS | (index_ << 8));
+    recv_wr.context = context;
 #pragma GCC diagnostic pop
 
     memset(&send_wr_iovec, 0, sizeof(struct iovec));
@@ -370,7 +401,9 @@ void InputChannelConnection::setup()
     send_wr.iov_count = 1;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    send_wr.context = (void*)(ID_SEND_STATUS | (index_ << 8));
+    context = LibfabricContextPool::getInst()->getContext();
+    context->op_context = (ID_SEND_STATUS | (index_ << 8));
+    send_wr.context = context;
 #pragma GCC diagnostic pop
 
     // post initial receive request
@@ -444,12 +477,13 @@ void InputChannelConnection::post_send_status_message()
 {
     if (false) {
         L_(info) << "[i" << remote_index_ << "] "
-                  << "[" << index_ << "] "
-                  << "POST SEND status message (wp.data="
-                  << send_status_message_.wp.data
-                  << " wp.desc=" << send_status_message_.wp.desc << ")"
-		  << " added descriptors=" << std::to_string(added_sent_descriptors_)
-		  << " remaining=" << pending_descriptors_.size();
+                 << "[" << index_ << "] "
+                 << "POST SEND status message (wp.data="
+                 << send_status_message_.wp.data
+                 << " wp.desc=" << send_status_message_.wp.desc << ")"
+                 << " added descriptors="
+                 << std::to_string(added_sent_descriptors_)
+                 << " remaining=" << pending_descriptors_.size();
     }
 
     data_changed_ = false;
@@ -528,27 +562,34 @@ void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts)
     last_sent_timeslice_ = sent_ts;
 }
 
-void InputChannelConnection::ack_complete_interval_info(){
+void InputChannelConnection::ack_complete_interval_info()
+{
     const IntervalMetaData* meta_data = input_scheduler_->get_actual_meta_data(
-	    send_status_message_.actual_interval_metadata.interval_index != ConstVariables::MINUS_ONE ? send_status_message_.actual_interval_metadata.interval_index + 1 :0);
-    if (meta_data != nullptr){
-	send_status_message_.actual_interval_metadata = *meta_data;
-	send_status_message_.required_interval_index = meta_data->interval_index + 2;
-	send_status_message_.median_latency = get_msg_median_latency();
-	data_acked_ = true;
+        send_status_message_.actual_interval_metadata.interval_index !=
+                ConstVariables::MINUS_ONE
+            ? send_status_message_.actual_interval_metadata.interval_index + 1
+            : 0);
+    if (meta_data != nullptr) {
+        send_status_message_.actual_interval_metadata = *meta_data;
+        send_status_message_.required_interval_index =
+            meta_data->interval_index + 2;
+        send_status_message_.median_latency = get_msg_median_latency();
+        data_acked_ = true;
     }
 }
 
-uint64_t InputChannelConnection::get_msg_median_latency(){
+uint64_t InputChannelConnection::get_msg_median_latency()
+{
     std::vector<uint64_t> temp_list(msg_latency_);
     std::sort(temp_list.begin(), temp_list.end());
-    return temp_list[temp_list.size()/2];
+    return temp_list[temp_list.size() / 2];
 }
 
-void InputChannelConnection::add_timeslice_data_address(uint64_t data_size, uint64_t desc_size){
+void InputChannelConnection::add_timeslice_data_address(uint64_t data_size,
+                                                        uint64_t desc_size)
+{
     timeslice_data_address_.push_back(data_size);
     cn_wp_pending_.data += data_size;
     cn_wp_pending_.desc += desc_size;
-
 }
-}
+} // namespace tl_libfabric

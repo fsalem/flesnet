@@ -7,9 +7,9 @@
 #include "Utility.hpp"
 #include <cassert>
 #include <chrono>
+#include <iomanip>
 #include <log.hpp>
 #include <rdma/fi_domain.h>
-#include <iomanip>
 
 namespace tl_libfabric
 {
@@ -42,7 +42,8 @@ InputChannelSender::InputChannelSender(
         connection_oriented_ = false;
     }
 
-    input_scheduler_ = InputScheduler::get_instance(input_index, compute_hostnames.size(), log_directory, enable_logging);
+    input_scheduler_ = InputScheduler::get_instance(
+        input_index, compute_hostnames.size(), log_directory, enable_logging);
 }
 
 InputChannelSender::~InputChannelSender()
@@ -65,81 +66,81 @@ void InputChannelSender::report_status()
 {
     constexpr auto interval = std::chrono::seconds(1);
 
-	// if data_source.written pointers are lagging behind due to lazy updates,
-        // use sent value instead
-        uint64_t written_desc = data_source_.get_write_index().desc;
-        if (written_desc < sent_desc_) {
-            written_desc = sent_desc_;
-        }
-        uint64_t written_data = data_source_.get_write_index().data;
-        if (written_data < sent_data_) {
-            written_data = sent_data_;
-        }
+    // if data_source.written pointers are lagging behind due to lazy updates,
+    // use sent value instead
+    uint64_t written_desc = data_source_.get_write_index().desc;
+    if (written_desc < sent_desc_) {
+        written_desc = sent_desc_;
+    }
+    uint64_t written_data = data_source_.get_write_index().data;
+    if (written_data < sent_data_) {
+        written_data = sent_data_;
+    }
 
-        std::chrono::system_clock::time_point now =
-            std::chrono::system_clock::now();
-        SendBufferStatus status_desc{now,
-                                     data_source_.desc_buffer().size(),
-                                     cached_acked_desc_,
-                                     acked_desc_,
-                                     sent_desc_,
-                                     written_desc};
-        SendBufferStatus status_data{now,
-                                     data_source_.data_buffer().size(),
-                                     cached_acked_data_,
-                                     acked_data_,
-                                     sent_data_,
-                                     written_data};
+    std::chrono::system_clock::time_point now =
+        std::chrono::system_clock::now();
+    SendBufferStatus status_desc{now,
+                                 data_source_.desc_buffer().size(),
+                                 cached_acked_desc_,
+                                 acked_desc_,
+                                 sent_desc_,
+                                 written_desc};
+    SendBufferStatus status_data{now,
+                                 data_source_.data_buffer().size(),
+                                 cached_acked_data_,
+                                 acked_data_,
+                                 sent_data_,
+                                 written_data};
 
-        double delta_t =
-            std::chrono::duration<double, std::chrono::seconds::period>(
-                status_desc.time - previous_send_buffer_status_desc_.time)
-                .count();
-        double rate_desc =
-            static_cast<double>(status_desc.acked -
-                                previous_send_buffer_status_desc_.acked) /
-            delta_t;
-        double rate_data =
-            static_cast<double>(status_data.acked -
-                                previous_send_buffer_status_data_.acked) /
-            delta_t;
+    double delta_t =
+        std::chrono::duration<double, std::chrono::seconds::period>(
+            status_desc.time - previous_send_buffer_status_desc_.time)
+            .count();
+    double rate_desc =
+        static_cast<double>(status_desc.acked -
+                            previous_send_buffer_status_desc_.acked) /
+        delta_t;
+    double rate_data =
+        static_cast<double>(status_data.acked -
+                            previous_send_buffer_status_data_.acked) /
+        delta_t;
 
-        L_(debug) << "[i" << input_index_ << "] desc " << status_desc.percentages()
-                  << " (used..free) | "
-                  << human_readable_count(status_desc.acked, true, "") << " ("
-                  << human_readable_count(rate_desc, true, "Hz") << ")";
+    L_(debug) << "[i" << input_index_ << "] desc " << status_desc.percentages()
+              << " (used..free) | "
+              << human_readable_count(status_desc.acked, true, "") << " ("
+              << human_readable_count(rate_desc, true, "Hz") << ")";
 
-        L_(debug) << "[i" << input_index_ << "] data " << status_data.percentages()
-                  << " (used..free) | "
-                  << human_readable_count(status_data.acked, true) << " ("
-                  << human_readable_count(rate_data, true, "B/s") << ")";
+    L_(debug) << "[i" << input_index_ << "] data " << status_data.percentages()
+              << " (used..free) | "
+              << human_readable_count(status_data.acked, true) << " ("
+              << human_readable_count(rate_data, true, "B/s") << ")";
 
-        L_(info) << "[i" << input_index_ << "]   |"
-                 << bar_graph(status_data.vector(), "#x._", 20) << "|"
-                 << bar_graph(status_desc.vector(), "#x._", 10) << "| "
-                 << human_readable_count(rate_data, true, "B/s") << " ("
-                 << human_readable_count(rate_desc, true, "Hz") << ")";
+    L_(info) << "[i" << input_index_ << "]   |"
+             << bar_graph(status_data.vector(), "#x._", 20) << "|"
+             << bar_graph(status_desc.vector(), "#x._", 10) << "| "
+             << human_readable_count(rate_data, true, "B/s") << " ("
+             << human_readable_count(rate_desc, true, "Hz") << ")";
 
-        previous_send_buffer_status_desc_ = status_desc;
-        previous_send_buffer_status_data_ = status_data;
+    previous_send_buffer_status_desc_ = status_desc;
+    previous_send_buffer_status_data_ = status_data;
 
-        scheduler_.add(std::bind(&InputChannelSender::report_status, this),
-    now + interval);
+    scheduler_.add(std::bind(&InputChannelSender::report_status, this),
+                   now + interval);
 }
 
 void InputChannelSender::sync_data_source(bool schedule)
 {
     if (acked_data_ > cached_acked_data_ || acked_desc_ > cached_acked_desc_) {
-            cached_acked_data_ = acked_data_;
-            cached_acked_desc_ = acked_desc_;
-            data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
+        cached_acked_data_ = acked_data_;
+        cached_acked_desc_ = acked_desc_;
+        data_source_.set_read_index({cached_acked_desc_, cached_acked_data_});
     }
 
     if (schedule) {
-	auto now = std::chrono::system_clock::now();
-	scheduler_.add(
-	    std::bind(&InputChannelSender::sync_data_source, this, true),
-	    now + std::chrono::milliseconds(100));
+        auto now = std::chrono::system_clock::now();
+        scheduler_.add(
+            std::bind(&InputChannelSender::sync_data_source, this, true),
+            now + std::chrono::milliseconds(100));
     }
 }
 
@@ -150,19 +151,26 @@ void InputChannelSender::send_timeslices()
 
     uint32_t conn_index = input_index_ % conn_.size();
     do {
-	uint64_t next_ts = conn_[conn_index]->get_last_sent_timeslice() == ConstVariables::MINUS_ONE ? conn_index :
-			    conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
+        uint64_t next_ts =
+            conn_[conn_index]->get_last_sent_timeslice() ==
+                    ConstVariables::MINUS_ONE
+                ? conn_index
+                : conn_[conn_index]->get_last_sent_timeslice() + conn_.size();
 
-	if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ && try_send_timeslice(next_ts)){
-	    input_scheduler_->log_timeslice_transmit_time(next_ts, conn_index);
-	    input_scheduler_->increament_sent_timeslices();
-	    conn_[conn_index]->set_last_sent_timeslice(next_ts);
-	    sent_timeslices_++;
-	}
-	conn_index = (conn_index+1) % conn_.size();
-    }while(conn_index != (input_index_ % conn_.size()));
+        if (next_ts <= up_to_timeslice && next_ts <= max_timeslice_number_ &&
+            try_send_timeslice(next_ts)) {
+            input_scheduler_->log_timeslice_transmit_time(next_ts, conn_index);
+            input_scheduler_->increament_sent_timeslices();
+            conn_[conn_index]->set_last_sent_timeslice(next_ts);
+            sent_timeslices_++;
+        }
+        conn_index = (conn_index + 1) % conn_.size();
+    } while (conn_index != (input_index_ % conn_.size()));
 
-    scheduler_.add(std::bind(&InputChannelSender::send_timeslices, this), std::chrono::system_clock::now() + std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
+    scheduler_.add(
+        std::bind(&InputChannelSender::send_timeslices, this),
+        std::chrono::system_clock::now() +
+            std::chrono::microseconds(input_scheduler_->get_next_fire_time()));
 }
 
 void InputChannelSender::bootstrap_with_connections()
@@ -175,11 +183,14 @@ void InputChannelSender::bootstrap_with_connections()
 
 void InputChannelSender::bootstrap_wo_connections()
 {
+    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    assert(rc == MPI_SUCCESS);
+
     // domain, cq, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
 
-    int rc = MPI_Barrier(MPI_COMM_WORLD);
+    rc = MPI_Barrier(MPI_COMM_WORLD);
     assert(rc == MPI_SUCCESS);
     conn_.resize(compute_hostnames_.size());
     // setup connections objects
@@ -200,9 +211,9 @@ void InputChannelSender::bootstrap_wo_connections()
             // reconnecting
             for (unsigned int i = 0; i < compute_hostnames_.size(); ++i) {
                 if (connected_indexes_.find(i) == connected_indexes_.end()) {
-                    L_(info) << "retrying to connect to "
-                             << compute_hostnames_[i] << ":"
-                             << compute_services_[i];
+                    L_(info)
+                        << "retrying to connect to " << compute_hostnames_[i]
+                        << ":" << compute_services_[i];
                     conn_.at(i)->reconnect();
                 }
             }
@@ -227,8 +238,8 @@ void InputChannelSender::operator()()
         time_begin_ = std::chrono::high_resolution_clock::now();
         input_scheduler_->update_input_begin_time(time_begin_);
 
-        for (uint32_t indx = 0 ; indx< conn_.size() ; indx++){
-	    conn_[indx]->set_time_MPI(time_begin_);
+        for (uint32_t indx = 0; indx < conn_.size(); indx++) {
+            conn_[indx]->set_time_MPI(time_begin_);
         }
 
         sync_buffer_positions();
@@ -238,7 +249,7 @@ void InputChannelSender::operator()()
 
         while (sent_timeslices_ <= max_timeslice_number_ && !abort_) {
             /*if (try_send_timeslice(sent_timeslices_)) {
-            	sent_timeslices_++;
+                sent_timeslices_++;
             }*/
             scheduler_.timer();
             poll_completion();
@@ -246,11 +257,13 @@ void InputChannelSender::operator()()
             data_source_.proceed();
         }
 
-        L_(info) << "[i" << input_index_ << "]"
-        	<< "All timeslices are sent.  wait for pending send completions!";
+        L_(info)
+            << "[i" << input_index_ << "]"
+            << "All timeslices are sent.  wait for pending send completions!";
 
         // wait for pending send completions
-        while (acked_desc_ < timeslice_size_ * sent_timeslices_ + start_index_desc_) {
+        while (acked_desc_ <
+               timeslice_size_ * sent_timeslices_ + start_index_desc_) {
             poll_completion();
             scheduler_.timer();
         }
@@ -296,7 +309,7 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
     }
     // check if microslice no. (desc_offset + desc_length - 1) is avail
     if (write_index_desc_ >= desc_offset + desc_length) {
-	input_scheduler_->log_timeslice_IB_blocked(timeslice, true);
+        input_scheduler_->log_timeslice_IB_blocked(timeslice, true);
         uint64_t data_offset =
             data_source_.desc_buffer().at(desc_offset).offset;
         uint64_t data_end =
@@ -320,9 +333,9 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
 
         int cn = target_cn_index(timeslice);
 
-        if (!conn_[cn]->write_request_available()){
+        if (!conn_[cn]->write_request_available()) {
             L_(info) << "[" << input_index_ << "]"
-        	    << "max # of writes to " << cn;
+                     << "max # of writes to " << cn;
             input_scheduler_->log_timeslice_MR_blocked(timeslice);
             return false;
         }
@@ -337,19 +350,21 @@ bool InputChannelSender::try_send_timeslice(uint64_t timeslice)
             post_send_data(timeslice, cn, desc_offset, desc_length, data_offset,
                            data_length, skip);
 
-            //conn_[cn]->inc_write_pointers(total_length, 1);
+            // conn_[cn]->inc_write_pointers(total_length, 1);
             conn_[cn]->add_timeslice_data_address(total_length, 1);
 
-            if (data_end > sent_data_){ // This if condition is needed when the timeslice transmissions are out of order
-            	sent_desc_ = desc_offset + desc_length;
-            	sent_data_ = data_end;
+            if (data_end >
+                sent_data_) { // This if condition is needed when the timeslice
+                              // transmissions are out of order
+                sent_desc_ = desc_offset + desc_length;
+                sent_data_ = data_end;
             }
             return true;
-        }else{
+        } else {
             input_scheduler_->log_timeslice_CB_blocked(timeslice);
         }
-    }else{
-	input_scheduler_->log_timeslice_IB_blocked(timeslice);
+    } else {
+        input_scheduler_->log_timeslice_IB_blocked(timeslice);
     }
 
     return false;
@@ -360,8 +375,8 @@ InputChannelSender::create_input_node_connection(uint_fast16_t index)
 {
     // @todo
     // unsigned int max_send_wr = 8000; ???  IB hca
-    // unsigned int max_send_wr = 495; // ??? libfabric for verbs
-    unsigned int max_send_wr = 256; // ??? libfabric for sockets
+    unsigned int max_send_wr = 495; // ??? libfabric for verbs
+    // unsigned int max_send_wr = 256; // ??? libfabric for sockets
 
     // limit pending write requests so that send queue and completion queue
     // do not overflow
@@ -417,8 +432,9 @@ void InputChannelSender::on_connected(struct fid_domain* pd)
             throw LibfabricException("registration of memory region failed");
         }
 
-        err = fi_mr_reg(pd, const_cast<fles::MicrosliceDescriptor*>(
-                                data_source_.desc_send_buffer().ptr()),
+        err = fi_mr_reg(pd,
+                        const_cast<fles::MicrosliceDescriptor*>(
+                            data_source_.desc_send_buffer().ptr()),
                         data_source_.desc_send_buffer().bytes(), FI_WRITE, 0,
                         Provider::requested_key++, 0, &mr_desc_, nullptr);
         if (err) {
@@ -449,8 +465,8 @@ void InputChannelSender::on_rejected(struct fi_eq_err_entry* event)
     // immediately initiate retry
     std::unique_ptr<InputChannelConnection> connection =
         create_input_node_connection(i);
-    connection->connect(compute_hostnames_[i], compute_services_[i], pd_, completion_queue(i),
-                        av_, FI_ADDR_UNSPEC);
+    connection->connect(compute_hostnames_[i], compute_services_[i], pd_,
+                        completion_queue(i), av_, FI_ADDR_UNSPEC);
     conn_.at(i) = std::move(connection);
 }
 
@@ -560,25 +576,25 @@ void InputChannelSender::post_send_data(uint64_t timeslice, int cn,
 void InputChannelSender::on_completion(uint64_t wr_id)
 {
     switch (wr_id & 0xFF) {
-    case ID_WRITE_DESC :
-    case ID_WRITE_DATA :
-    case ID_WRITE_DATA_WRAP : {
+    case ID_WRITE_DESC:
+    case ID_WRITE_DATA:
+    case ID_WRITE_DATA_WRAP: {
         uint64_t ts = wr_id >> 24;
 
         int cn = (wr_id >> 8) & 0xFFFF;
         conn_[cn]->on_complete_write();
         // TODO change to function
         int count = conn_[cn]->put_count_list_.get(ts) - 1;
-        if (count == 0)conn_[cn]->put_count_list_.remove(ts);
-        else{
+        if (count == 0)
+            conn_[cn]->put_count_list_.remove(ts);
+        else {
             // TODO remove the if satement
             if (sent_timeslices_ == max_timeslice_number_)
-        	L_(info) << "[i" << input_index_ << "] "
-			 << "write timeslice " << ts
-			 << " remaining " << count;
+                L_(info) << "[i" << input_index_ << "] "
+                         << "write timeslice " << ts << " remaining " << count;
             conn_[cn]->put_count_list_.update(ts, count);
             break;
-	}
+        }
         input_scheduler_->log_timeslice_ack_time(ts);
         input_scheduler_->increament_acked_timeslices(ts);
 
@@ -593,16 +609,16 @@ void InputChannelSender::on_completion(uint64_t wr_id)
             } while (ack_.at(acked_ts) > ts);
 
             acked_desc_ = acked_ts * timeslice_size_ + start_index_desc_;
-	    acked_data_ =
-		data_source_.desc_buffer().at(acked_desc_ - 1).offset +
-		data_source_.desc_buffer().at(acked_desc_ - 1).size;
-	    if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
-		acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
-		cached_acked_data_ = acked_data_;
-		cached_acked_desc_ = acked_desc_;
-		data_source_.set_read_index(
-		    {cached_acked_desc_, cached_acked_data_});
-	    }
+            acked_data_ =
+                data_source_.desc_buffer().at(acked_desc_ - 1).offset +
+                data_source_.desc_buffer().at(acked_desc_ - 1).size;
+            if (acked_data_ >= cached_acked_data_ + min_acked_data_ ||
+                acked_desc_ >= cached_acked_desc_ + min_acked_desc_) {
+                cached_acked_data_ = acked_data_;
+                cached_acked_desc_ = acked_desc_;
+                data_source_.set_read_index(
+                    {cached_acked_desc_, cached_acked_data_});
+            }
         }
         if (false) {
             L_(trace) << "[i" << input_index_ << "] "
@@ -638,8 +654,8 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     } break;
 
     case ID_SEND_STATUS: {
-	int cn = wr_id >> 8;
-	conn_[cn]->on_complete_send();
+        int cn = wr_id >> 8;
+        conn_[cn]->on_complete_send();
     } break;
 
     default:
@@ -649,9 +665,10 @@ void InputChannelSender::on_completion(uint64_t wr_id)
     }
 }
 
-void InputChannelSender::update_compute_schedulers() {
+void InputChannelSender::update_compute_schedulers()
+{
     for (auto& c : conn_) {
-	c->ack_complete_interval_info();
+        c->ack_complete_interval_info();
     }
 }
-}
+} // namespace tl_libfabric

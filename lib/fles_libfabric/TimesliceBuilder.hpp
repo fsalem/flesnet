@@ -4,6 +4,7 @@
 
 #include "ComputeNodeConnection.hpp"
 #include "ConnectionGroup.hpp"
+#include "LibfabricContextPool.hpp"
 #include "RingBuffer.hpp"
 #include "TimesliceBuffer.hpp"
 #include "TimesliceComponentDescriptor.hpp"
@@ -14,8 +15,8 @@
 
 #include <csignal>
 #include <cstdint>
-#include <set>
 #include <map>
+#include <set>
 #include <string>
 
 namespace tl_libfabric
@@ -33,14 +34,14 @@ public:
     TimesliceBuilder(uint64_t compute_index, TimesliceBuffer& timeslice_buffer,
                      unsigned short service, uint32_t num_input_nodes,
                      uint32_t timeslice_size,
-                     volatile sig_atomic_t* signal_status,
-		     bool drop, std::string local_node_name,
-		     uint32_t scheduler_history_size,
-		     uint32_t scheduler_interval_duration,
-		     uint32_t scheduler_speedup_difference_percentage,
-		     uint32_t scheduler_speedup_percentage,
-		     uint32_t scheduler_speedup_interval_count,
-		     std::string log_directory, bool enable_logging);
+                     volatile sig_atomic_t* signal_status, bool drop,
+                     std::string local_node_name,
+                     uint32_t scheduler_history_size,
+                     uint32_t scheduler_interval_duration,
+                     uint32_t scheduler_speedup_difference_percentage,
+                     uint32_t scheduler_speedup_percentage,
+                     uint32_t scheduler_speedup_interval_count,
+                     std::string log_directory, bool enable_logging);
 
     TimesliceBuilder(const TimesliceBuilder&) = delete;
     void operator=(const TimesliceBuilder&) = delete;
@@ -73,7 +74,8 @@ private:
     void make_endpoint_named(struct fi_info* info, const std::string& hostname,
                              const std::string& service, struct fid_ep** ep);
 
-    /// Check if a complete timeslice should be received but status messages are received early.
+    /// Check if a complete timeslice should be received but status messages are
+    /// received early.
     void process_pending_complete_timeslices();
 
     /// Check if a timeslice is received completely
@@ -127,10 +129,11 @@ private:
 
     // LOGGING
     std::map<uint64_t, double> first_last_arrival_diff_;
-    std::map<uint64_t, std::chrono::high_resolution_clock::time_point> first_arrival_time_;
+    std::map<uint64_t, std::chrono::high_resolution_clock::time_point>
+        first_arrival_time_;
     std::map<uint64_t, uint32_t> arrival_count_;
     std::map<uint64_t, std::vector<double>> buffer_status_;
     std::string log_directory_;
     // END OF LOGGING
 };
-}
+} // namespace tl_libfabric

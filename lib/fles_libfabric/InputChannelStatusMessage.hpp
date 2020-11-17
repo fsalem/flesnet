@@ -35,14 +35,13 @@ struct InputChannelStatusMessage {
     /// The median latency of SYNC messages
     uint64_t median_latency = ConstVariables::ZERO;
 
-
     /// List of descriptors
-    fles::TimesliceComponentDescriptor tscdesc_msg[ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE] = {0};
+    fles::TimesliceComponentDescriptor
+        tscdesc_msg[ConstVariables::MAX_DESCRIPTOR_ARRAY_SIZE];
 
     /// Count of the descriptors in the list
     uint8_t descriptor_count = 0;
-
 };
-}
+} // namespace tl_libfabric
 
 #pragma pack()

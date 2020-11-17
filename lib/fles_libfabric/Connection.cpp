@@ -57,7 +57,10 @@ void Connection::connect(const std::string& hostname,
 
     L_(debug) << "connect: " << hostname << ":" << service;
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = fi_dupinfo(Provider::getInst()->get_info());//Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type, Provider::getInst()->get_info()->fabric_attr->prov_name);
+    struct fi_info* hints = fi_dupinfo(
+        Provider::getInst()
+            ->get_info()); // Provider::get_hints(Provider::getInst()->get_info()->ep_attr->type,
+                           // Provider::getInst()->get_info()->fabric_attr->prov_name);
 
     hints->rx_attr->size = max_recv_wr_;
     hints->rx_attr->iov_limit = max_recv_sge_;
@@ -69,9 +72,9 @@ void Connection::connect(const std::string& hostname,
     /*hints->src_addr = nullptr;
     hints->src_addrlen = 0;*/
 
-    int err = fi_getinfo(
-        FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),
-        service == "" ? nullptr : service.c_str(), 0, hints, &info2);
+    int err = fi_getinfo(FIVERSION, hostname == "" ? nullptr : hostname.c_str(),
+                         service == "" ? nullptr : service.c_str(),
+                         FI_NUMERICHOST, hints, &info2);
     if (err) {
         L_(fatal) << "fi_getinfo failed in connect: " << hostname << " "
                   << service << "[" << err << "=" << fi_strerror(-err) << "]";
@@ -160,10 +163,10 @@ void Connection::on_disconnected(struct fi_eq_cm_entry* /* event */)
 {
     L_(debug) << "[" << index_ << "] "
               << "connection disconnected";
-    if (ep_ != nullptr){
+    if (ep_ != nullptr) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    	fi_close((::fid_t)ep_);
+        fi_close((::fid_t)ep_);
 #pragma GCC diagnostic pop
     }
     ep_ = nullptr;
@@ -225,7 +228,8 @@ void Connection::make_endpoint(struct fi_info* info,
 {
 
     struct fi_info* info2 = nullptr;
-    struct fi_info* hints = Provider::get_hints(info->ep_attr->type, info->fabric_attr->prov_name);//fi_dupinfo(info);
+    struct fi_info* hints = Provider::get_hints(
+        info->ep_attr->type, info->fabric_attr->prov_name); // fi_dupinfo(info);
 
     hints->rx_attr->size = max_recv_wr_;
     hints->rx_attr->iov_limit = max_recv_sge_;
@@ -236,9 +240,9 @@ void Connection::make_endpoint(struct fi_info* info,
     /*hints->src_addr = nullptr;
     hints->src_addrlen = 0;*/
 
-    int err = fi_getinfo(
-        FI_VERSION(1, 1), hostname == "" ? nullptr : hostname.c_str(),
-        service == "" ? nullptr : service.c_str(), 0, hints, &info2);
+    int err = fi_getinfo(FIVERSION, hostname == "" ? nullptr : hostname.c_str(),
+                         service == "" ? nullptr : service.c_str(),
+                         FI_NUMERICHOST, hints, &info2);
     if (err) {
         L_(fatal) << "fi_getinfo failed in make_endpoint: " << err << "="
                   << fi_strerror(-err);
@@ -309,7 +313,7 @@ void Connection::post_send_msg(struct fi_msg* wr)
 
     ++total_send_requests_;
 
-    for (size_t i = 0; i < wr->iov_count; ++i){
+    for (size_t i = 0; i < wr->iov_count; ++i) {
         total_bytes_sent_ += wr->msg_iov[i].iov_len;
         total_sync_bytes_sent_ += wr->msg_iov[i].iov_len;
     }
@@ -342,4 +346,4 @@ void Connection::post_recv_msg(const struct fi_msg* wr)
 
     ++total_recv_requests_;
 }
-}
+} // namespace tl_libfabric

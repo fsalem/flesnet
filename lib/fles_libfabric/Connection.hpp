@@ -4,8 +4,10 @@
 #pragma once
 
 #include "ConstVariables.hpp"
-#include "SizedMap.hpp"
+#include "LibfabricContextPool.hpp"
 #include "RequestIdentifier.hpp"
+#include "SizedMap.hpp"
+
 //#include "InfinibandException.hpp"
 #include <memory>
 //#include <rdma/rdma_cma.h>
@@ -16,9 +18,9 @@
 #include <rdma/fi_errno.h>
 #include <rdma/fi_rma.h>
 
+#include <chrono>
 #include <cstdint>
 #include <string>
-#include <chrono>
 
 namespace tl_libfabric
 {
@@ -148,10 +150,10 @@ protected:
     bool connection_oriented_ = false;
 
     /// check if new data should be sent
-    bool data_changed_= false;
+    bool data_changed_ = false;
 
     /// check if new data is acked and should be sent
-    bool data_acked_= false;
+    bool data_acked_ = false;
 
     /// To prevent reusing the buffer while injecting sync messages
     bool send_buffer_available_ = true;
@@ -182,4 +184,4 @@ private:
 
     const uint32_t num_cqe_ = 1000000;
 };
-}
+} // namespace tl_libfabric
