@@ -4,10 +4,11 @@
 namespace tl_libfabric {
 
 void LibfabricBarrier::create_barrier_instance(uint32_t remote_index,
+                                               uint32_t conn_count,
                                                struct fid_domain* pd,
                                                bool is_root) {
   if (barrier_ == nullptr)
-    barrier_ = new LibfabricBarrier(remote_index, pd, is_root);
+    barrier_ = new LibfabricBarrier(remote_index, conn_count, pd, is_root);
   assert(LibfabricBarrier::barrier_ != nullptr);
 }
 
@@ -15,9 +16,10 @@ LibfabricBarrier* LibfabricBarrier::get_instance() { return barrier_; }
 
 LibfabricBarrier::~LibfabricBarrier() {}
 LibfabricBarrier::LibfabricBarrier(uint32_t remote_index,
+                                   uint32_t conn_count,
                                    struct fid_domain* pd,
                                    bool is_root)
-    : LibfabricCollective(remote_index, pd), root_(is_root) {
+    : LibfabricCollective(remote_index, conn_count, pd), root_(is_root) {
   // TODO remote_index needed?
 }
 

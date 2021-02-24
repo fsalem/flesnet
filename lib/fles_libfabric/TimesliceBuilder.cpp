@@ -19,6 +19,8 @@ TimesliceBuilder::TimesliceBuilder(
     uint32_t scheduler_speedup_difference_percentage,
     uint32_t scheduler_speedup_percentage,
     uint32_t scheduler_speedup_interval_count,
+    uint32_t scheduler_balancer_difference_percentage,
+    uint32_t scheduler_balancer_interval_count,
     std::string log_directory,
     bool enable_logging)
     : ConnectionGroup(local_node_name), compute_index_(compute_index),
@@ -43,7 +45,8 @@ TimesliceBuilder::TimesliceBuilder(
       ConstVariables::HEARTBEAT_INACTIVE_RETRY_COUNT, scheduler_history_size,
       scheduler_interval_length, scheduler_speedup_difference_percentage,
       scheduler_speedup_percentage, scheduler_speedup_interval_count,
-      log_directory, enable_logging);
+      scheduler_balancer_difference_percentage,
+      scheduler_balancer_interval_count, log_directory, enable_logging);
 }
 
 TimesliceBuilder::~TimesliceBuilder() {}
@@ -57,7 +60,8 @@ void TimesliceBuilder::report_status() {
             << " completely written, " << acked_ << " acked";
 
   // LOGGING
-  std::vector<double> buffer_percentage(conn_.size());
+  // TODO should be double
+  std::vector<uint64_t> buffer_percentage(conn_.size());
   //
   for (auto& c : conn_) {
     auto status_desc = c->buffer_status_desc();
@@ -79,11 +83,7 @@ void TimesliceBuilder::report_status() {
     //
   }
   // LOGGING
-  int last_second = -1;
-  if (!buffer_status_.empty())
-    last_second = (--buffer_status_.end())->first;
-  buffer_status_.insert(std::pair<uint64_t, std::vector<double>>(
-      (last_second + 1), buffer_percentage));
+  DDSchedulerOrchestrator::log_buffer_fill_level(buffer_percentage);
   //
 
   scheduler_.add(std::bind(&TimesliceBuilder::report_status, this),
@@ -207,7 +207,8 @@ void TimesliceBuilder::bootstrap_wo_connections() {
 
   // domain, cq, av
   init_context(Provider::getInst()->get_info(), {}, {});
-  LibfabricBarrier::create_barrier_instance(compute_index_, pd_, true);
+  LibfabricBarrier::create_barrier_instance(compute_index_, num_input_nodes_,
+                                            pd_, true);
 
   // listening endpoint with private cq
   make_endpoint_named(Provider::getInst()->get_info(), local_node_name_,
@@ -280,7 +281,7 @@ void TimesliceBuilder::bootstrap_wo_connections() {
         break;
       }
 
-      L_(debug) << "got " << ne << " events";
+      L_(info) << "got " << ne << " events";
       for (int i = 0; i < ne; ++i) {
         fi_addr_t connection_addr;
         // when connect message:
@@ -303,6 +304,7 @@ void TimesliceBuilder::bootstrap_wo_connections() {
         conn_.at(recv_connect_message.info.index)->send_ep_addr();
         connected_senders_.insert(recv_connect_message.info.index);
         ++connected_;
+        L_(info) << "connected = " << connected_;
         err = fi_trecvmsg(ep_, &recv_msg_wr, FI_COMPLETION);
       }
     }
@@ -327,8 +329,9 @@ void TimesliceBuilder::operator()() {
       bootstrap_wo_connections();
     }
 
+    L_(info) << "Calling Barrier ...";
     LibfabricBarrier::get_instance()->call_barrier();
-    
+    L_(info) << "Done Barrier ...";
     time_begin_ = std::chrono::high_resolution_clock::now();
     DDSchedulerOrchestrator::set_begin_time(time_begin_);
 
@@ -367,7 +370,7 @@ void TimesliceBuilder::operator()() {
 
 void TimesliceBuilder::build_time_file() {
 
-  if (true) {
+  /*if (true) {
     std::ofstream log_file;
     log_file.open(log_directory_ + "/" + std::to_string(compute_index_) +
                   ".compute.buffer_status.out");
@@ -377,7 +380,7 @@ void TimesliceBuilder::build_time_file() {
       log_file << "Conn_" << i << std::setw(25);
     log_file << "\n";
 
-    std::map<uint64_t, std::vector<double>>::iterator it =
+    std::map<uint64_t, std::vector<uint64_t>>::iterator it =
         buffer_status_.begin();
     while (it != buffer_status_.end()) {
       log_file << std::setw(25) << it->first << std::setw(25);
@@ -389,7 +392,7 @@ void TimesliceBuilder::build_time_file() {
 
     log_file.flush();
     log_file.close();
-  }
+  }*/
 }
 
 void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
@@ -397,7 +400,8 @@ void TimesliceBuilder::on_connect_request(struct fi_eq_cm_entry* event,
 
   if (pd_ == nullptr) {
     init_context(event->info, {}, {});
-    LibfabricBarrier::create_barrier_instance(compute_index_, pd_, true);
+    LibfabricBarrier::create_barrier_instance(compute_index_, num_input_nodes_,
+                                              pd_, true);
   }
 
   assert(private_data_len >= sizeof(InputNodeInfo));
@@ -452,6 +456,18 @@ void TimesliceBuilder::on_completion(uint64_t wr_id) {
     conn_[cn]->on_complete_heartbeat_send();
   } break;
 
+  case ID_DFS_RECEIVE_STATUS: {
+    int cn = wr_id >> 8;
+    conn_[cn]->on_complete_dfs_recv();
+    break;
+  }
+
+  case ID_DFS_SEND_STATUS: {
+    int cn = wr_id >> 8;
+    conn_[cn]->on_complete_dfs_send();
+    break;
+  }
+
   default:
     throw LibfabricException("wc for unknown wr_id");
   }
@@ -461,11 +477,12 @@ void TimesliceBuilder::poll_ts_completion() {
   while (1) {
     fles::TimesliceCompletion c;
     if (!timeslice_buffer_.try_receive_completion(c))
-      return;
+      break;
     if (c.ts_pos == acked_) {
-      do
+      do {
+        DDSchedulerOrchestrator::log_timeslice_processing_completion(acked_);
         ++acked_;
-      while (ack_.at(acked_) > c.ts_pos);
+      } while (ack_.at(acked_) > c.ts_pos);
       for (auto& connection : conn_) {
         // check timed out timeslice
         if (acked_ > connection->cn_wp().desc)
@@ -523,6 +540,7 @@ void TimesliceBuilder::process_completed_timeslices() {
       L_(fatal) << "ts: " << ts_pos << " is not completely received yet ...";
     }
     if (!drop_ && !timed_out) {
+      DDSchedulerOrchestrator::log_timeslice_start_processing(ts_pos);
       const fles::TimesliceComponentDescriptor& acked_ts =
           timeslice_buffer_.get_desc(0, ts_pos);
       uint64_t ts_index = acked_ts.ts_num;

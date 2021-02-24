@@ -11,8 +11,8 @@
 #include "MicrosliceDescriptor.hpp"
 #include "RequestIdentifier.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "dfs/InputIntervalInfo.hpp"
-#include "dfs/InputSchedulerOrchestrator.hpp"
+#include "dfs/controller/InputSchedulerOrchestrator.hpp"
+#include "dfs/model/interval_manager/InputIntervalInfo.hpp"
 
 #include <cassert>
 #include <cstring>
@@ -81,6 +81,8 @@ public:
 
   void on_complete_heartbeat_recv() override;
 
+  void on_complete_dfs_recv() override;
+
   /// Connection handler function, called on successful connection.
   /**
    \param event RDMA connection manager event structure
@@ -104,7 +106,7 @@ public:
 
   void
   set_time_MPI(const std::chrono::high_resolution_clock::time_point time_MPI) {
-    send_status_message_.local_time = time_MPI;
+    dfs_IE_message_.local_time = time_MPI;
   }
 
   void reconnect();
@@ -135,6 +137,11 @@ public:
 
   uint64_t cn_wp_desc() { return cn_wp_.desc; }
 
+  /// Prepare heartbeat message
+  void prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr,
+                         uint64_t message_id = ConstVariables::MINUS_ONE,
+                         bool ack = false) override;
+
 private:
   /// Post a receive work request (WR) to the receive queue
   void post_recv_status_message();
@@ -145,15 +152,14 @@ private:
   /// This update the last scheduled timeslice, time, and duration
   void update_last_scheduled_info();
 
-  /// Get the median latency of the SYNC messages
-  uint64_t get_msg_median_latency();
-
   // Once a failed connection heartbeat message is received, this request is
   // to be processed
   HeartbeatFailedNodeInfo* process_failed_connection_request();
 
   // Based on the heartbeat message type, a response is prepared
   void prepare_heartbeat_response(HeartbeatFailedNodeInfo* failed_node);
+
+  void prepare_DFS_LB_message() override;
 
   /// Flag, true if it is the input nodes's turn to send a pointer update.
   bool our_turn_ = true;
@@ -218,14 +224,5 @@ private:
 
   /// count of added descriptors to the sync message
   uint8_t added_sent_descriptors_ = 0;
-
-  /// A ring buffer of SYNC message latency
-  std::vector<uint64_t> msg_latency_;
-
-  /// Time that a SYNC message is sent out
-  std::chrono::high_resolution_clock::time_point msg_send_time_;
-
-  /// current index to write in the latency ring buffer
-  uint16_t msg_latency_index_ = 0;
 };
 } // namespace tl_libfabric

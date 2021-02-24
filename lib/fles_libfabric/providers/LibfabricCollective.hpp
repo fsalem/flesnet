@@ -14,7 +14,7 @@
 #include "log.hpp"
 
 #include <rdma/fabric.h>
-#include <rdma/fi_collective.h>
+//#include <rdma/fi_collective.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_errno.h>
@@ -33,7 +33,9 @@ public:
 
 protected:
   ~LibfabricCollective();
-  LibfabricCollective(uint32_t remote_index, struct fid_domain* pd);
+  LibfabricCollective(uint32_t remote_index,
+                      uint32_t conn_count,
+                      struct fid_domain* pd);
 
   LibfabricCollective& operator=(const LibfabricCollective&) = delete;
   LibfabricCollective(const LibfabricCollective&) = delete;
@@ -45,7 +47,6 @@ protected:
   std::vector<struct LibfabricCollectiveEPInfo*> retrieve_endpoint_list();
 
 private:
-
   void initialize_cq(struct fid_cq** cq);
 
   void initialize_av();
@@ -71,6 +72,7 @@ private:
   std::vector<LibfabricCollectiveEPInfo*> endpoint_list_;
 
   uint32_t remote_index_;
+  uint32_t conn_count_;
   // Libfabric
   struct fid_domain* pd_ = nullptr;
   struct fid_cq* recv_cq_ = nullptr;

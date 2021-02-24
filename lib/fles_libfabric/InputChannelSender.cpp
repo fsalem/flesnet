@@ -184,6 +184,18 @@ void InputChannelSender::send_timeslices() {
         next_ts <= max_timeslice_number_ &&
         try_send_timeslice(next_ts, conn_index)) {
       conn_[conn_index]->set_last_sent_timeslice(next_ts);
+      /*// TODO nanos
+      uint32_t conn = (conn_index + 1) % conn_.size();
+      int64_t diff =
+          std::chrono::duration<double, std::chrono::nanoseconds::period>(
+              InputSchedulerOrchestrator::get_expected_ts_sent_time(
+                  InputSchedulerOrchestrator::get_connection_next_timeslice(
+                      conn)) -
+              std::chrono::high_resolution_clock::now())
+              .count();
+      if (diff <= 0)
+        diff = 1;
+      nanosleep((const struct timespec[]){{0, diff}}, NULL);*/
     }
     conn_index = (conn_index + 1) % conn_.size();
   } while (conn_index != (input_index_ % conn_.size()));
@@ -207,7 +219,8 @@ void InputChannelSender::bootstrap_wo_connections() {
   // domain, cq, av
   init_context(Provider::getInst()->get_info(), compute_hostnames_,
                compute_services_);
-  LibfabricBarrier::create_barrier_instance(input_index_, pd_, false);
+  LibfabricBarrier::create_barrier_instance(
+      input_index_, compute_hostnames_.size(), pd_, false);
 
   conn_.resize(compute_hostnames_.size());
   // setup connections objects
@@ -240,7 +253,6 @@ void InputChannelSender::bootstrap_wo_connections() {
 /// The thread main function.
 void InputChannelSender::operator()() {
   try {
-
     if (Provider::getInst()->is_connection_oriented()) {
       bootstrap_with_connections();
     } else {
@@ -249,7 +261,9 @@ void InputChannelSender::operator()() {
 
     data_source_.proceed();
 
+    L_(info) << "Calling Barrier ...";
     LibfabricBarrier::get_instance()->call_barrier();
+    L_(info) << "Done Barrier ...";
 
     time_begin_ = std::chrono::high_resolution_clock::now();
     InputSchedulerOrchestrator::update_input_begin_time(time_begin_);
@@ -403,7 +417,8 @@ void InputChannelSender::connect() {
   if (pd_ == nullptr) { // pd, cq2, av
     init_context(Provider::getInst()->get_info(), compute_hostnames_,
                  compute_services_);
-    LibfabricBarrier::create_barrier_instance(input_index_, pd_, false);
+    LibfabricBarrier::create_barrier_instance(
+        input_index_, compute_hostnames_.size(), pd_, false);
   }
 
   conn_.resize(compute_hostnames_.size());
@@ -598,6 +613,7 @@ void InputChannelSender::on_completion(uint64_t wr_id) {
       on_connected(pd_);
       ++connected_;
       connected_indexes_.insert(cn);
+      L_(info) << "connected = " << connected_;
     }
     if (conn_[cn]->request_abort_flag()) {
       abort_ = true;
@@ -619,43 +635,40 @@ void InputChannelSender::on_completion(uint64_t wr_id) {
     InputSchedulerOrchestrator::update_data_source_desc(
         data_source_.get_write_index().desc);
     bool was_decision_considered = true, is_decision_considered = false;
+    uint64_t failed_index = ConstVariables::MINUS_ONE, last_desc,
+             last_completed_desc;
     // Updating data source before re-arranging timeslice
     if (conn_[cn]->get_recv_heartbeat_message().failure_info.index !=
         ConstVariables::MINUS_ONE) {
+      failed_index = conn_[cn]->get_recv_heartbeat_message().failure_info.index;
       was_decision_considered =
-          InputSchedulerOrchestrator::is_decision_considered(
-              conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+          InputSchedulerOrchestrator::is_decision_considered(failed_index);
+      if (!was_decision_considered) {
+        last_desc = conn_[failed_index]->cn_ack_desc();
+        last_completed_desc = conn_[cn]
+                                  ->get_recv_heartbeat_message()
+                                  .failure_info.last_completed_desc;
+      }
     }
 
     conn_[cn]->on_complete_heartbeat_recv();
 
-    is_decision_considered = InputSchedulerOrchestrator::is_decision_considered(
-        conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+    is_decision_considered =
+        InputSchedulerOrchestrator::is_decision_considered(failed_index);
     // update the cn_wp after performing timeslice re-arrangment
-    if (conn_[cn]->get_recv_heartbeat_message().failure_info.index !=
-            ConstVariables::MINUS_ONE &&
-        !was_decision_considered && is_decision_considered) {
+    if (failed_index != ConstVariables::MINUS_ONE && !was_decision_considered &&
+        is_decision_considered) {
 
-      LibfabricBarrier::get_instance()->deactive_endpoint(
-          conn_[cn]->get_recv_heartbeat_message().failure_info.index);
-      uint64_t last_desc =
-          conn_[conn_[cn]->get_recv_heartbeat_message().failure_info.index]
-              ->cn_ack_desc();
-      update_data_source(
-          conn_[cn]->get_recv_heartbeat_message().failure_info.index, last_desc,
-          conn_[cn]
-              ->get_recv_heartbeat_message()
-              .failure_info.last_completed_desc);
+      LibfabricBarrier::get_instance()->deactive_endpoint(failed_index);
+      update_data_source(failed_index, last_desc, last_completed_desc);
 
       for (auto& conn : conn_) {
         if (!InputSchedulerOrchestrator::is_connection_timed_out(
                 conn->index())) {
-          conn->update_cn_wp_after_failure_action(
-              conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+          conn->update_cn_wp_after_failure_action(failed_index);
         }
       }
-      mark_connection_completed(
-          conn_[cn]->get_recv_heartbeat_message().failure_info.index);
+      mark_connection_completed(failed_index);
     }
   } break;
 
@@ -663,6 +676,18 @@ void InputChannelSender::on_completion(uint64_t wr_id) {
     int cn = wr_id >> 8;
     conn_[cn]->on_complete_heartbeat_send();
   } break;
+
+  case ID_DFS_RECEIVE_STATUS: {
+    int cn = wr_id >> 8;
+    conn_[cn]->on_complete_dfs_recv();
+    break;
+  }
+
+  case ID_DFS_SEND_STATUS: {
+    int cn = wr_id >> 8;
+    conn_[cn]->on_complete_dfs_send();
+    break;
+  }
 
   default:
     L_(fatal) << "[i" << input_index_ << "] "

@@ -169,6 +169,16 @@ void Parameters::parse_options(int argc, char* argv[]) {
       "scheduler-speedup-interval-count",
       po::value<uint32_t>(&scheduler_speedup_interval_count_)->default_value(0),
       "The scheduler speeding up interval count  (Libfabric-only)");
+  config_add("scheduler-balancer-difference-percentage",
+             po::value<uint32_t>(&scheduler_balancer_difference_percentage_)
+                 ->default_value(0),
+             "The scheduler load balancing variance percentage to speed up  "
+             "(Libfabric-only)");
+  config_add("scheduler-balancer-interval-count",
+             po::value<uint32_t>(&scheduler_balancer_interval_count_)
+                 ->default_value(0),
+             "The scheduler stabalizing/load balancing interval count  "
+             "(Libfabric-only)");
   config_add(
       "scheduler-log-directory,e",
       po::value<std::string>(&scheduler_log_directory_)->default_value("."),

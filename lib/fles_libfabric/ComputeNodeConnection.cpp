@@ -14,7 +14,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     uint32_t data_buffer_size_exp,
     fles::TimesliceComponentDescriptor* desc_ptr,
     uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index),
+    : Connection(eq, connection_index, remote_connection_index, true),
       remote_info_(remote_info), data_ptr_(data_ptr),
       data_buffer_size_exp_(data_buffer_size_exp), desc_ptr_(desc_ptr),
       desc_buffer_size_exp_(desc_buffer_size_exp) {
@@ -43,7 +43,7 @@ ComputeNodeConnection::ComputeNodeConnection(
     uint32_t data_buffer_size_exp,
     fles::TimesliceComponentDescriptor* desc_ptr,
     uint32_t desc_buffer_size_exp)
-    : Connection(eq, connection_index, remote_connection_index),
+    : Connection(eq, connection_index, remote_connection_index, true),
       data_ptr_(data_ptr), data_buffer_size_exp_(data_buffer_size_exp),
       desc_ptr_(desc_ptr), desc_buffer_size_exp_(desc_buffer_size_exp) {
 
@@ -113,6 +113,7 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd) {
          desc_buffer_size_exp_);
 
   setup_heartbeat_mr(pd);
+  setup_dfs_mr(pd);
   // register memory regions
   std::size_t data_bytes = UINT64_C(1) << data_buffer_size_exp_;
   std::size_t desc_bytes = (UINT64_C(1) << desc_buffer_size_exp_) *
@@ -165,11 +166,10 @@ void ComputeNodeConnection::setup_mr(struct fid_domain* pd) {
 }
 
 void ComputeNodeConnection::setup() {
-  L_(info) << "Calling add_endpoint in setup";
   LibfabricBarrier::get_instance()->add_endpoint(
       index_, Provider::getInst()->get_info(), "", false);
-  L_(info) << "END OF Calling add_endpoint in setup";
   setup_heartbeat();
+  setup_dfs();
 
   // setup send and receive buffers
   recv_sge.iov_base = &recv_status_message_;
@@ -262,26 +262,8 @@ bool ComputeNodeConnection::try_sync_buffer_positions() {
   if (!send_buffer_available_) {
     return false;
   }
-  if (recv_status_message_.required_interval_index !=
-          ConstVariables::MINUS_ONE &&
-      send_status_message_.proposed_interval_metadata.interval_index !=
-          recv_status_message_.required_interval_index &&
-      DDSchedulerOrchestrator::get_last_completed_interval() !=
-          ConstVariables::MINUS_ONE &&
-      DDSchedulerOrchestrator::get_last_completed_interval() + 2 >=
-          recv_status_message_
-              .required_interval_index) // 2 is the gap between the current
-                                        // interval and the last competed
-                                        // interbal and the required interval
-  {
-    const IntervalMetaData* meta_data =
-        DDSchedulerOrchestrator::get_proposed_meta_data(
-            index_, recv_status_message_.required_interval_index);
-    if (meta_data != nullptr) {
-      send_status_message_.proposed_interval_metadata = *meta_data;
-      data_acked_ = true;
-    }
-  }
+
+  prepare_DFS_LB_message();
 
   if (data_changed_ && !send_status_message_.final) {
     send_status_message_.ack = cn_ack_;
@@ -320,9 +302,8 @@ void ComputeNodeConnection::on_complete_recv() {
 
   sync_after_scheduler_decision_received();
   write_received_descriptors();
-  update_scheduler_interval_data();
 
-  DDSchedulerOrchestrator::log_heartbeat(index_);
+  // TODO DDSchedulerOrchestrator::log_heartbeat(index_);
   post_recv_status_message();
 }
 
@@ -345,18 +326,20 @@ void ComputeNodeConnection::sync_after_scheduler_decision_received() {
 void ComputeNodeConnection::update_scheduler_interval_data() {
   if (!registered_input_MPI_time) {
     registered_input_MPI_time = true;
-    DDSchedulerOrchestrator::update_clock_offset(
-        index_, recv_status_message_.local_time);
+    DDSchedulerOrchestrator::update_clock_offset(index_,
+                                                 dfs_IE_message_.local_time);
   }
 
-  if (recv_status_message_.actual_interval_metadata.interval_index !=
+  if (dfs_IE_message_.actual_interval_metadata.interval_index !=
       ConstVariables::MINUS_ONE) {
     DDSchedulerOrchestrator::update_clock_offset(
-        index_, recv_status_message_.local_time,
-        recv_status_message_.median_latency,
-        recv_status_message_.actual_interval_metadata.interval_index);
+        index_, dfs_IE_message_.local_time/*,
+        dfs_IE_message_.actual_interval_metadata.statistics
+            .median_message_latency[remote_index_],
+        dfs_IE_message_.actual_interval_metadata.interval_index*/);
     DDSchedulerOrchestrator::add_actual_meta_data(
-        index_, recv_status_message_.actual_interval_metadata);
+        index_, dfs_IE_message_.actual_interval_metadata,
+        dfs_IE_message_.previous_interval_statistics);
   }
 }
 
@@ -410,6 +393,7 @@ void ComputeNodeConnection::send_ep_addr() {
   assert(res == 0);
   send_wr.addr = partner_addr_;
   heartbeat_send_wr.addr = partner_addr_;
+  dfs_send_wr.addr = partner_addr_;
   ++pending_send_requests_;
   post_send_msg(&send_wr);
 }
@@ -438,10 +422,11 @@ void ComputeNodeConnection::write_received_descriptors() {
   }
   acked_ts = nullptr;
 }
+
 void ComputeNodeConnection::on_complete_heartbeat_recv() {
   if (final_msg_sent_)
     return;
-  if (true) {
+  if (false) {
     L_(info) << "[c" << remote_index_ << "] "
              << "[" << index_ << "] "
              << "COMPLETE RECEIVE heartbeat message"
@@ -473,4 +458,126 @@ void ComputeNodeConnection::on_complete_heartbeat_recv() {
   }
   post_recv_heartbeat_message();
 }
+
+void ComputeNodeConnection::on_complete_dfs_recv() {
+  if (final_msg_sent_)
+    return;
+  if (false) {
+    std::stringstream cn_blockage, in_blockage, msg_latency, rdma_latency;
+    for (uint32_t i = 0;
+         i < dfs_IE_message_.actual_interval_metadata.compute_node_count; i++) {
+      cn_blockage << dfs_IE_message_.actual_interval_metadata.statistics
+                         .sum_CB_blockage_durations[i]
+                  << " ";
+      in_blockage << dfs_IE_message_.actual_interval_metadata.statistics
+                         .sum_IB_blockage_durations[i]
+                  << " ";
+      msg_latency << dfs_IE_message_.actual_interval_metadata.statistics
+                         .median_message_latency[i]
+                  << " ";
+      rdma_latency << dfs_IE_message_.actual_interval_metadata.statistics
+                          .median_rdma_latency[i]
+                   << " ";
+    }
+    L_(info) << "[c" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "COMPLETE RECEIVE dfs message"
+             << " (id=" << dfs_IE_message_.message_id << ", interval="
+             << dfs_IE_message_.actual_interval_metadata.interval_index
+             << ", duration="
+             << dfs_IE_message_.actual_interval_metadata.interval_duration
+             << ", rounds="
+             << dfs_IE_message_.actual_interval_metadata.round_count
+             << ", start_ts="
+             << dfs_IE_message_.actual_interval_metadata.start_timeslice
+             << ", end_ts="
+             << dfs_IE_message_.actual_interval_metadata.last_timeslice
+             << ", compute count="
+             << dfs_IE_message_.actual_interval_metadata.compute_node_count
+             << " cn blockage: " << cn_blockage.str()
+             << " in blockage: " << in_blockage.str()
+             << " msg latency: " << msg_latency.str()
+             << " rdma latency: " << rdma_latency.str() << ")";
+    if (dfs_IE_message_.actual_interval_metadata.interval_index > 0) {
+      for (uint32_t i = 0;
+           i < dfs_IE_message_.actual_interval_metadata.compute_node_count;
+           i++) {
+        L_(info)
+            << "[c" << remote_index_ << "] "
+            << "[" << index_ << "] "
+            << "COMPLETE RECEIVE dfs message ... i:"
+            << dfs_IE_message_.previous_interval_statistics[i].interval_index
+            << " cn: " << i << "-> median buf {"
+            << ConstVariables::array_to_string(
+                   dfs_IE_message_.previous_interval_statistics[i]
+                       .median_buffer_level,
+                   dfs_IE_message_.actual_interval_metadata.compute_node_count)
+            << " completion dur: "
+            << dfs_IE_message_.previous_interval_statistics[i]
+                   .median_timeslice_completion_duration
+            << " processing dur "
+            << dfs_IE_message_.previous_interval_statistics[i]
+                   .median_timeslice_processing_duration;
+      }
+    }
+  }
+  update_scheduler_interval_data();
+  post_recv_dfs_message();
+}
+
+void ComputeNodeConnection::prepare_DFS_LB_message() {
+  if (dfs_send_buffer_available_ &&
+      dfs_IE_message_.required_interval_index != ConstVariables::MINUS_ONE &&
+      dfs_DDS_message_.proposed_interval_metadata.interval_index !=
+          dfs_IE_message_.required_interval_index &&
+      DDSchedulerOrchestrator::get_last_completed_interval() !=
+          ConstVariables::MINUS_ONE &&
+      DDSchedulerOrchestrator::get_last_completed_interval() + 2 >=
+          dfs_IE_message_
+              .required_interval_index) // 2 is the gap between the current
+                                        // interval and the last competed
+                                        // interbal and the required interval
+  {
+    const ComputeProposedIntervalMetaData* meta_data =
+        DDSchedulerOrchestrator::get_proposed_meta_data(
+            index_, dfs_IE_message_.required_interval_index);
+    if (meta_data != nullptr) {
+      dfs_DDS_message_.proposed_interval_metadata = *meta_data;
+      dfs_DDS_message_.last_completed_statistics =
+          *DDSchedulerOrchestrator::get_actual_meta_data_statistics(
+              dfs_IE_message_.actual_interval_metadata.interval_index);
+      // TODO rewrite
+      std::vector<double> load =
+          DDLoadBalancerManager::get_instance()->get_last_distribution_load();
+      std::copy(load.begin(), load.end(), dfs_DDS_message_.load_distribution);
+      if (true)
+        L_(info) << "[c" << remote_index_ << "] "
+                 << "[" << index_ << "] "
+                 << "prepare_DFS_LB_message ... proposed interval: "
+                 << dfs_DDS_message_.proposed_interval_metadata.interval_index
+                 << " last actual index: "
+                 << dfs_IE_message_.actual_interval_metadata.interval_index
+                 << " stats index: "
+                 << dfs_DDS_message_.last_completed_statistics.interval_index
+                 << "-> median buf {"
+                 << ConstVariables::array_to_string(
+                        dfs_DDS_message_.last_completed_statistics
+                            .median_buffer_level,
+                        dfs_DDS_message_.proposed_interval_metadata
+                            .compute_node_count)
+                 << "} completion dur: "
+                 << dfs_DDS_message_.last_completed_statistics
+                        .median_timeslice_completion_duration
+                 << " processing dur "
+                 << dfs_DDS_message_.last_completed_statistics
+                        .median_timeslice_processing_duration
+                 << " new load: "
+                 << ConstVariables::array_to_string(
+                        dfs_DDS_message_.load_distribution,
+                        dfs_DDS_message_.proposed_interval_metadata
+                            .compute_node_count);
+    }
+    post_send_dfs_message();
+  }
+} // namespace tl_libfabric
 } // namespace tl_libfabric

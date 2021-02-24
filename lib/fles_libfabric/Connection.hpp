@@ -6,8 +6,12 @@
 #include "ConstVariables.hpp"
 #include "RequestIdentifier.hpp"
 #include "SizedMap.hpp"
-#include "dfs/SchedulerOrchestrator.hpp"
-#include "dfs/ft/HeartbeatMessage.hpp"
+#include "dfs/controller/SchedulerOrchestrator.hpp"
+#include "dfs/model/fault_tolerance/HeartbeatMessage.hpp"
+#include "dfs/model/interval_manager/ComputeProposedIntervalMetaData.hpp"
+#include "dfs/model/interval_manager/InputIntervalMetaData.hpp"
+#include "dfs/model/load_balancer/DDSLoadBalancerMessage.hpp"
+#include "dfs/model/load_balancer/IELoadBalancerMessage.hpp"
 #include "providers/LibfabricBarrier.hpp"
 #include "providers/LibfabricContextPool.hpp"
 #include "providers/LibfabricException.hpp"
@@ -43,7 +47,8 @@ public:
   /// The Connection constructor. Creates an endpoint.
   Connection(struct fid_eq* eq,
              uint_fast16_t connection_index,
-             uint_fast16_t remote_connection_index);
+             uint_fast16_t remote_connection_index,
+             bool is_DFS_DDS);
 
   Connection(const Connection&) = delete;
   Connection& operator=(const Connection&) = delete;
@@ -102,10 +107,22 @@ public:
   void on_complete_heartbeat_send();
 
   /// Post a receive work request (WR) to the receive queue
-  virtual void post_recv_heartbeat_message();
+  void post_recv_heartbeat_message();
 
   /// Post a send work request (WR) to the send queue
-  virtual void post_send_heartbeat_message();
+  void post_send_heartbeat_message();
+
+  /// Handle Libfabric receive dfs-lb completion notification.
+  virtual void on_complete_dfs_recv() = 0;
+
+  /// Handle Libfabric send dfs-lb completion notification.
+  void on_complete_dfs_send();
+
+  /// Post a receive work request (WR) to the receive queue
+  void post_recv_dfs_message();
+
+  /// Post a send work request (WR) to the send queue
+  void post_send_dfs_message();
 
   /// Retrieve index of this connection in the local connection group.
   uint_fast16_t index() const { return index_; }
@@ -130,9 +147,10 @@ public:
   uint64_t total_recv_requests() const { return total_recv_requests_; }
 
   /// Prepare heartbeat message
-  void prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr,
-                         uint64_t message_id = ConstVariables::MINUS_ONE,
-                         bool ack = false);
+  virtual void
+  prepare_heartbeat(HeartbeatFailedNodeInfo* failure_info = nullptr,
+                    uint64_t message_id = ConstVariables::MINUS_ONE,
+                    bool ack = false);
 
   void send_heartbeat(HeartbeatMessage* message);
 
@@ -166,10 +184,19 @@ protected:
                      struct fid_av* av);
 
   /// Message setup of heartbeat messages
-  virtual void setup_heartbeat();
+  void setup_heartbeat();
 
   /// Memory registers setup of heartbeat messages
-  virtual void setup_heartbeat_mr(struct fid_domain* pd);
+  void setup_heartbeat_mr(struct fid_domain* pd);
+
+  /// Message setup of dfs messages
+  void setup_dfs();
+
+  /// Memory registers setup of dfs messages
+  void setup_dfs_mr(struct fid_domain* pd);
+
+  ///
+  virtual void prepare_DFS_LB_message() = 0;
 
   /// Index of this connection in the local group of connections.
   uint_fast16_t index_;
@@ -220,6 +247,31 @@ protected:
   struct iovec heartbeat_send_wr_iovec = iovec();
   void* heartbeat_send_descs[1] = {nullptr};
   fid_mr* mr_heartbeat_send_ = nullptr;
+
+  //////////////////////// DFS
+  /// To prevent reusing the buffer while injecting dfs-lb messages
+  bool dfs_send_buffer_available_ = true;
+
+  /// Send dfs-lb message buffer
+  IELoadBalancerMessage dfs_IE_message_ = IELoadBalancerMessage();
+
+  /// Receive dfs-lb message buffer
+  DDSLoadBalancerMessage dfs_DDS_message_ = DDSLoadBalancerMessage();
+
+  /// dfs-lb recv work request
+  struct fi_msg_tagged dfs_recv_wr = fi_msg_tagged();
+  struct iovec dfs_recv_wr_iovec = iovec();
+  void* dfs_recv_descs[1] = {nullptr};
+  fid_mr* mr_dfs_recv_ = nullptr;
+
+  /// dfs-lb send work request
+  struct fi_msg_tagged dfs_send_wr = fi_msg_tagged();
+  struct iovec dfs_send_wr_iovec = iovec();
+  void* dfs_send_descs[1] = {nullptr};
+  fid_mr* mr_dfs_send_ = nullptr;
+
+  //
+  bool is_DFS_DDS_ = false;
 
 private:
   /// event queue

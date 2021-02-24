@@ -11,8 +11,9 @@ InputChannelConnection::InputChannelConnection(
     uint_fast16_t remote_connection_index,
     unsigned int max_send_wr,
     unsigned int max_pending_write_requests)
-    : Connection(eq, connection_index, remote_connection_index),
-      max_pending_write_requests_(max_pending_write_requests) {
+    : Connection(eq, connection_index, remote_connection_index, false),
+      max_pending_write_requests_(max_pending_write_requests),
+      pending_descriptors_(max_pending_write_requests_) {
   assert(max_pending_write_requests_ > 0);
 
   max_send_wr_ = max_send_wr; // typical hca maximum: 16k
@@ -33,7 +34,6 @@ InputChannelConnection::InputChannelConnection(
 
   data_changed_ = true; // to send empty message at the beginning
   data_acked_ = false;  // to send empty message at the beginning
-  msg_latency_.resize(ConstVariables::MAX_MEDIAN_VALUES);
 }
 
 bool InputChannelConnection::check_for_buffer_space(uint64_t data_size,
@@ -278,7 +278,6 @@ bool InputChannelConnection::try_sync_buffer_positions() {
   if (data_changed_ || data_acked_ ||
       send_status_message_.sync_after_scheduling_decision) { //
     send_status_message_.wp = cn_wp_;
-    send_status_message_.local_time = std::chrono::high_resolution_clock::now();
     post_send_status_message();
     return true;
   }
@@ -314,27 +313,18 @@ void InputChannelConnection::on_complete_send() {
   }
   send_buffer_available_ = true;
   send_status_message_.sync_after_scheduling_decision = false;
-  msg_latency_[msg_latency_index_] =
-      std::chrono::duration_cast<std::chrono::microseconds>(
-          std::chrono::high_resolution_clock::now() - msg_send_time_)
-          .count();
-  msg_latency_index_ = (msg_latency_index_ + 1) % msg_latency_.size();
 }
 
 void InputChannelConnection::on_complete_recv() {
   if (false) {
-    L_(info)
-        << "[i" << remote_index_ << "] "
-        << "[" << index_ << "] "
-        << "receive completion, new cn_ack_.desc="
-        << recv_status_message_.ack.desc
-        << " new cn_ack_.data=" << recv_status_message_.ack.data
-        << " old cn_ack_.data=" << cn_ack_.data
-        << " old cn_ack_.desc=" << cn_ack_.desc << "(interval index = "
-        << recv_status_message_.proposed_interval_metadata.interval_index
-        << " for "
-        << recv_status_message_.proposed_interval_metadata.interval_duration
-        << " finalize " << recv_status_message_.final;
+    L_(info) << "[i" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "receive completion, new cn_ack_.desc="
+             << recv_status_message_.ack.desc
+             << " new cn_ack_.data=" << recv_status_message_.ack.data
+             << " old cn_ack_.data=" << cn_ack_.data
+             << " old cn_ack_.desc=" << cn_ack_.desc << " finalize "
+             << recv_status_message_.final;
   }
 
   if (recv_status_message_.final ||
@@ -357,18 +347,13 @@ void InputChannelConnection::on_complete_recv() {
       cn_ack_.desc < recv_status_message_.ack.desc) {
     cn_ack_ = recv_status_message_.ack;
   }
-  if (recv_status_message_.proposed_interval_metadata.interval_index !=
-      ConstVariables::MINUS_ONE) {
-    InputSchedulerOrchestrator::add_proposed_meta_data(
-        recv_status_message_.proposed_interval_metadata);
-  }
-  InputSchedulerOrchestrator::log_heartbeat(index_);
 
   post_recv_status_message();
 }
 
 void InputChannelConnection::setup_mr(struct fid_domain* pd) {
   setup_heartbeat_mr(pd);
+  setup_dfs_mr(pd);
   // register memory regions
   int err = fi_mr_reg(pd, &recv_status_message_,
                       sizeof(ComputeNodeStatusMessage), FI_RECV | FI_TAGGED, 0,
@@ -399,6 +384,7 @@ void InputChannelConnection::setup_mr(struct fid_domain* pd) {
 
 void InputChannelConnection::setup() {
   setup_heartbeat();
+  setup_dfs();
   struct fi_custom_context* context;
 
   recv_descs[0] = fi_mr_desc(mr_recv_);
@@ -518,7 +504,6 @@ void InputChannelConnection::post_send_status_message() {
     data_acked_ = false;
     send_buffer_available_ = false;
     added_sent_descriptors_ = 0;
-    msg_send_time_ = std::chrono::high_resolution_clock::now();
   }
 }
 
@@ -535,13 +520,12 @@ void InputChannelConnection::connect(const std::string& hostname,
     int res =
         fi_getname(&ep_->fid, &send_status_message_.my_address, &addr_len);
     assert(res == 0);
-    L_(debug) << "fi_addr: " << fi_addr;
     // @todo is this save? does post_send_status_message create copy?
     send_wr.addr = fi_addr;
     heartbeat_send_wr.addr = fi_addr;
+    dfs_send_wr.addr = fi_addr;
     post_send_status_message();
   }
-  L_(debug) << "Calling add_endpoint in setup";
   assert(LibfabricBarrier::get_instance() != nullptr);
   LibfabricBarrier::get_instance()->add_endpoint(
       index_, Provider::getInst()->get_info(), hostname, true);
@@ -559,6 +543,7 @@ void InputChannelConnection::set_partner_addr(struct fid_av* av) {
                          &this->partner_addr_, 0, NULL);
   send_wr.addr = this->partner_addr_;
   heartbeat_send_wr.addr = this->partner_addr_;
+  dfs_send_wr.addr = this->partner_addr_;
   send_status_message_.connect = false;
   assert(res == 1);
 }
@@ -588,25 +573,9 @@ void InputChannelConnection::set_last_sent_timeslice(uint64_t sent_ts) {
 }
 
 void InputChannelConnection::ack_complete_interval_info() {
-  const IntervalMetaData* meta_data =
-      InputSchedulerOrchestrator::get_actual_meta_data(
-          send_status_message_.actual_interval_metadata.interval_index !=
-                  ConstVariables::MINUS_ONE
-              ? send_status_message_.actual_interval_metadata.interval_index + 1
-              : 0);
-  if (meta_data != nullptr) {
-    send_status_message_.actual_interval_metadata = *meta_data;
-    send_status_message_.required_interval_index =
-        meta_data->interval_index + 2;
-    send_status_message_.median_latency = get_msg_median_latency();
-    data_acked_ = true;
-  }
-}
-
-uint64_t InputChannelConnection::get_msg_median_latency() {
-  std::vector<uint64_t> temp_list(msg_latency_);
-  std::sort(temp_list.begin(), temp_list.end());
-  return temp_list[temp_list.size() / 2];
+  if (!dfs_send_buffer_available_)
+    return;
+  prepare_DFS_LB_message();
 }
 
 void InputChannelConnection::add_timeslice_data_address(uint64_t data_size,
@@ -617,7 +586,7 @@ void InputChannelConnection::add_timeslice_data_address(uint64_t data_size,
 }
 
 void InputChannelConnection::on_complete_heartbeat_recv() {
-  if (true) {
+  if (false) {
     L_(info) << "[c" << remote_index_ << "] "
              << "[" << index_ << "] "
              << "COMPLETE RECEIVE heartbeat message"
@@ -632,7 +601,12 @@ void InputChannelConnection::on_complete_heartbeat_recv() {
   if (done_)
     return;
 
-  InputSchedulerOrchestrator::log_heartbeat(index_);
+  if (recv_heartbeat_message_.ack) {
+    InputLoggerProxy::get_instance()->log_message_ACK_arrival(
+        InputSchedulerOrchestrator::get_current_interval_index(), index_,
+        recv_heartbeat_message_.message_id);
+    InputSchedulerOrchestrator::log_heartbeat(index_);
+  }
   if (InputSchedulerOrchestrator::is_connection_timed_out(index_)) {
     return;
   }
@@ -641,6 +615,24 @@ void InputChannelConnection::on_complete_heartbeat_recv() {
   HeartbeatFailedNodeInfo* failed_conn = process_failed_connection_request();
   prepare_heartbeat_response(failed_conn);
   post_recv_heartbeat_message();
+}
+
+void InputChannelConnection::on_complete_dfs_recv() {
+  if (true) {
+    L_(info) << "[c" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "COMPLETE RECEIVE dfs message"
+             << " (id=" << dfs_DDS_message_.message_id << " interval: "
+             << dfs_DDS_message_.proposed_interval_metadata.interval_index
+             << " for "
+             << dfs_DDS_message_.proposed_interval_metadata.interval_duration
+             << ")";
+  }
+
+  if (done_)
+    return;
+  InputSchedulerOrchestrator::add_dfs_proposal(dfs_DDS_message_, index());
+  post_recv_dfs_message();
 }
 
 HeartbeatFailedNodeInfo*
@@ -690,6 +682,19 @@ void InputChannelConnection::prepare_heartbeat_response(
   } else
     SchedulerOrchestrator::acknowledge_heartbeat_message(
         recv_heartbeat_message_.message_id);
+}
+
+/// Prepare heartbeat message
+void InputChannelConnection::prepare_heartbeat(
+    HeartbeatFailedNodeInfo* failure_info, uint64_t message_id, bool ack) {
+  if (message_id == ConstVariables::MINUS_ONE) {
+    message_id = SchedulerOrchestrator::get_next_heartbeat_message_id();
+  }
+  Connection::prepare_heartbeat(failure_info, message_id, ack);
+  if (!ack) {
+    InputLoggerProxy::get_instance()->log_message_transmission(index_,
+                                                               message_id);
+  }
 }
 
 void InputChannelConnection::update_cn_wp_after_failure_action(
@@ -742,6 +747,54 @@ void InputChannelConnection::update_cn_wp_after_failure_action(
   sync_after_scheduling_decision_ = true;
   sync_failed_conn_ = failed_connection_id;
   try_sync_buffer_positions();
+}
+
+void InputChannelConnection::prepare_DFS_LB_message() {
+  const InputIntervalMetaData* meta_data =
+      InputSchedulerOrchestrator::get_actual_meta_data(
+          dfs_IE_message_.actual_interval_metadata.interval_index !=
+                  ConstVariables::MINUS_ONE
+              ? dfs_IE_message_.actual_interval_metadata.interval_index + 1
+              : 0);
+  if (meta_data != nullptr) {
+    dfs_IE_message_.actual_interval_metadata = *meta_data;
+    if (meta_data->interval_index == 0)
+      dfs_IE_message_.actual_interval_metadata.interval_duration /= 10;
+    if (meta_data->interval_index != 0) {
+      InputSchedulerOrchestrator::retrieve_collected_interval_statistics(
+          meta_data->interval_index - 1,
+          dfs_IE_message_.previous_interval_statistics);
+      // TODO remove
+      if (false)
+        for (int i = 0; i < meta_data->compute_node_count; i++) {
+          L_(info) << "[" << index_
+                   << "[prepare_DFS_LB_message] compute stats of interval "
+                   << meta_data->interval_index - 1 << " compute " << i
+                   << " buffer level {"
+                   << ConstVariables::array_to_string(
+                          dfs_IE_message_.previous_interval_statistics[i]
+                              .median_buffer_level,
+                          meta_data->compute_node_count)
+                   << "} median completion dur: "
+                   << dfs_IE_message_.previous_interval_statistics[i]
+                          .median_timeslice_completion_duration
+                   << " median completion dur: "
+                   << dfs_IE_message_.previous_interval_statistics[i]
+                          .median_timeslice_processing_duration;
+        }
+      ///
+    }
+    dfs_IE_message_.required_interval_index = meta_data->interval_index + 2;
+    if (true)
+      L_(info) << "[" << index_ << "[prepare_DFS_LB_message] interval "
+               << dfs_IE_message_.actual_interval_metadata.interval_index
+               << " median latency "
+               << dfs_IE_message_.actual_interval_metadata.statistics
+                      .median_message_latency[index_];
+
+    dfs_IE_message_.local_time = std::chrono::high_resolution_clock::now();
+    post_send_dfs_message();
+  }
 }
 
 } // namespace tl_libfabric
