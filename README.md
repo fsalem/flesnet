@@ -1,7 +1,8 @@
 CBM FLES Timeslice Building
 ===========================
-[![Build Status](https://travis-ci.org/fsalem/flesnet.svg?branch=master)](https://travis-ci.org/github/fsalem/flesnet)
-[![Coverage Status](https://coveralls.io/repos/github/fsalem/flesnet/badge.svg?branch=master)](https://coveralls.io/github/fsalem/flesnet?branch=master)
+[![Build Status](https://travis-ci.org/cbm-fles/flesnet.svg?branch=master)](https://travis-ci.org/cbm-fles/flesnet)
+![CMake Status](https://github.com/cbm-fles/flesnet/workflows/CMake/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/cbm-fles/flesnet/badge.svg?branch=master)](https://coveralls.io/github/cbm-fles/flesnet?branch=master)
 
 The First-Level Event Selector (FLES) system of the CBM experiment employs a
 scheme of timeslices (consisting of microslices) instead of events in data
