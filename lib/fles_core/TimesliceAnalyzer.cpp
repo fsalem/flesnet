@@ -131,6 +131,7 @@ bool TimesliceAnalyzer::check_timeslice(const fles::Timeslice& ts) {
                                    component_start_time)
            << std::endl;
       ++timeslice_error_count_;
+      assert(false);
       return false;
     }
     // checke all microslices of component

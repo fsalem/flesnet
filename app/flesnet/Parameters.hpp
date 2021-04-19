@@ -109,6 +109,17 @@ public:
     return scheduler_speedup_interval_count_;
   }
 
+  /// Retrieve the maximum difference percentage before start the load balancing
+  /// phase
+  uint32_t scheduler_balancer_difference_percentage() const {
+    return scheduler_balancer_difference_percentage_;
+  }
+
+  /// Retrieve the stabalizing/load balancing interval count of the scheduler
+  uint32_t scheduler_balancer_interval_count() const {
+    return scheduler_balancer_interval_count_;
+  }
+
   /// Retrieve the directory to store DFS log files
   std::string scheduler_log_directory() const {
     return scheduler_log_directory_;
@@ -171,6 +182,13 @@ private:
 
   /// The speeding up interval count of the scheduler
   uint32_t scheduler_speedup_interval_count_;
+
+  /// The maximum allowed difference percentage between the median and the
+  /// slowest value before applying a load balancing mechanism
+  uint32_t scheduler_balancer_difference_percentage_;
+
+  /// The stabalizing/load balancing interval count of the scheduler
+  uint32_t scheduler_balancer_interval_count_;
 
   /// The directory to store the log files
   std::string scheduler_log_directory_;

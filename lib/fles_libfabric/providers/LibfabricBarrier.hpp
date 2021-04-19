@@ -18,6 +18,7 @@ public:
   size_t call_barrier();
 
   static void create_barrier_instance(uint32_t remote_index,
+                                      uint32_t conn_count,
                                       struct fid_domain* pd,
                                       bool is_root);
 
@@ -25,7 +26,10 @@ public:
 
 private:
   ~LibfabricBarrier();
-  LibfabricBarrier(uint32_t remote_index, struct fid_domain* pd, bool is_root);
+  LibfabricBarrier(uint32_t remote_index,
+                   uint32_t conn_count,
+                   struct fid_domain* pd,
+                   bool is_root);
   void receive_all(bool only_root_eps = false);
   void broadcast(bool only_root_eps = false);
   void recv(const struct LibfabricCollectiveEPInfo* ep_info);

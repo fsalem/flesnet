@@ -5,8 +5,9 @@
 namespace tl_libfabric {
 
 LibfabricCollective::LibfabricCollective(uint32_t remote_index,
+                                         uint32_t conn_count,
                                          struct fid_domain* pd)
-    : remote_index_(remote_index), pd_(pd) {
+    : remote_index_(remote_index), conn_count_(conn_count), pd_(pd) {
 
   initialize_cq(&recv_cq_);
   assert(recv_cq_ != nullptr);
@@ -134,9 +135,13 @@ struct fi_info* LibfabricCollective::get_info(uint32_t index,
                                               const std::string prov_name,
                                               const std::string hostname) {
   // TODO update port
+  // TODO to be used only locally...
+  // uint32_t port = 14195 + remote_index_ * conn_count_ + index;
   uint32_t port = (hostname == "" ? 14195 + remote_index_ * 2 + index
                                   : 14195 + remote_index_ + index * 2);
-
+  L_(info) << "get_info --> index: " << index
+           << " remote_index_: " << remote_index_ << " hostname: " << hostname
+           << " port: " << port;
   struct fi_info* info = nullptr;
   // TODO hard-coded ep_type
   assert(ep_type == FI_EP_RDM);

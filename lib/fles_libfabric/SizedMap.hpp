@@ -41,7 +41,7 @@ public:
 
 private:
   typename std::map<KEY, VALUE> map_;
-  const uint32_t MAX_MAP_SIZE_;
+  uint32_t MAX_MAP_SIZE_;
 };
 
 template <typename KEY, typename VALUE>

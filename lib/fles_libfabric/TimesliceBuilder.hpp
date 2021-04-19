@@ -11,7 +11,7 @@
 #include "TimesliceCompletion.hpp"
 #include "TimesliceComponentDescriptor.hpp"
 #include "TimesliceWorkItem.hpp"
-#include "dfs/DDSchedulerOrchestrator.hpp"
+#include "dfs/controller/DDSchedulerOrchestrator.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/interprocess/ipc/message_queue.hpp>
@@ -48,6 +48,8 @@ public:
                    uint32_t scheduler_speedup_difference_percentage,
                    uint32_t scheduler_speedup_percentage,
                    uint32_t scheduler_speedup_interval_count,
+                   uint32_t scheduler_balancer_difference_percentage,
+                   uint32_t scheduler_balancer_interval_count,
                    std::string log_directory,
                    bool enable_logging);
 
@@ -142,11 +144,6 @@ private:
   bool drop_;
 
   // LOGGING
-  std::map<uint64_t, double> first_last_arrival_diff_;
-  std::map<uint64_t, std::chrono::high_resolution_clock::time_point>
-      first_arrival_time_;
-  std::map<uint64_t, uint32_t> arrival_count_;
-  std::map<uint64_t, std::vector<double>> buffer_status_;
   std::string log_directory_;
   // END OF LOGGING
 };

@@ -9,12 +9,14 @@
 #include "MicrosliceDescriptor.hpp"
 #include "RingBuffer.hpp"
 #include "Utility.hpp"
-#include "dfs/InputIntervalInfo.hpp"
-#include "dfs/InputSchedulerOrchestrator.hpp"
+#include "dfs/controller/InputSchedulerOrchestrator.hpp"
+#include "dfs/model/interval_manager/InputIntervalInfo.hpp"
+#include "dfs/model/load_balancer/ComputeIntervalMetaDataStatistics.hpp"
 
 #include <boost/format.hpp>
 #include <rdma/fi_domain.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <iomanip>
@@ -22,6 +24,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <time.h>
 #include <vector>
 
 namespace tl_libfabric {

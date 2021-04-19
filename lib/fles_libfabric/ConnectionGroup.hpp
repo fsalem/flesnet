@@ -5,7 +5,7 @@
 
 #include "ConnectionGroupWorker.hpp"
 #include "RequestIdentifier.hpp"
-#include "dfs/SchedulerOrchestrator.hpp"
+#include "dfs/controller/SchedulerOrchestrator.hpp"
 #include "log.hpp"
 #include "providers/LibfabricBarrier.hpp"
 #include "providers/LibfabricContextPool.hpp"
@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <functional>
 
 #include <sys/uio.h>
 

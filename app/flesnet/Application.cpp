@@ -82,6 +82,8 @@ void Application::create_timeslice_buffers() {
               par_.scheduler_speedup_difference_percentage(),
               par_.scheduler_speedup_percentage(),
               par_.scheduler_speedup_interval_count(),
+              par_.scheduler_balancer_difference_percentage(),
+              par_.scheduler_balancer_interval_count(),
               par_.scheduler_log_directory(), par_.scheduler_enable_logging()));
       timeslice_builders_.push_back(std::move(builder));
 #else

@@ -33,7 +33,9 @@ public:
 
 protected:
   ~LibfabricCollective();
-  LibfabricCollective(uint32_t remote_index, struct fid_domain* pd);
+  LibfabricCollective(uint32_t remote_index,
+                      uint32_t conn_count,
+                      struct fid_domain* pd);
 
   LibfabricCollective& operator=(const LibfabricCollective&) = delete;
   LibfabricCollective(const LibfabricCollective&) = delete;
@@ -70,6 +72,7 @@ private:
   std::vector<LibfabricCollectiveEPInfo*> endpoint_list_;
 
   uint32_t remote_index_;
+  uint32_t conn_count_;
   // Libfabric
   struct fid_domain* pd_ = nullptr;
   struct fid_cq* recv_cq_ = nullptr;

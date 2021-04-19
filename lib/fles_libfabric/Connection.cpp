@@ -7,9 +7,10 @@ namespace tl_libfabric {
 
 Connection::Connection(struct fid_eq* eq,
                        uint_fast16_t connection_index,
-                       uint_fast16_t remote_connection_index)
+                       uint_fast16_t remote_connection_index,
+                       bool is_DFS_DDS)
     : index_(connection_index), remote_index_(remote_connection_index),
-      eq_(eq) {
+      is_DFS_DDS_(is_DFS_DDS), eq_(eq) {
 
   // dead code?
   max_send_wr_ = 16;
@@ -18,7 +19,8 @@ Connection::Connection(struct fid_eq* eq,
   max_recv_sge_ = 8;
   max_inline_data_ = 0;
 
-  send_heartbeat_message_.info.index = remote_index_;
+  send_heartbeat_message_.info.index = dfs_DDS_message_.info.index =
+      dfs_IE_message_.info.index = remote_index_;
 }
 
 Connection::~Connection() {
@@ -311,6 +313,105 @@ void Connection::setup_heartbeat_mr(struct fid_domain* pd) {
         "registration of memory region failed in Connection2");
 }
 
+void Connection::setup_dfs() {
+  dfs_recv_descs[0] = fi_mr_desc(mr_dfs_recv_);
+  dfs_send_descs[0] = fi_mr_desc(mr_dfs_send_);
+
+  void *send_iov_base, *recv_iov_base;
+  size_t send_iov_len, recv_iov_len;
+  if (is_DFS_DDS_) {
+    send_iov_base = &dfs_DDS_message_;
+    send_iov_len = sizeof(dfs_DDS_message_);
+
+    recv_iov_base = &dfs_IE_message_;
+    recv_iov_len = sizeof(dfs_IE_message_);
+  } else {
+    send_iov_base = &dfs_IE_message_;
+    send_iov_len = sizeof(dfs_IE_message_);
+
+    recv_iov_base = &dfs_DDS_message_;
+    recv_iov_len = sizeof(dfs_DDS_message_);
+  }
+
+  // setup send and receive buffers
+  memset(&dfs_recv_wr_iovec, 0, sizeof(struct iovec));
+  dfs_recv_wr_iovec.iov_base = recv_iov_base;
+  dfs_recv_wr_iovec.iov_len = recv_iov_len;
+
+  memset(&dfs_recv_wr, 0, sizeof(struct fi_msg));
+  dfs_recv_wr.msg_iov = &dfs_recv_wr_iovec;
+  dfs_recv_wr.desc = dfs_recv_descs;
+  dfs_recv_wr.iov_count = 1;
+  dfs_recv_wr.tag = ConstVariables::DFS_LB_MESSAGE_TAG;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+  struct fi_custom_context* context =
+      LibfabricContextPool::getInst()->getContext();
+  context->op_context = (ID_DFS_RECEIVE_STATUS | (index_ << 8));
+  dfs_recv_wr.context = context;
+#pragma GCC diagnostic pop
+
+  memset(&dfs_send_wr_iovec, 0, sizeof(struct iovec));
+  dfs_send_wr_iovec.iov_base = send_iov_base;
+  dfs_send_wr_iovec.iov_len = send_iov_len;
+
+  memset(&dfs_send_wr, 0, sizeof(struct fi_msg));
+  dfs_send_wr.msg_iov = &dfs_send_wr_iovec;
+  dfs_send_wr.desc = dfs_send_descs;
+  dfs_send_wr.iov_count = 1;
+  dfs_send_wr.tag = ConstVariables::DFS_LB_MESSAGE_TAG;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+  context = LibfabricContextPool::getInst()->getContext();
+  context->op_context = (ID_DFS_SEND_STATUS | (index_ << 8));
+  dfs_send_wr.context = context;
+#pragma GCC diagnostic pop
+
+  post_recv_dfs_message();
+}
+
+void Connection::setup_dfs_mr(struct fid_domain* pd) {
+  void *send_iov_base, *recv_iov_base;
+  size_t send_iov_len, recv_iov_len;
+  if (is_DFS_DDS_) {
+    send_iov_base = &dfs_DDS_message_;
+    send_iov_len = sizeof(dfs_DDS_message_);
+
+    recv_iov_base = &dfs_IE_message_;
+    recv_iov_len = sizeof(dfs_IE_message_);
+  } else {
+    send_iov_base = &dfs_IE_message_;
+    send_iov_len = sizeof(dfs_IE_message_);
+
+    recv_iov_base = &dfs_DDS_message_;
+    recv_iov_len = sizeof(dfs_DDS_message_);
+  }
+  // register memory regions
+  int res = fi_mr_reg(pd, recv_iov_base, recv_iov_len, FI_RECV | FI_TAGGED, 0,
+                      Provider::requested_key++, 0, &mr_dfs_recv_, nullptr);
+  if (res != 0) {
+    L_(fatal) << "fi_mr_reg failed for dfs recv msg: " << res << "="
+              << fi_strerror(-res);
+    throw LibfabricException("fi_mr_reg failed for dfs recv msg");
+  }
+
+  if (mr_dfs_recv_ == nullptr)
+    throw LibfabricException(
+        "registration of memory region failed in Connection");
+
+  res = fi_mr_reg(pd, send_iov_base, send_iov_len, FI_SEND | FI_TAGGED, 0,
+                  Provider::requested_key++, 0, &mr_dfs_send_, nullptr);
+  if (res != 0) {
+    L_(fatal) << "fi_mr_reg failed for dfs send msg: " << res << "="
+              << fi_strerror(-res);
+    throw LibfabricException("fi_mr_reg failed for dfs send msg");
+  }
+
+  if (mr_dfs_send_ == nullptr)
+    throw LibfabricException(
+        "registration of memory region failed in Connection2");
+}
+
 void Connection::post_recv_heartbeat_message() {
   if (false) {
     L_(info) << "[i" << remote_index_ << "] "
@@ -321,7 +422,7 @@ void Connection::post_recv_heartbeat_message() {
 }
 
 void Connection::post_send_heartbeat_message() {
-  if (true) {
+  if (false) {
     L_(info) << "[i" << remote_index_ << "] "
              << "[" << index_ << "] "
              << "POST SEND heartbeat message ("
@@ -449,5 +550,39 @@ void Connection::on_complete_heartbeat_send() {
       SchedulerOrchestrator::get_pending_heartbeat_message(index_);
   if (message != nullptr)
     send_heartbeat(message);
+}
+
+void Connection::on_complete_dfs_send() {
+  if (false) {
+    L_(info) << "[i" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "on_complete_dfs_send, send_dfs_message_.message_id="
+             << (is_DFS_DDS_ ? dfs_DDS_message_.message_id
+                             : dfs_IE_message_.message_id);
+  }
+  dfs_send_buffer_available_ = true;
+}
+
+void Connection::post_recv_dfs_message() {
+  if (false) {
+    L_(info) << "[i" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "POST RECEIVE DFS message";
+  }
+  post_recv_msg(&dfs_recv_wr);
+}
+
+void Connection::post_send_dfs_message() {
+  if (false) {
+    L_(info) << "[i" << remote_index_ << "] "
+             << "[" << index_ << "] "
+             << "POST SEND DFS message ("
+             << "id="
+             << (is_DFS_DDS_ ? dfs_DDS_message_.message_id
+                             : dfs_IE_message_.message_id)
+             << ")";
+  }
+  dfs_send_buffer_available_ = false;
+  post_send_msg(&dfs_send_wr);
 }
 } // namespace tl_libfabric

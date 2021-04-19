@@ -10,7 +10,7 @@
 #include "InputNodeInfo.hpp"
 #include "RequestIdentifier.hpp"
 #include "TimesliceComponentDescriptor.hpp"
-#include "dfs/DDSchedulerOrchestrator.hpp"
+#include "dfs/controller/DDSchedulerOrchestrator.hpp"
 
 #include <boost/format.hpp>
 #include <cmath>
@@ -70,6 +70,8 @@ public:
   bool try_sync_buffer_positions() override;
 
   void on_complete_heartbeat_recv() override;
+
+  void on_complete_dfs_recv() override;
 
   /// Connection handler function, called on successful connection.
   /**
@@ -170,6 +172,8 @@ private:
   void sync_after_scheduler_decision_received();
 
   void update_scheduler_interval_data();
+
+  void prepare_DFS_LB_message() override;
 
   ComputeNodeStatusMessage send_status_message_ = ComputeNodeStatusMessage();
   ComputeNodeBufferPosition cn_ack_ = ComputeNodeBufferPosition();
