@@ -5,6 +5,13 @@ file(GLOB LIB_HEADERS *.hpp providers/*.hpp dfs/*.hpp dfs/controller/*.hpp dfs/c
 
 add_library(fles_libfabric ${LIB_SOURCES} ${LIB_HEADERS})
 
+target_compile_options(fles_libfabric
+  PRIVATE -Wno-unknown-warning-option
+  PRIVATE -Wno-unused-but-set-variable
+  PRIVATE -Wno-unused-parameter
+  PRIVATE -Wno-unused-variable
+)
+
 target_include_directories(fles_libfabric PUBLIC . dfs/ dfs/controller/ dfs/controller/fault_tolerance/ dfs/controller/interval_manager/ dfs/controller/load_balancer/ dfs/model/ dfs/model/fault_tolerance/ dfs/model/interval_manager/ dfs/model/load_balancer/ dfs/logger/)
 
 target_include_directories(fles_libfabric SYSTEM
