@@ -24,7 +24,8 @@ void DDSchedulerOrchestrator::initialize(
     bool enable_logging) {
   compute_interval_data_manager_ = ComputeIntervalDataManager::get_instance(
       scheduler_index, history_size, log_directory, enable_logging);
-  ComputeLoggerProxy::init_instance(input_scheduler_count);
+  ComputeLoggerProxy::init_instance(scheduler_index, input_scheduler_count,
+                                    log_directory, enable_logging);
   interval_scheduler_ = DDScheduler::get_instance(
       scheduler_index, input_scheduler_count, history_size, interval_length,
       speedup_difference_percentage, speedup_percentage, speedup_interval_count,
@@ -63,6 +64,7 @@ void DDSchedulerOrchestrator::generate_log_files() {
   interval_scheduler_->generate_log_files();
   compute_interval_data_manager_->generate_log_files();
   load_balancer_manager_->generate_log_files();
+  ComputeLoggerProxy::get_instance()->generate_log_files();
   // heartbeat_manager_->generate_log_files();
 }
 

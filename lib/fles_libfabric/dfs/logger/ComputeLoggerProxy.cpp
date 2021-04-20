@@ -4,11 +4,19 @@
 
 namespace tl_libfabric {
 
-ComputeLoggerProxy::ComputeLoggerProxy(uint32_t destination_count) {
-  timeslice_completion_logger_ = new IntervalEventDurationMedianLogger(1);
-  timeslice_processing_logger_ = new IntervalEventDurationMedianLogger(1);
-  timeslice_filling_logger_ =
-      new IntervalEventDurationMedianLogger(destination_count);
+ComputeLoggerProxy::ComputeLoggerProxy(uint64_t scheduler_index,
+                                       uint32_t destination_count,
+                                       std::string log_directory,
+                                       bool enable_logging) {
+  timeslice_completion_logger_ = new IntervalEventDurationMedianLogger(
+      scheduler_index, 1, "compute.timeslice_completion", log_directory,
+      enable_logging);
+  timeslice_processing_logger_ = new IntervalEventDurationMedianLogger(
+      scheduler_index, 1, "compute.timeslice_processing", log_directory,
+      enable_logging);
+  timeslice_filling_logger_ = new IntervalEventDurationMedianLogger(
+      scheduler_index, destination_count, "compute.timeslice_filling",
+      log_directory, enable_logging);
 }
 
 ComputeLoggerProxy* ComputeLoggerProxy::get_instance() {
@@ -17,9 +25,13 @@ ComputeLoggerProxy* ComputeLoggerProxy::get_instance() {
 }
 
 ComputeLoggerProxy*
-ComputeLoggerProxy::init_instance(uint32_t destination_count) {
+ComputeLoggerProxy::init_instance(uint64_t scheduler_index,
+                                  uint32_t destination_count,
+                                  std::string log_directory,
+                                  bool enable_logging) {
   if (instance_ == nullptr) {
-    instance_ = new ComputeLoggerProxy(destination_count);
+    instance_ = new ComputeLoggerProxy(scheduler_index, destination_count,
+                                       log_directory, enable_logging);
   }
   return instance_;
 }
@@ -85,6 +97,12 @@ uint64_t ComputeLoggerProxy::get_timeslice_operation_median_duration(
     uint32_t destination_index) {
   return get_timeslice_operation_object(operation)
       ->get_calculated_events_duration(interval_index, destination_index);
+}
+
+void ComputeLoggerProxy::generate_log_files() {
+  timeslice_completion_logger_->generate_log_files();
+  timeslice_processing_logger_->generate_log_files();
+  timeslice_filling_logger_->generate_log_files();
 }
 
 //// Variables

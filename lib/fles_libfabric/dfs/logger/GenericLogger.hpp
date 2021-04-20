@@ -8,16 +8,17 @@ namespace tl_libfabric {
  *
  */
 class GenericLogger {
-public:
-  GenericLogger(bool enable_logging,
-                std::string logging_directory,
-                std::string logging_file_name);
-
-  ~GenericLogger();
-
 protected:
+  GenericLogger(uint64_t scheduler_index,
+                std::string log_key,
+                std::string log_directory,
+                bool enable_logging)
+      : scheduler_index_(scheduler_index), log_key_(log_key),
+        log_directory_(log_directory), enable_logging_(enable_logging) {}
+
+  uint64_t scheduler_index_;
+  std::string log_key_;
+  std::string log_directory_;
   bool enable_logging_;
-  std::string logging_directory_;
-  std::string logging_file_name_;
 };
 } // namespace tl_libfabric

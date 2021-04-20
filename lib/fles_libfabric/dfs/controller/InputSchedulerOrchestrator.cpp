@@ -19,7 +19,8 @@ void InputSchedulerOrchestrator::initialize(uint32_t scheduler_index,
                                             uint64_t timeslice_size,
                                             std::string log_directory,
                                             bool enable_logging) {
-  InputLoggerProxy::init_instance(compute_conn_count);
+  InputLoggerProxy::init_instance(scheduler_index, compute_conn_count,
+                                  log_directory, enable_logging);
   interval_scheduler_ = InputIntervalScheduler::get_instance(
       scheduler_index, compute_conn_count, interval_length, log_directory,
       enable_logging);
@@ -53,6 +54,7 @@ uint32_t InputSchedulerOrchestrator::get_compute_connection_count() {
 void InputSchedulerOrchestrator::generate_log_files() {
   interval_scheduler_->generate_log_files();
   timeslice_manager_->generate_log_files();
+  InputLoggerProxy::get_instance()->generate_log_files();
 }
 
 //// InputIntervalScheduler Methods

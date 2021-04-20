@@ -5,8 +5,16 @@
 namespace tl_libfabric {
 
 IntervalEventDurationMedianLogger::IntervalEventDurationMedianLogger(
-    uint32_t destination_count)
-    : IntervalEventDurationLogger(destination_count) {}
+    uint64_t scheduler_index,
+    uint32_t destination_count,
+    std::string log_key,
+    std::string log_directory,
+    bool enable_logging)
+    : IntervalEventDurationLogger(scheduler_index,
+                                  destination_count,
+                                  log_key,
+                                  log_directory,
+                                  enable_logging) {}
 
 void IntervalEventDurationMedianLogger::process_calculated_duration(
     uint64_t interval_index, uint32_t destination_index, uint64_t duration) {

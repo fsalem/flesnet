@@ -37,26 +37,27 @@ uint64_t DDSchedulerSSUManager::get_enhanced_duration(
   if (within_speedup_phase(interval_index)) { // in speeding up phase
     enhanced_duration = enhanced_interval_duration_;
     interval_ssu_log->phase = IntervalSchedulerLog::Phase::SPEEDUP;
-  } else if (within_stabalizing_phase(interval_index)) {
-    enhanced_duration = stabalizing_enhanced_interval_duration_;
-    interval_ssu_log->phase = IntervalSchedulerLog::Phase::STABALIZING;
-  } else if (calculate_stabalizing_decision(
-                 interval_index, last_completed_interval_index, init_duration,
-                 duration_variance, interval_ssu_log->variance_percentage)) {
-    enhanced_duration = stabalizing_enhanced_interval_duration_;
-    interval_ssu_log->phase = IntervalSchedulerLog::Phase::STABALIZING;
+    /*} else if (within_stabalizing_phase(interval_index)) {
+      enhanced_duration = stabalizing_enhanced_interval_duration_;
+      interval_ssu_log->phase = IntervalSchedulerLog::Phase::STABALIZING;
+    } else if (calculate_stabalizing_decision(
+                   interval_index, last_completed_interval_index, init_duration,
+                   duration_variance, interval_ssu_log->variance_percentage)) {
+      enhanced_duration = stabalizing_enhanced_interval_duration_;
+      interval_ssu_log->phase = IntervalSchedulerLog::Phase::STABALIZING;*/
   } else if (calculate_speedup_decision(
                  interval_index, last_completed_interval_index, init_duration,
                  duration_variance, interval_ssu_log->variance_percentage)) {
     enhanced_duration = enhanced_interval_duration_;
     interval_ssu_log->phase = IntervalSchedulerLog::Phase::SPEEDUP;
   } else {
+    interval_ssu_log->phase = IntervalSchedulerLog::Phase::NONE;
     L_(info) << "[get_enhanced_duration] return the  init_duration: ...";
   }
-  if (last_completed_interval_index > 7)
+  /*if (last_completed_interval_index > 7)
     DDLoadBalancerManager::get_instance()->calculate_new_distribtion_load(
         interval_index, last_completed_interval_index - 5,
-        last_completed_interval_index - 1);
+        last_completed_interval_index - 1);*/
   if (true)
     L_(info) << "[" << scheduler_index_ << "][DDS_SSU] interval "
              << interval_index << " last_completed_interval_index "
@@ -90,14 +91,14 @@ bool DDSchedulerSSUManager::is_speedup_possible(
     /*L_(info) << "[is_speedup_possible] last_completed_interval_index: "
              << last_completed_interval_index
              << " stabalizing+10: " << (stabalizing_interval_count_ + 10);*/
-    if (last_completed_interval_index > (stabalizing_interval_count_ + 10)) {
+    /*if (last_completed_interval_index > (stabalizing_interval_count_ + 10)) {
       if (!DDLoadBalancerManager::get_instance()->needs_redistribute_load(
               interval_index,
               last_completed_interval_index - stabalizing_interval_count_ - 1,
               last_completed_interval_index - 1))
         return true;
       return false;
-    }
+    }*/
     return true;
   }
 
@@ -176,8 +177,8 @@ bool DDSchedulerSSUManager::calculate_stabalizing_decision(
     double duration_variance,
     double variance_percentage) {
 
-  if (within_speedup_phase(interval_index) ||
-      !within_speedup_phase(interval_index - 1))
+  if (within_speedup_phase(interval_index)/* ||
+      !within_speedup_phase(interval_index - 1)*/)
     return false;
 
   if (is_speedup_possible(interval_index, last_completed_interval_index,
@@ -198,7 +199,8 @@ bool DDSchedulerSSUManager::calculate_stabalizing_decision(
             last_completed_interval_index - stabalizing_interval_count_ - 1,
             last_completed_interval_index - 1);
   if (enhanced_stable_interval_durations_.empty() ||
-      !within_speedup_phase(interval_index - 1))
+      !within_speedup_phase(interval_index - 1) ||
+      within_stabalizing_phase(interval_index - 1))
     stabalizing_enhanced_interval_duration_ = init_duration;
   else {
     stabalizing_enhanced_interval_duration_ =

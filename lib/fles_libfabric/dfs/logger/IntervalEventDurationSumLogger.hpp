@@ -18,7 +18,11 @@ namespace tl_libfabric {
  */
 class IntervalEventDurationSumLogger : public IntervalEventDurationLogger {
 public:
-  IntervalEventDurationSumLogger(uint32_t destination_count);
+  IntervalEventDurationSumLogger(uint64_t scheduler_index,
+                                 uint32_t destination_count,
+                                 std::string log_key,
+                                 std::string log_directory,
+                                 bool enable_logging);
 
 private:
   /**

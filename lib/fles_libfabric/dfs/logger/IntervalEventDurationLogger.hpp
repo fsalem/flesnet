@@ -3,10 +3,13 @@
 #pragma once
 
 #include "ConstVariables.hpp"
+#include "GenericLogger.hpp"
 #include "SizedMap.hpp"
 #include "log.hpp"
 
 #include <chrono>
+#include <fstream>
+#include <iomanip>
 #include <list>
 #include <set>
 #include <vector>
@@ -15,9 +18,13 @@ namespace tl_libfabric {
 /**
  *
  */
-class IntervalEventDurationLogger {
+class IntervalEventDurationLogger : public GenericLogger {
 public:
-  IntervalEventDurationLogger(uint32_t destination_count);
+  IntervalEventDurationLogger(uint64_t scheduler_index,
+                              uint32_t destination_count,
+                              std::string log_key,
+                              std::string log_directory,
+                              bool enable_logging);
 
   virtual ~IntervalEventDurationLogger();
   /**
@@ -54,6 +61,9 @@ public:
    *
    */
   uint64_t get_next_event_id();
+
+  // Generate log files of the stored data
+  void generate_log_files();
 
 protected:
   /**

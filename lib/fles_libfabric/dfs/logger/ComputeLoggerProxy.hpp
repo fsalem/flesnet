@@ -16,7 +16,10 @@ public:
 
   static ComputeLoggerProxy* get_instance();
 
-  static ComputeLoggerProxy* init_instance(uint32_t destination_count);
+  static ComputeLoggerProxy* init_instance(uint64_t scheduler_index,
+                                           uint32_t destination_count,
+                                           std::string log_directory,
+                                           bool enable_logging);
 
   ///////////////// BUFFER LEVEL METHODS/////////////////
   /**
@@ -69,8 +72,16 @@ public:
                                                    uint64_t interval_index,
                                                    uint32_t destination_index);
 
+  /**
+   *
+   */
+  void generate_log_files();
+
 private:
-  ComputeLoggerProxy(uint32_t destination_count);
+  ComputeLoggerProxy(uint64_t scheduler_index,
+                     uint32_t destination_count,
+                     std::string log_directory,
+                     bool enable_logging);
 
   /**
    *

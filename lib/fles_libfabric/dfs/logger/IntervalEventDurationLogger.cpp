@@ -7,8 +7,13 @@
 namespace tl_libfabric {
 
 IntervalEventDurationLogger::IntervalEventDurationLogger(
-    uint32_t destination_count)
-    : destination_count_(destination_count) {}
+    uint64_t scheduler_index,
+    uint32_t destination_count,
+    std::string log_key,
+    std::string log_directory,
+    bool enable_logging)
+    : destination_count_(destination_count),
+      GenericLogger(scheduler_index, log_key, log_directory, enable_logging) {}
 
 IntervalEventDurationLogger::~IntervalEventDurationLogger() {
 
@@ -95,6 +100,34 @@ uint64_t IntervalEventDurationLogger::get_next_event_id() {
     last_recieved_event_id_ = 0;
   }
   return last_recieved_event_id_ + 1;
+}
+
+void IntervalEventDurationLogger::generate_log_files() {
+  if (!enable_logging_)
+    return;
+
+  std::ofstream log_file;
+  log_file.open(log_directory_ + "/" + std::to_string(scheduler_index_) + "." +
+                log_key_ + ".out");
+
+  log_file << std::setw(25) << "Interval";
+
+  for (uint32_t i = 0; i < destination_count_; i++)
+    log_file << std::setw(25) << "dest[" << i << "]";
+  log_file << "\n";
+
+  for (SizedMap<uint64_t, std::vector<uint64_t>*>::iterator it =
+           calculated_interval_duration_.get_begin_iterator();
+       it != calculated_interval_duration_.get_end_iterator(); ++it) {
+    log_file << std::setw(25) << it->first;
+    std::vector<uint64_t> values = *(it->second);
+    for (uint32_t i = 0; i < values.size(); i++)
+      log_file << std::setw(25) << values[i];
+    log_file << "\n";
+  }
+
+  log_file.flush();
+  log_file.close();
 }
 
 } // namespace tl_libfabric

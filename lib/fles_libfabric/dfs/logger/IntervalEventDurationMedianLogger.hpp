@@ -18,7 +18,11 @@ namespace tl_libfabric {
  */
 class IntervalEventDurationMedianLogger : public IntervalEventDurationLogger {
 public:
-  IntervalEventDurationMedianLogger(uint32_t destination_count);
+  IntervalEventDurationMedianLogger(uint64_t scheduler_index,
+                                    uint32_t destination_count,
+                                    std::string log_key,
+                                    std::string log_directory,
+                                    bool enable_logging);
   /**
    * This method adds the calculated duration to the corresponding value of the
    * destination_index as pending to calculate the median at the end

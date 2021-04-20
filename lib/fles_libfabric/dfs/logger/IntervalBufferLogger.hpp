@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ConstVariables.hpp"
+#include "GenericLogger.hpp"
 #include "SizedMap.hpp"
 #include "log.hpp"
 
@@ -13,7 +14,7 @@ namespace tl_libfabric {
 /**
  *
  */
-class IntervalBufferLogger {
+class IntervalBufferLogger : public GenericLogger {
 public:
   /**
    * Log the buffer fill level of all nodes at a given time. returns false if

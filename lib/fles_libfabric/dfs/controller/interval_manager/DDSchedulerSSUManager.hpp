@@ -69,7 +69,7 @@ private:
                                       double variance_percentage);
 
   struct IntervalSchedulerLog {
-    enum Phase { SPEEDUP, STABALIZING };
+    enum Phase { SPEEDUP, STABALIZING, NONE };
     uint64_t duration;
     double variance;
     double variance_percentage;
@@ -80,6 +80,8 @@ private:
         return "SPEEDUP";
       case STABALIZING:
         return "STABALIZING";
+      case NONE:
+    	  return "NONE";
       }
       return "";
     }

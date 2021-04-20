@@ -473,6 +473,8 @@ void DDLoadBalancerManager::generate_log_files() {
 
 void DDLoadBalancerManager::generate_matrix_stats_logs(MatrixType type) {
 
+  if (load_balancing_logs_.empty())
+    return;
   std::string type_str = "";
   switch (type) {
   case RDMA_LATENCY:

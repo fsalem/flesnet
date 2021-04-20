@@ -4,15 +4,22 @@
 
 namespace tl_libfabric {
 
-InputLoggerProxy::InputLoggerProxy(uint32_t destination_count) {
-  local_blockage_logger_ =
-      new IntervalEventDurationSumLogger(destination_count);
-  remote_blockage_logger_ =
-      new IntervalEventDurationSumLogger(destination_count);
-  timeslice_message_latency_ =
-      new IntervalEventDurationMedianLogger(destination_count);
-  timeslice_write_latency_ =
-      new IntervalEventDurationMedianLogger(destination_count);
+InputLoggerProxy::InputLoggerProxy(uint64_t scheduler_index,
+                                   uint32_t destination_count,
+                                   std::string log_directory,
+                                   bool enable_logging) {
+  local_blockage_logger_ = new IntervalEventDurationSumLogger(
+      scheduler_index, destination_count, "input.local_blockage", log_directory,
+      enable_logging);
+  remote_blockage_logger_ = new IntervalEventDurationSumLogger(
+      scheduler_index, destination_count, "input.remote_blockage",
+      log_directory, enable_logging);
+  timeslice_message_latency_ = new IntervalEventDurationMedianLogger(
+      scheduler_index, destination_count, "input.msg_latency", log_directory,
+      enable_logging);
+  timeslice_write_latency_ = new IntervalEventDurationMedianLogger(
+      scheduler_index, destination_count, "input.rdma_latency", log_directory,
+      enable_logging);
 }
 
 InputLoggerProxy* InputLoggerProxy::get_instance() {
@@ -20,9 +27,13 @@ InputLoggerProxy* InputLoggerProxy::get_instance() {
   return instance_;
 }
 
-InputLoggerProxy* InputLoggerProxy::init_instance(uint32_t destination_count) {
+InputLoggerProxy* InputLoggerProxy::init_instance(uint64_t scheduler_index,
+                                                  uint32_t destination_count,
+                                                  std::string log_directory,
+                                                  bool enable_logging) {
   if (instance_ == nullptr) {
-    instance_ = new InputLoggerProxy(destination_count);
+    instance_ = new InputLoggerProxy(scheduler_index, destination_count,
+                                     log_directory, enable_logging);
   }
   return instance_;
 }
@@ -128,6 +139,13 @@ uint64_t InputLoggerProxy::get_rdma_median_latency(uint64_t interval_index,
                                                    uint32_t destination_index) {
   return timeslice_write_latency_->get_calculated_events_duration(
       interval_index, destination_index);
+}
+
+void InputLoggerProxy::generate_log_files() {
+  timeslice_message_latency_->generate_log_files();
+  timeslice_write_latency_->generate_log_files();
+  local_blockage_logger_->generate_log_files();
+  remote_blockage_logger_->generate_log_files();
 }
 
 //// Variables

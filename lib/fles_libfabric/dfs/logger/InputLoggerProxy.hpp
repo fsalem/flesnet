@@ -17,7 +17,10 @@ public:
 
   static InputLoggerProxy* get_instance();
 
-  static InputLoggerProxy* init_instance(uint32_t destination_count);
+  static InputLoggerProxy* init_instance(uint64_t scheduler_index,
+                                         uint32_t destination_count,
+                                         std::string log_directory,
+                                         bool enable_logging);
   ///////////////// BLOCKAGE  METHODS/////////////////
   /**
    * Log the time when a timeslice is blocked to be transmitted
@@ -117,8 +120,16 @@ public:
   uint64_t get_rdma_median_latency(uint64_t interval_index,
                                    uint32_t destination_index);
 
+  /**
+   *
+   */
+  void generate_log_files();
+
 private:
-  InputLoggerProxy(uint32_t destination_count);
+  InputLoggerProxy(uint64_t scheduler_index,
+                   uint32_t destination_count,
+                   std::string log_directory,
+                   bool enable_logging);
   IntervalEventDurationSumLogger*
   get_blockage_object(enum LOG_TYPE blockage_type);
   //// Variables
