@@ -178,6 +178,27 @@ void Parameters::parse_options(int argc, char* argv[]) {
              po::value<bool>(&scheduler_enable_logging_)->default_value(false),
              "Enable generating logging files (LibFabric only)");
 
+  config_add(
+      "enable-time-pattern-generator",
+      po::value<bool>(&enable_time_pattern_generator_)->default_value(false),
+      "Enable FLESnet Time-based pattern-generator");
+  config_add("time_pattern-generator-fill-frequency",
+             po::value<uint32_t>(&time_pattern_generator_fill_frequency_)
+                 ->default_value(0),
+             "The Time-based pattern generator fill frequency in ms (only if "
+             "enable-time-pattern-generator = 1)");
+  config_add("time-pattern-generator-fixed-level-increase",
+             po::value<bool>(&time_pattern_generator_fixed_level_increase_)
+                 ->default_value(true),
+             "The Time-based pattern generator filling pattern. 1: same "
+             "fill-level percentage each recall, 0: variable amount(only if "
+             "enable-time-pattern-generator = 1)");
+  config_add("time-pattern-generator-fill-percentages",
+             po::value<std::string>(&time_pattern_generator_fill_percentages_)
+                 ->default_value("100"),
+             "The Time-based pattern generator filling levels (only if "
+             "enable-time-pattern-generator = 1)");
+
   po::options_description cmdline_options("Allowed options");
   cmdline_options.add(generic).add(config);
 

@@ -128,6 +128,26 @@ public:
   /// Check whether to generate  DFS log files
   bool scheduler_enable_logging() const { return scheduler_enable_logging_; }
 
+  /// Is time-based pattern-generator enabled
+  bool enable_time_pattern_generator() const {
+    return enable_time_pattern_generator_;
+  }
+
+  ///
+  uint32_t time_pattern_generator_fill_frequency() const {
+    return time_pattern_generator_fill_frequency_;
+  }
+
+  ///
+  bool time_pattern_generator_fixed_level_increase() const {
+    return time_pattern_generator_fixed_level_increase_;
+  }
+
+  ///
+  std::string time_pattern_generator_fill_percentages() const {
+    return time_pattern_generator_fill_percentages_;
+  }
+
 private:
   /// Parse command line options.
   void parse_options(int argc, char* argv[]);
@@ -194,4 +214,10 @@ private:
   std::string scheduler_log_directory_;
 
   bool scheduler_enable_logging_ = false;
+
+  // FLESnet Time-based data-generator
+  bool enable_time_pattern_generator_ = false;
+  uint32_t time_pattern_generator_fill_frequency_;
+  bool time_pattern_generator_fixed_level_increase_ = true;
+  std::string time_pattern_generator_fill_percentages_;
 };

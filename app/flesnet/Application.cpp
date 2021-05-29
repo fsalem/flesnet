@@ -2,6 +2,7 @@
 
 #include "Application.hpp"
 #include "ChildProcessManager.hpp"
+#include "FlesnetPatternGenerator.hpp"
 #include "FlesnetTimePatternGenerator.hpp"
 #include "Utility.hpp"
 #include "log.hpp"
@@ -174,19 +175,29 @@ void Application::create_input_channel_senders() {
       L_(info) << "microslice size: " << human_readable_count(size_mean)
                << " +/- " << human_readable_count(size_var);
 
-      //      data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
-      //          new FlesnetPatternGenerator(datasize, descsize, index,
-      //          size_mean,
-      //                                      (pattern != 0), (size_var != 0),
-      //                                      delay_ns)));
-      uint32_t fill_level[1] = {10};
-      data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
-          new FlesnetTimePatternGenerator(datasize, descsize, index, size_mean,
-                                          (pattern != 0), (size_var != 0),
-                                          delay_ns, 1, true, fill_level, 1,
-                                          par_.scheduler_log_directory(),
-                                          par_.scheduler_enable_logging())));
-
+      std::unique_ptr<InputBufferReadInterface> generator;
+      if (par_.enable_time_pattern_generator()) {
+        // TODO rewrite
+        std::vector<uint32_t> fill_levels;
+        std::stringstream ss(par_.time_pattern_generator_fill_percentages());
+        for (int i; ss >> i;) {
+          fill_levels.push_back(i);
+          if (ss.peek() == ',')
+            ss.ignore();
+        }
+        generator = new FlesnetTimePatternGenerator(
+            datasize, descsize, index, size_mean, (pattern != 0),
+            (size_var != 0), delay_ns,
+            par_.time_pattern_generator_fill_frequency(),
+            par_.time_pattern_generator_fixed_level_increase(), &fill_levels[0],
+            fill_levels.size(), par_.scheduler_log_directory(),
+            par_.scheduler_enable_logging());
+      } else {
+        generator = new FlesnetPatternGenerator(datasize, descsize, index,
+                                                size_mean, (pattern != 0),
+                                                (size_var != 0), delay_ns);
+      }
+      data_sources_.push_back(generator);
     } else {
       L_(fatal) << "unknown input scheme: " << scheme;
     }
