@@ -2,7 +2,7 @@
 
 #include "Application.hpp"
 #include "ChildProcessManager.hpp"
-#include "FlesnetPatternGenerator.hpp"
+#include "FlesnetTimePatternGenerator.hpp"
 #include "Utility.hpp"
 #include "log.hpp"
 #include "shm_channel_client.hpp"
@@ -174,10 +174,19 @@ void Application::create_input_channel_senders() {
       L_(info) << "microslice size: " << human_readable_count(size_mean)
                << " +/- " << human_readable_count(size_var);
 
+      //      data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
+      //          new FlesnetPatternGenerator(datasize, descsize, index,
+      //          size_mean,
+      //                                      (pattern != 0), (size_var != 0),
+      //                                      delay_ns)));
+      uint32_t fill_level[1] = {10};
       data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
-          new FlesnetPatternGenerator(datasize, descsize, index, size_mean,
-                                      (pattern != 0), (size_var != 0),
-                                      delay_ns)));
+          new FlesnetTimePatternGenerator(datasize, descsize, index, size_mean,
+                                          (pattern != 0), (size_var != 0),
+                                          delay_ns, 1, true, fill_level, 1,
+                                          par_.scheduler_log_directory(),
+                                          par_.scheduler_enable_logging())));
+
     } else {
       L_(fatal) << "unknown input scheme: " << scheme;
     }
