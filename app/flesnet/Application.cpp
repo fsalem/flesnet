@@ -175,7 +175,6 @@ void Application::create_input_channel_senders() {
       L_(info) << "microslice size: " << human_readable_count(size_mean)
                << " +/- " << human_readable_count(size_var);
 
-      std::unique_ptr<InputBufferReadInterface> generator;
       if (par_.enable_time_pattern_generator()) {
         // TODO rewrite
         std::vector<uint32_t> fill_levels;
@@ -185,7 +184,7 @@ void Application::create_input_channel_senders() {
           if (ss.peek() == ',')
             ss.ignore();
         }
-        generator = std::unique_ptr<InputBufferReadInterface>(
+        data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
             new FlesnetTimePatternGenerator(
                 datasize, descsize, index, size_mean, (pattern != 0),
                 (size_var != 0), delay_ns,
@@ -193,14 +192,13 @@ void Application::create_input_channel_senders() {
                 par_.time_pattern_generator_fixed_level_increase(),
                 &fill_levels[0], fill_levels.size(),
                 par_.scheduler_log_directory(),
-                par_.scheduler_enable_logging()));
+                par_.scheduler_enable_logging())));
       } else {
-        generator = std::unique_ptr<InputBufferReadInterface>(
+        data_sources_.push_back(std::unique_ptr<InputBufferReadInterface>(
             new FlesnetPatternGenerator(datasize, descsize, index, size_mean,
                                         (pattern != 0), (size_var != 0),
-                                        delay_ns));
+                                        delay_ns)));
       }
-      data_sources_.push_back(generator);
     } else {
       L_(fatal) << "unknown input scheme: " << scheme;
     }
