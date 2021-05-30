@@ -1,6 +1,7 @@
 // Copyright 2012-2015 Jan de Cuveland <cmail@cuveland.de>
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -8,7 +9,6 @@
 #include <limits>
 #include <sstream>
 #include <vector>
-#include <array>
 
 /// Overloaded output operator for STL vectors.
 template <class T>
@@ -26,7 +26,8 @@ inline std::string human_readable_count(uint64_t bytes,
     return std::to_string(bytes) + " " + unit_string;
   }
 
-  uint32_t exponent = static_cast<uint32_t>(std::log(bytes) / std::log(unit));
+  uint32_t exponent =
+      2; // TODO static_cast<uint32_t>(std::log(bytes) / std::log(unit));
 
   std::string prefix =
       std::string(use_si ? "kMGTPE" : "KMGTPE").substr(exponent - 1, 1);
