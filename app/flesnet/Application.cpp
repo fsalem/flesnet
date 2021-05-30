@@ -185,17 +185,20 @@ void Application::create_input_channel_senders() {
           if (ss.peek() == ',')
             ss.ignore();
         }
-        generator = new FlesnetTimePatternGenerator(
-            datasize, descsize, index, size_mean, (pattern != 0),
-            (size_var != 0), delay_ns,
-            par_.time_pattern_generator_fill_frequency(),
-            par_.time_pattern_generator_fixed_level_increase(), &fill_levels[0],
-            fill_levels.size(), par_.scheduler_log_directory(),
-            par_.scheduler_enable_logging());
+        generator = std::unique_ptr<InputBufferReadInterface>(
+            new FlesnetTimePatternGenerator(
+                datasize, descsize, index, size_mean, (pattern != 0),
+                (size_var != 0), delay_ns,
+                par_.time_pattern_generator_fill_frequency(),
+                par_.time_pattern_generator_fixed_level_increase(),
+                &fill_levels[0], fill_levels.size(),
+                par_.scheduler_log_directory(),
+                par_.scheduler_enable_logging()));
       } else {
-        generator = new FlesnetPatternGenerator(datasize, descsize, index,
-                                                size_mean, (pattern != 0),
-                                                (size_var != 0), delay_ns);
+        generator = std::unique_ptr<InputBufferReadInterface>(
+            new FlesnetPatternGenerator(datasize, descsize, index, size_mean,
+                                        (pattern != 0), (size_var != 0),
+                                        delay_ns));
       }
       data_sources_.push_back(generator);
     } else {
