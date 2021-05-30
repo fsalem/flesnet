@@ -367,7 +367,7 @@ protected:
   /// Max number of completion queues (distributing diff. connections on
   /// multiple completion queues minimize the time to retrieve events)
   // TODO make it configurable
-  uint16_t MAX_CQ_INSTANCE = 10;
+  uint16_t MAX_CQ_INSTANCE = 1;
 
   /// Libfabric completion queues
   std::vector<struct fid_cq*> cqs_;
